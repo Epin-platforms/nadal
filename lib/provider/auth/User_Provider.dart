@@ -28,11 +28,13 @@ class UserProvider extends ChangeNotifier{
 
   //파이어베이스 유저 리스너
   bool _firstLoading = false;
+
   void _firebaseUserListener(){
     FirebaseAuth.instance.authStateChanges().listen((User? user) {
       if(user == null){
         _state = UserProviderState.loggedOut;
         notifyListeners();
+        AppRoute.context!.go('/login');
       }else{
         fetchUserData(loading: _firstLoading);
         _firstLoading = true;
@@ -55,7 +57,7 @@ class UserProvider extends ChangeNotifier{
          //사용자가 존재함
          _state = UserProviderState.loggedIn;
          _user = response.data;
-
+         AppRoute.context!.go('/my');
          //만약 banCode
          if(_user?['banType'] != null){
            final banType = _user?['banType'];

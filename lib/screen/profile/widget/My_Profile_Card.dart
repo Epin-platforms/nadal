@@ -19,18 +19,18 @@ class _MyProfileCardState extends State<MyProfileCard> {
     userProvider = Provider.of<UserProvider>(context);
     final user = userProvider.user!;
     final theme = Theme.of(context);
-    final double size = 40;
-    final double columnSize = 44;
+    final double size = 40.r;
+    final double columnSize = 53.r;
     final num level = user['level'];
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 24),
+      padding: EdgeInsets.symmetric(vertical: 24.h),
       child: Column(
         children: [
           InkWell(
               borderRadius: BorderRadius.circular(50),
-              child: NadalProfileFrame(imageUrl: user['profileImage'], size: 70,)),
+              child: NadalProfileFrame(imageUrl: user['profileImage'], size: 70.r,)),
           Padding(
-            padding: EdgeInsets.only(top: 8, bottom: 16),
+            padding: EdgeInsets.only(top: 8.h, bottom: 16.h),
             child: Column(
               children: [
                 Text(user['name'],style: theme.textTheme.bodyLarge),

@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:kpostal/kpostal.dart';
+import 'package:my_sports_calendar/manager/game/Game_Manager.dart';
 import 'package:my_sports_calendar/provider/schedule/Schedule_Edit_Provider.dart';
 import 'package:my_sports_calendar/widget/Nadal_Switch_Button.dart';
 
@@ -200,18 +201,17 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                             }
                                           },
                                           child: NadalSolidContainer(
-                                              height: null,
+                                              fitted: true,
                                               padding: EdgeInsets.all(12),
                                               child: Text(TextFormManager.createFormToScheduleDate(provider.startDate, provider.isAllDay), style: theme.textTheme.bodyMedium,textAlign: TextAlign.center,)
                                           ),
                                         ),
                                       ),
-                                      if(!provider.isAllDay)
+                                      if(!provider.isAllDay)...[
                                         Padding(
                                             padding: EdgeInsets.symmetric(horizontal: 8),
                                             child: Icon(CupertinoIcons.arrow_right)
                                         ),
-                                      if(!provider.isAllDay)
                                         Flexible(
                                           child: InkWell(
                                             onTap: () async{
@@ -223,12 +223,13 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                             },
                                             child: NadalSolidContainer(
                                                 color: provider.endDate.isBefore(provider.startDate) ? theme.colorScheme.error : null,
-                                                height: null,
+                                                fitted: true,
                                                 padding: EdgeInsets.all(12),
                                                 child: Text(TextFormManager.createFormToScheduleDate(provider.endDate, provider.isAllDay), style: theme.textTheme.bodyMedium,textAlign: TextAlign.center,)
                                             ),
                                           ),
                                         ),
+                                       ]
                                     ],
                                   ),
                                   SizedBox(height: 16,),
@@ -391,18 +392,18 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                               ],
                                             ),
                                           ),
-                                        if(provider.tag == "게임")
+                                        if(provider.tag == "게임" && provider.isKDK != null && provider.isSingle != null)
                                           Padding(
                                               padding: EdgeInsets.only(top: 8),
                                               child: Text(
                                                 (provider.isKDK == true) && (provider.isSingle == true) ?
-                                                '대진표 단식 - 최소 4명 / 최대 13명' :
+                                                '대진표 단식 - 최소 ${GameManager.min_kdk_single_member}명 - 최대 ${GameManager.max_kdk_single_member}명' :
                                                 (provider.isKDK == true) && (provider.isSingle == false) ?
-                                                '대진표 복식 - 최소 5명 / 최대 16명' :
+                                                '대진표 복식 - 최소 ${GameManager.min_kdk_double_member}명 - 최대 ${GameManager.max_kdk_single_member}명' :
                                                 (provider.isKDK == false) && (provider.isSingle == true) ?
-                                                '토너먼트 단식 - 최소 4명' :
-                                                ''
-                                                ,style: theme.textTheme.labelMedium?.copyWith(color: theme.hintColor),)),
+                                                '토너먼트 단식 - 최소 ${GameManager.min_tour_single_member}명 - 최대 ${GameManager.max_tour_single_member}명' :
+                                                '토너먼트 복식 - 최소 ${GameManager.min_tour_double_member}팀 - 최대 ${GameManager.max_tour_double_member}팀'
+                                                ,style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.secondary),)),
                                       ],
                                     ),
                                   ),
@@ -480,8 +481,8 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                         NadalButton(
                           isActive: true,
                           title: '스케줄 수정하기',
-                          onPressed: () async{
-
+                          onPressed: () {
+                              provider.startUpdate();
                           },
                         )
                       ],

@@ -4,9 +4,9 @@ import 'package:my_sports_calendar/provider/game/Game_Provider.dart';
 import '../../../../../manager/project/Import_Manager.dart';
 
 class TournamentTeamReorderList extends StatefulWidget {
-  const TournamentTeamReorderList({super.key, required this.gameProvider});
+  const TournamentTeamReorderList({super.key, required this.gameProvider, required this.scheduleProvider});
   final GameProvider gameProvider;
-
+  final ScheduleProvider scheduleProvider;
   @override
   State<TournamentTeamReorderList> createState() => _TournamentTeamReorderListState();
 }
@@ -34,7 +34,7 @@ class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> w
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      isOwner = widget.gameProvider.scheduleProvider.schedule?['uid'] == FirebaseAuth.instance.currentUser!.uid;
+      isOwner = widget.scheduleProvider.schedule?['uid'] == FirebaseAuth.instance.currentUser!.uid;
       initializeTeams();
 
       // 주기적으로 버튼 애니메이션 실행 (중요한 버튼임을 강조)
@@ -55,11 +55,11 @@ class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> w
   }
 
   void initializeTeams() {
-    if (widget.gameProvider.scheduleProvider.teams == null) {
+    if (widget.scheduleProvider.teams == null) {
       return;
     }
 
-    final Map<String, List<dynamic>> teamsData = widget.gameProvider.scheduleProvider.teams!;
+    final Map<String, List<dynamic>> teamsData = widget.scheduleProvider.teams!;
     teamsList = [];
 
     // 각 팀 데이터 구성
@@ -206,7 +206,7 @@ class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> w
     return Column(
       children: [
         // 상태 표시
-        if (isOwner && widget.gameProvider.scheduleProvider.schedule!['state'] == 2)
+        if (isOwner && widget.scheduleProvider.schedule!['state'] == 2)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Container(
@@ -294,7 +294,7 @@ class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> w
         const SizedBox(height: 16),
 
         // 하단 버튼
-        if (isOwner && widget.gameProvider.scheduleProvider.schedule!['state'] == 2)
+        if (isOwner && widget.scheduleProvider.schedule!['state'] == 2)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: ScaleTransition(
@@ -404,7 +404,7 @@ class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> w
           separatorBuilder: (context, index) => const SizedBox(height: 2),
           itemBuilder: (context, index) {
             return IgnorePointer(
-              ignoring: !isOwner || widget.gameProvider.scheduleProvider.schedule!['state'] != 2,
+              ignoring: !isOwner || widget.scheduleProvider.schedule!['state'] != 2,
               child: DragTarget<int>(
                 onWillAcceptWithDetails: (details) => details.data != index,
                 onAcceptWithDetails: (details) {

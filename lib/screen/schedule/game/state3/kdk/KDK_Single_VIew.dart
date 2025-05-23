@@ -6,9 +6,9 @@ import 'package:my_sports_calendar/widget/Nadal_Coat_Input.dart';
 import '../../../../../manager/project/Import_Manager.dart';
 
 class KdkSingleView extends StatefulWidget {
-  const KdkSingleView({super.key, required this.gameProvider});
+  const KdkSingleView({super.key, required this.gameProvider, required this.scheduleProvider});
   final GameProvider gameProvider;
-
+  final ScheduleProvider scheduleProvider;
   @override
   State<KdkSingleView> createState() => _KdkSingleViewViewState();
 }
@@ -56,10 +56,10 @@ class _KdkSingleViewViewState extends State<KdkSingleView> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
-    final isProgress = widget.gameProvider.scheduleProvider.schedule!['state'] == 3;
+    final isProgress = widget.scheduleProvider.schedule!['state'] == 3;
     final uid = FirebaseAuth.instance.currentUser!.uid;
     final theme = Theme.of(context);
-    final int finalScore = widget.gameProvider.scheduleProvider.schedule!['finalScore'] ?? 6;
+    final int finalScore = widget.scheduleProvider.schedule!['finalScore'] ?? 6;
     final bool isEnd = widget.gameProvider.tables!.entries.where((e) =>
     e.value['score1'] == finalScore ||
         e.value['score2'] == finalScore ||
@@ -149,8 +149,8 @@ class _KdkSingleViewViewState extends State<KdkSingleView> with SingleTickerProv
                 ),
             itemBuilder: (context, index) {
               final item = widget.gameProvider.tables!.entries.toList()[index];
-              final player1 = widget.gameProvider.scheduleProvider.scheduleMembers![item.value['player1_0']];
-              final player2 = widget.gameProvider.scheduleProvider.scheduleMembers![item.value['player2_0']];
+              final player1 = widget.scheduleProvider.scheduleMembers![item.value['player1_0']];
+              final player2 = widget.scheduleProvider.scheduleMembers![item.value['player2_0']];
               final int myIndex = item.value['player1_0'] == uid ? 1 : item.value['player2_0'] == uid ? 2 : -1;
 
               // 게임 결과 확인
@@ -409,7 +409,7 @@ class _KdkSingleViewViewState extends State<KdkSingleView> with SingleTickerProv
         ),
 
         // 게임 종료 버튼
-        if (uid == widget.gameProvider.scheduleProvider.schedule!['uid'] && isProgress)
+        if (uid == widget.scheduleProvider.schedule!['uid'] && isProgress)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: ScaleTransition(

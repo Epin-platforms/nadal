@@ -1,4 +1,5 @@
 import 'package:my_sports_calendar/manager/project/Import_Manager.dart';
+import 'package:my_sports_calendar/provider/game/Game_Provider.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 
@@ -71,6 +72,11 @@ class SocketManager{
       final context = AppRoute.context;
       if (context != null) {
         context.read<ChatProvider>().onReconnect();
+        if(isProviderAvailable<GameProvider>() && isProviderAvailable<ScheduleProvider>()){
+          if(context.read<ScheduleProvider>().schedule!['tag'] == "게임"){
+            context.read<GameProvider>().initGameProvider(context.read<ScheduleProvider>().schedule!);
+          }
+        }
       }
     });
 
@@ -81,6 +87,9 @@ class SocketManager{
       final context = AppRoute.context;
       if (context != null) {
         context.read<ChatProvider>().onDisconnect();
+        if(isProviderAvailable<GameProvider>()){
+          context.read<GameProvider>().disconnectGame();
+        }
       }
     });
 
@@ -102,5 +111,19 @@ class SocketManager{
       data,
       ack: handler,  // 네임드 파라미터로 넘겨야 합니다
     );
+  }
+
+  bool isProviderAvailable<T>() {
+    try {
+      final context = AppRoute.context;
+
+      if(context == null){
+        return false;
+      }
+      Provider.of<T>(context, listen: false);
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 }

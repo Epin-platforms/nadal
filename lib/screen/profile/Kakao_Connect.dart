@@ -86,7 +86,7 @@ class _KakaoConnectState extends State<KakaoConnect> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             SizedBox(
-                                height: 200, width: 200,
+                                height: 200.r, width: 200.r,
                                 child: Image.asset("assets/image/social/kakao_disconnect.png", color: Theme.of(context).colorScheme.secondary,)),
                             Text('지금 카카오를 연결해보세요', style: Theme.of(context).textTheme.titleLarge,),
                             SizedBox(height: 16,),

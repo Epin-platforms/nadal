@@ -8,9 +8,9 @@ import '../../../../../manager/project/Import_Manager.dart';
 import 'Wait_Pre_Round.dart';
 
 class TournamentSingleView extends StatefulWidget {
-  const TournamentSingleView({super.key, required this.gameProvider});
+  const TournamentSingleView({super.key, required this.gameProvider, required this.scheduleProvider});
   final GameProvider gameProvider;
-
+  final ScheduleProvider scheduleProvider;
   @override
   State<TournamentSingleView> createState() => _TournamentSingleViewState();
 }
@@ -25,7 +25,7 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
   void initState() {
     _roundList = widget.gameProvider.tables!.entries.map((e) => (e.value['tableId'] ~/ 1000) as int).toList();
     _lastRound = _roundList.isEmpty ? 1 : _roundList.reduce((a,b) => a > b ? a : b);
-    finalScore = widget.gameProvider.scheduleProvider.schedule!['finalScore'];
+    finalScore = widget.scheduleProvider.schedule!['finalScore'];
     WidgetsBinding.instance.addPostFrameCallback((_)=> _calculateCurrentRound());
     super.initState();
   }
@@ -39,7 +39,7 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
         .map((e) => (e.value['tableId'] ~/ 1000) as int)
         .toList();
     final maxRound = roundsList.isEmpty ? 1 : roundsList.reduce((a, b) => a > b ? a : b);
-    final finalScore = widget.gameProvider.scheduleProvider.schedule?['finalScore'] ?? 6;
+    final finalScore = widget.scheduleProvider.schedule?['finalScore'] ?? 6;
 
     for (int round = 1; round <= maxRound; round++) {
       final roundTables = tables.entries
@@ -98,9 +98,9 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
     gameTable.sort((a,b)=> a['tableId'].compareTo(b['tableId']));
 
     //기타 내용
-    final isProgress = widget.gameProvider.scheduleProvider.schedule?['state'] == 3;
+    final isProgress = widget.scheduleProvider.schedule?['state'] == 3;
     final uid = context.read<UserProvider>().user?['uid'];
-    final isOwner = uid == widget.gameProvider.scheduleProvider.schedule?['uid'];
+    final isOwner = uid == widget.scheduleProvider.schedule?['uid'];
     final isLastRound = _lastRound == _currentRound;
     final rounds = gameTable.map((e)=> e['tableId'] ~/ 1000).toSet().length;
 
@@ -444,7 +444,7 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
   }
 
   String _getRoundName(int round){
-    final num = widget.gameProvider.scheduleProvider.scheduleMembers!.length ~/ pow(2, round-1);
+    final num = widget.scheduleProvider.scheduleMembers!.length ~/ pow(2, round-1);
     return num == 2 ? '결승' :
     num == 4 ? '준결승' :
     num == 1 ? '우승' :
@@ -455,7 +455,7 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
     return Builder(
         builder: (context) {
           final theme = Theme.of(context);
-          final player = widget.gameProvider.scheduleProvider.scheduleMembers![uid];
+          final player = widget.scheduleProvider.scheduleMembers![uid];
           return Padding(
               padding: EdgeInsets.all(12),
               child: Row(

@@ -1,9 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:kpostal/kpostal.dart';
-import 'package:my_sports_calendar/model/schedule/Schedule_Params.dart';
+import 'package:my_sports_calendar/manager/game/Game_Manager.dart';
 import 'package:my_sports_calendar/provider/schedule/Schedule_Create_Provider.dart';
-import 'package:my_sports_calendar/widget/Nadal_Container.dart';
-import 'package:my_sports_calendar/widget/Nadal_Sheet.dart';
 import 'package:my_sports_calendar/widget/Nadal_Switch_Button.dart';
 
 import '../../../manager/project/Import_Manager.dart';
@@ -208,7 +206,7 @@ class _ScheduleCreateState extends State<ScheduleCreate> {
                                             }
                                         },
                                         child: NadalSolidContainer(
-                                            height: null,
+                                            fitted: true,
                                             padding: EdgeInsets.all(12),
                                             child: Text(TextFormManager.createFormToScheduleDate(provider.startDate, provider.isAllDay), style: theme.textTheme.bodyMedium,textAlign: TextAlign.center,)
                                         ),
@@ -231,7 +229,7 @@ class _ScheduleCreateState extends State<ScheduleCreate> {
                                         },
                                         child: NadalSolidContainer(
                                             color: provider.endDate.isBefore(provider.startDate) ? theme.colorScheme.error : null,
-                                            height: null,
+                                            fitted: true,
                                             padding: EdgeInsets.all(12),
                                             child: Text(TextFormManager.createFormToScheduleDate(provider.endDate, provider.isAllDay), style: theme.textTheme.bodyMedium,textAlign: TextAlign.center,)
                                         ),
@@ -399,17 +397,17 @@ class _ScheduleCreateState extends State<ScheduleCreate> {
                                               ],
                                             ),
                                           ),
-                                        if(provider.tag == "게임")
+                                        if(provider.tag == "게임" && provider.isKDK != null && provider.isSingle != null)
                                          Padding(
                                              padding: EdgeInsets.only(top: 8),
                                              child: Text(
                                                (provider.isKDK == true) && (provider.isSingle == true) ?
-                                                '대진표 단식 - 최소 4명 / 최대 13명' :
+                                                '대진표 단식 - 최소 ${GameManager.min_kdk_single_member}명 / 최대 ${GameManager.max_kdk_single_member}명' :
                                                (provider.isKDK == true) && (provider.isSingle == false) ?
-                                                '대진표 복식 - 최소 5명 / 최대 16명' :
+                                                '대진표 복식 - 최소 ${GameManager.min_kdk_double_member}명 / 최대 ${GameManager.max_kdk_double_member}명' :
                                                (provider.isKDK == false) && (provider.isSingle == true) ?
-                                                '토너먼트 단식 - 최소 4명' :
-                                                ''
+                                                '토너먼트 단식 - 최소 ${GameManager.min_tour_single_member}명 / 최대 ${GameManager.max_tour_single_member}' :
+                                                '토너먼트 복식 - 최소 ${GameManager.min_tour_double_member}명 / 최대 ${GameManager.max_tour_double_member}'
                                                ,style: theme.textTheme.labelMedium?.copyWith(color: theme.hintColor),)),
                                       ],
                                     ),

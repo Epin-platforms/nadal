@@ -15,9 +15,7 @@ class NotificationIcons {
   static IconData getIconByRoute(String? route) {
     if (route == null) return reminder;
 
-    if (route.contains('message') || route.contains('chat')) {
-      return message;
-    } else if (route.contains('schedule') || route.contains('calendar')) {
+    if (route.contains('schedule') || route.contains('calendar')) {
       return event;
     } else if (route.contains('update') || route.contains('version')) {
       return update;

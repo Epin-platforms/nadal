@@ -5,9 +5,9 @@ import '../../../../../manager/project/Import_Manager.dart';
 import '../widget/Nadal_Solo_Card.dart';
 
 class TournamentReorderList extends StatefulWidget {
-  const TournamentReorderList({super.key, required this.gameProvider});
+  const TournamentReorderList({super.key, required this.gameProvider, required this.scheduleProvider});
   final GameProvider gameProvider;
-
+  final ScheduleProvider scheduleProvider;
   @override
   State<TournamentReorderList> createState() => _TournamentReorderListState();
 }
@@ -35,7 +35,7 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      isOwner = widget.gameProvider.scheduleProvider.schedule?['uid'] == FirebaseAuth.instance.currentUser!.uid;
+      isOwner = widget.scheduleProvider.schedule?['uid'] == FirebaseAuth.instance.currentUser!.uid;
       initializeMembers();
 
       // 주기적으로 버튼 애니메이션 실행 (중요한 버튼임을 강조)
@@ -57,7 +57,7 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
 
   void initializeMembers() {
     // 1. 원본 멤버 데이터 가져오기
-    final originalMembers = widget.gameProvider.scheduleProvider.scheduleMembers!.entries
+    final originalMembers = widget.scheduleProvider.scheduleMembers!.entries
         .map((e) => e.value)
         .toList();
 
@@ -190,7 +190,7 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    if (widget.gameProvider.scheduleProvider.scheduleMembers!.values.where((e) => e['memberIndex'] == null).isNotEmpty) {
+    if (widget.scheduleProvider.scheduleMembers!.values.where((e) => e['memberIndex'] == null).isNotEmpty) {
       return const Center(
         child: NadalCircular(),
       );
@@ -199,7 +199,7 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
     return Column(
       children: [
         // 상태 표시
-        if (isOwner && widget.gameProvider.scheduleProvider.schedule!['state'] == 2)
+        if (isOwner && widget.scheduleProvider.schedule!['state'] == 2)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Container(
@@ -287,7 +287,7 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
         const SizedBox(height: 16),
 
         // 하단 버튼
-        if (isOwner && widget.gameProvider.scheduleProvider.schedule!['state'] == 2)
+        if (isOwner && widget.scheduleProvider.schedule!['state'] == 2)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: ScaleTransition(
@@ -402,7 +402,7 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
           separatorBuilder: (context, index) => SizedBox(height: 2,),
           itemBuilder: (context, index) {
             return IgnorePointer(
-              ignoring: !isOwner || widget.gameProvider.scheduleProvider.schedule!['state'] != 2,
+              ignoring: !isOwner || widget.scheduleProvider.schedule!['state'] != 2,
               child: DragTarget<int>(
                 onWillAcceptWithDetails: (details) => details.data != index,
                 onAcceptWithDetails: (details) {

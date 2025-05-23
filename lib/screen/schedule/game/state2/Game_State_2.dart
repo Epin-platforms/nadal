@@ -6,21 +6,21 @@ import '../../../../manager/project/Import_Manager.dart';
 import 'kdk/Nadal_KDK_Reorder_List.dart';
 
 class GameState2 extends StatelessWidget {
-  const GameState2({super.key, required this.gameProvider});
+  const GameState2({super.key, required this.gameProvider, required this.scheduleProvider});
   final GameProvider gameProvider;
-
+  final ScheduleProvider scheduleProvider;
   @override
   Widget build(BuildContext context) {
-    final isKDK = gameProvider.scheduleProvider.schedule?['isKDK'] == 1;
-    final isSingle = gameProvider.scheduleProvider.schedule?['isSingle'] == 1;
+    final isKDK = scheduleProvider.schedule?['isKDK'] == 1;
+    final isSingle = scheduleProvider.schedule?['isSingle'] == 1;
 
     if(isKDK){ //KDK인경우
-      return NadalKDKReorderList(gameProvider: gameProvider);
+      return NadalKDKReorderList(gameProvider: gameProvider, scheduleProvider: scheduleProvider,);
     }else{ //토너먼트인경우
       if(isSingle){
-        return TournamentReorderList(gameProvider: gameProvider,);
+        return TournamentReorderList(gameProvider: gameProvider, scheduleProvider: scheduleProvider,);
       }else{
-        return TournamentTeamReorderList(gameProvider: gameProvider);
+        return TournamentTeamReorderList(gameProvider: gameProvider, scheduleProvider: scheduleProvider,);
       }
     }
   }

@@ -306,40 +306,12 @@ class _NadalCommentTileState extends State<NadalCommentTile> with SingleTickerPr
                           CupertinoActionSheetAction(
                             onPressed: () {
                               nav.pop();
-                              DialogManager.showBasicDialog(
-                                title: '댓글 신고',
-                                content: '이 댓글을 신고하시겠습니까?',
-                                confirmText: '신고하기',
-                                onConfirm: () {
-                                  // 신고 처리 로직
-                                  SnackBarManager.showCleanSnackBar(
-                                      context,
-                                      '신고가 접수되었습니다.'
-                                  );
-                                },
-                                cancelText: '취소',
-                              );
+                              context.push('/report?targetId=${widget.comment['commentId']}&type=user');
                             },
                             child: Text(
                               '신고',
                               style: theme.textTheme.bodyLarge?.copyWith(
                                 color: Colors.red,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          CupertinoActionSheetAction(
-                            onPressed: () {
-                              nav.pop();
-                              SnackBarManager.showCleanSnackBar(
-                                  context,
-                                  '사용자 차단 기능은 곧 제공될 예정입니다.'
-                              );
-                            },
-                            child: Text(
-                              '사용자 차단',
-                              style: theme.textTheme.bodyLarge?.copyWith(
-                                color: theme.colorScheme.error,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),

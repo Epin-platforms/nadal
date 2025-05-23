@@ -44,21 +44,18 @@ class _MainPageState extends State<MainPage> {
           )
         ],
       ),
-      body: GestureDetector(
-        onTap: ()=> print('${MediaQuery.of(context).size}'),
-        child: SafeArea(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  MyProfileListCard(),
-                  _homeDivider(),
-                  MyScheduleCalendar(),
-                  _homeDivider(),
-                  MyRooms()
-                ],
-              ),
-            )
-        ),
+      body: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                MyProfileListCard(),
+                _homeDivider(),
+                MyScheduleCalendar(),
+                _homeDivider(),
+                MyRooms()
+              ],
+            ),
+          )
       )
     );
   }

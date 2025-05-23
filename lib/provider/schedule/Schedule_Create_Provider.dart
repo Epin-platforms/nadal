@@ -217,6 +217,11 @@ class ScheduleCreateProvider extends ChangeNotifier{
       _addressDetailController.clear();
     }
 
+    if(_tag == "공지" && _descriptionController.text.replaceAll(' ', '').replaceAll('\n', '').isEmpty){
+      DialogManager.errorHandler('공지는 메모 내용이 공개돼요🤔\n메모를 작성해주세요');
+      return;
+    }
+
     if(_tag == "게임"){
         if(_isKDK == null || _isSingle == null){
           DialogManager.errorHandler('흠.. 게임을 위한 진행 옵션이 없어요 🤔');
@@ -242,9 +247,8 @@ class ScheduleCreateProvider extends ChangeNotifier{
             }
           }
         }
-
-        return await startCreate();
     }
+    return await startCreate();
   }
 
   Future<int> startCreate() async{

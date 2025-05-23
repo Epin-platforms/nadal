@@ -71,8 +71,6 @@ class NotificationProvider extends ChangeNotifier {
       } catch (e) {
         print('initializeFCM 실패: $e');
       }
-
-
     } catch (e) {
       print('알림 초기화 오류: $e');
     } finally {
@@ -300,7 +298,6 @@ class NotificationProvider extends ChangeNotifier {
             'title': message.notification!.title,
             'body': message.notification!.body,
             'roomId': message.data['roomId'],
-            'scheduleId': message.data['scheduleId'],
             'badge': message.data['badge'] ?? '0',
             'alarm': message.data['alarm'] ?? '1',
             'type': message.data['type'] ?? 'default',

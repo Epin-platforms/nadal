@@ -3,14 +3,14 @@ import 'package:my_sports_calendar/provider/game/Game_Provider.dart';
 import '../../../../../manager/project/Import_Manager.dart';
 
 class MyResult extends StatelessWidget {
-  const MyResult({super.key, required this.gameProvider});
+  const MyResult({super.key, required this.gameProvider, required this.scheduleProvider});
   final GameProvider gameProvider;
-
+  final ScheduleProvider scheduleProvider;
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final uid = FirebaseAuth.instance.currentUser!.uid;
-    final me = gameProvider.scheduleProvider.scheduleMembers![uid]!;
+    final me = scheduleProvider.scheduleMembers![uid]!;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Stack(
@@ -151,7 +151,7 @@ class MyResult extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children:  [
                               Text(
-                               gameProvider.scheduleProvider.schedule!['isKDK'] == 1 ? '승점' : '승리횟수',
+                               scheduleProvider.schedule!['isKDK'] == 1 ? '승점' : '승리횟수',
                                 style: TextStyle(
                                   fontSize: 14,
                                 ),
@@ -174,7 +174,7 @@ class MyResult extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                gameProvider.scheduleProvider.schedule!['isKDK'] == 1 ? '득점' : '누적점수',
+                                scheduleProvider.schedule!['isKDK'] == 1 ? '득점' : '누적점수',
                                 style: TextStyle(
                                   fontSize: 14,
                                 ), 

@@ -9,6 +9,9 @@ class QnaModel{
   final String? answer;
   final DateTime? answerAt;
 
+  final String? managerName;
+  final String? managerProfileImage;
+
   QnaModel({
     required this.qid,
     required this.uid,
@@ -18,7 +21,9 @@ class QnaModel{
     required this.answerMid,
     required this.answer,
     required this.answerAt,
-    required this.isFaq
+    required this.isFaq,
+    required this.managerName,
+    required this.managerProfileImage
   });
 
   factory QnaModel.fromJson(Map map){
@@ -31,7 +36,22 @@ class QnaModel{
         answerMid: map['answerMid'],
         answer: map['answer'],
         answerAt: map['answerAt'] != null ? DateTime.parse(map['answerAt']).toLocal() : null,
-        isFaq: map['isFaq'] == 1
+        isFaq: map['isFaq'] == 1,
+        managerName: map['managerName'],
+        managerProfileImage: map['managerProfileImage']
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'uid': uid,
+      'isFaq': isFaq,
+      'title': title,
+      'question': question,
+      'createAt': createAt.toIso8601String(),
+      'answerMid': answerMid,
+      'answer': answer,
+      'answerAt': answerAt?.toIso8601String(),
+    };
   }
 }

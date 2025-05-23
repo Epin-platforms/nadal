@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-import 'package:my_sports_calendar/manager/dialog/Dialog_Manager.dart';
 import 'package:my_sports_calendar/manager/project/Import_Manager.dart';
 import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
 
@@ -305,18 +303,24 @@ class ScheduleEditProvider extends ChangeNotifier{
    Future<void> startUpdate() async{
      AppRoute.pushLoading();
 
-     final res = await serverManager.put('schedule/update/$_warning', data: _toMap());
-     AppRoute.popLoading();
-     if(res.statusCode == 200){
-       AppRoute.context?.read<UserProvider>().fetchMySchedules(startDate, force: true);
-       AppRoute.context?.pop();
-       DialogManager.showBasicDialog(title: '업데이트 성공', content: "스케줄을 성공적으로 수정하였습니다", confirmText: "확인");
+     try{
+       final res = await serverManager.put('schedule/update/$_warning', data: _toMap());
+       AppRoute.popLoading();
+       if(res.statusCode == 200){
+         AppRoute.context?.read<UserProvider>().fetchMySchedules(startDate, force: true);
+         AppRoute.context?.pop(true);
+       }
+     }catch(error){
+       AppRoute.popLoading();
+       DialogManager.showBasicDialog(title: '수정에 실패했어요', content: '잠시후 다시 시도해주세요', confirmText: '확인');
      }
    }
 
 
    Map<String, dynamic> _toMap() {
-     final Map<String, dynamic> map = {};
+     final Map<String, dynamic> map = {
+       'scheduleId' : _schedule['scheduleId']
+     };
 
      void checkAndAdd(String key, dynamic currentValue) {
        if (_schedule[key] != currentValue) {

@@ -18,6 +18,7 @@ class AccountCreate extends StatelessWidget {
         final provider = Provider.of<AccountCreateProvider>(context);
         return IosPopGesture(
             child: Scaffold(
+              resizeToAvoidBottomInset: false,
               appBar: NadalAppbar(
                 title: '계좌 등록',
               ),

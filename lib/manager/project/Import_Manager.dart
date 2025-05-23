@@ -14,6 +14,8 @@ export 'package:bootstrap_icons/bootstrap_icons.dart';
 export 'package:flutter_screenutil/flutter_screenutil.dart';
 export 'package:cached_network_image/cached_network_image.dart';
 export 'package:carousel_slider/carousel_slider.dart';
+export 'package:flutter_contacts/flutter_contacts.dart';
+export 'package:permission_handler/permission_handler.dart';
 
 //프로바이더
 export 'package:my_sports_calendar/provider/app/App_Provider.dart';
@@ -37,7 +39,6 @@ export 'package:my_sports_calendar/screen/comment/Comment_Field.dart';
 export 'package:my_sports_calendar/screen/rooms/preview/Room_Preview.dart';
 export 'package:my_sports_calendar/screen/rooms/schedule/Room_Schedule.dart';
 export 'package:my_sports_calendar/screen/rooms/search/Search_Room.dart';
-export 'package:my_sports_calendar/screen/schedule/Schedule_Stream_View.dart';
 export 'package:my_sports_calendar/screen/schedule/edit/Schedule_Edit_Page.dart';
 export 'package:my_sports_calendar/screen/account/Account_Create.dart';
 export 'package:my_sports_calendar/screen/app/Loading_Block.dart';

@@ -63,6 +63,9 @@ class DialogManager{
     Widget? icon,
     Function(String text)? onConfirm,
     VoidCallback? onCancel,
+    String? helper,
+    TextInputType? keyType,
+    int? maxLength
   }) async {
     final controller = TextEditingController();
 
@@ -77,17 +80,17 @@ class DialogManager{
             children: [
               // 내용 영역
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 28, 24, 12),
+                padding: EdgeInsets.fromLTRB(24.w, 28.h, 24.w, 12.h),
                 child: Column(
                   children: [
                     if (icon != null)
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
+                        padding: EdgeInsets.only(bottom: 12.h),
                         child: icon,
                       )
                     else
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
+                        padding: EdgeInsets.only(bottom: 12.h),
                         child: Icon(BootstrapIcons.lock_fill, size: 30, color: Theme.of(context).colorScheme.primary),
                       ),
                     Text(
@@ -96,7 +99,7 @@ class DialogManager{
                       textAlign: TextAlign.center,
                     ),
                     if (content != null) ...[
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12.h),
                       Text(
                         content,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[700]),
@@ -104,7 +107,11 @@ class DialogManager{
                       ),
                     ],
                     const SizedBox(height: 16),
-                    NadalTextField(controller: controller, keyboardType: TextInputType.number, maxLength: 10, helper: '4-10자리 숫자 입력',)
+                    NadalTextField(
+                      controller: controller,
+                      keyboardType: keyType ?? TextInputType.number,
+                      maxLength: maxLength ?? 10,
+                      helper: helper ?? '4-10자리 숫자 입력',)
                   ],
                 ),
               ),

@@ -1,4 +1,6 @@
 import 'package:kakao_flutter_sdk/kakao_flutter_sdk.dart' as kakao;
+import 'package:kakao_flutter_sdk/kakao_flutter_sdk.dart';
+import '../../../model/share/Share_Parameter.dart';
 import '../../project/Import_Manager.dart';
 
 class KakaoManager{
@@ -79,4 +81,61 @@ class KakaoManager{
   }
 
 
+
+  //카카오 공유
+  Future<void> sendKakaoInviteForm(ShareParameter item) async {
+    try {
+      final imageUrl = item.imageUrl ?? dotenv.get('APP_SCHEDULE_IMAGE');
+      final link = Uri.parse(item.link ?? 'https://epin.co.kr/38');
+      final params = {
+        'routing' : item.routing
+      };
+      final template = FeedTemplate(
+        content: Content(
+          title: item.title,
+          description: item.subTitle,
+          imageUrl: Uri.parse(imageUrl),
+          link: Link(
+              webUrl: link,
+              mobileWebUrl: link,
+              androidExecutionParams: params,
+              iosExecutionParams: params
+          ),
+        ),
+        buttons: [
+          Button(
+            title: '보러가기',
+            link: Link(
+                webUrl: link,
+                mobileWebUrl: link,
+                androidExecutionParams: params,
+                iosExecutionParams: params
+            ),
+          ),
+        ],
+      );
+
+      bool isKakaoTalkSharingAvailable = await ShareClient.instance.isKakaoTalkSharingAvailable();
+
+      if(isKakaoTalkSharingAvailable){
+        try{
+          Uri uri =
+          await ShareClient.instance.shareDefault(template: template);
+          await ShareClient.instance.launchKakaoTalk(uri);
+        }catch(error){
+          print('카카오톡 공유 실패 $error');
+        }
+      }else{
+        try{
+          Uri shareUrl = await WebSharerClient.instance
+              .makeDefaultUrl(template: template);
+          await launchBrowserTab(shareUrl, popupOpen: true);
+        }catch(error){
+          print('카카오톡 공유 실패 $error');
+        }
+      }
+    } catch (e) {
+      print('카카오 초대 실패: $e');
+    }
+  }
 }

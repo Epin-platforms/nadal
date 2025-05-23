@@ -1,11 +1,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
+import 'package:my_sports_calendar/provider/room/Room_Provider.dart';
+import 'package:my_sports_calendar/screen/rooms/room/chat/bubble/Image_Chat_Bubble.dart';
 import 'package:my_sports_calendar/screen/rooms/room/chat/bubble/Removed_Chat_Bubble.dart';
+import 'package:my_sports_calendar/screen/rooms/room/chat/bubble/Reply_Bubble.dart';
 import 'package:my_sports_calendar/screen/rooms/room/chat/bubble/Schedule_Chat_Bubble.dart';
 import 'package:my_sports_calendar/screen/rooms/room/chat/bubble/Text_Chat_Bubble.dart';
-
-import '../../../../../animation/Fade_In_Animation.dart';
-import '../../../../../animation/Slide_In_Animation.dart';
 import '../../../../../manager/project/Import_Manager.dart';
 
 class ChatFrame extends StatefulWidget {
@@ -15,7 +15,7 @@ class ChatFrame extends StatefulWidget {
     required this.timeVisible,
     required this.tail,
     required this.read,
-    required this.index,
+    required this.index, required this.roomProvider,
   });
 
   final Chat chat;
@@ -23,12 +23,63 @@ class ChatFrame extends StatefulWidget {
   final bool tail;
   final int read;
   final int index;
+  final RoomProvider roomProvider;
   @override
   State<ChatFrame> createState() => _ChatFrameState();
 }
 
 class _ChatFrameState extends State<ChatFrame> {
  // 애니메이션 지연 계산용 인덱스
+
+  void _chatAction(theme, isSender){
+    if(widget.chat.type == ChatType.removed){
+      return;
+    }
+
+    showCupertinoModalPopup(
+        context: context,
+        builder: (context){
+          final nav = Navigator.of(context);
+          return  NadalSheet(actions: [
+            //공통
+            CupertinoActionSheetAction(
+                onPressed: (){
+                  nav.pop();
+                },
+                child: Text('복사', style: theme.textTheme.bodyLarge?.copyWith(color: theme.secondaryHeaderColor),)
+            ),
+
+            CupertinoActionSheetAction(
+                onPressed: (){
+                  nav.pop();
+                    widget.roomProvider.setReply(widget.chat.chatId);
+                },
+                child: Text('답장', style: theme.textTheme.bodyLarge?.copyWith(color: theme.secondaryHeaderColor),)
+            ),
+
+            if(!isSender)
+            CupertinoActionSheetAction(
+                onPressed: (){
+                  nav.pop();
+                  context.push('/report?targetId=${widget.chat.chatId}&type=chat');
+                },
+                child: Text('신고', style: theme.textTheme.bodyLarge?.copyWith(color: theme.secondaryHeaderColor),)
+            ),
+
+            if(widget.chat.type != ChatType.removed && isSender)
+              CupertinoActionSheetAction(
+                  onPressed: () async{
+                    nav.pop();
+                    await serverManager.put('chat/remove/${widget.chat.chatId}?roomId=${widget.chat.roomId}');
+                  },
+                  child: Text('삭제', style: theme.textTheme.bodyLarge?.copyWith(color: theme.secondaryHeaderColor),)
+              ),
+            ],
+          );
+        }
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -80,37 +131,26 @@ class _ChatFrameState extends State<ChatFrame> {
           // 메시지 버블
           GestureDetector(
             onLongPress: (){
-              showCupertinoModalPopup(
-                  context: context,
-                  builder: (context){
-                    final nav = Navigator.of(context);
-                    return  NadalSheet(actions: [
-                      CupertinoActionSheetAction(
-                          onPressed: (){
-                            nav.pop();
-                          },
-                          child: Text('공유', style: theme.textTheme.bodyLarge?.copyWith(color: theme.secondaryHeaderColor),)
-                      ),
-                      if(widget.chat.type != ChatType.removed)
-                      CupertinoActionSheetAction(
-                          onPressed: () async{
-                            nav.pop();
-                            await serverManager.put('chat/remove/${widget.chat.chatId}?roomId=${widget.chat.roomId}');
-                          },
-                          child: Text('삭제', style: theme.textTheme.bodyLarge?.copyWith(color: theme.secondaryHeaderColor),)
-                      ),
-                    ],
-                    );
-                  }
-              );
+              _chatAction(theme, isSender);
             },
             child: Builder(builder: (context) {
               if (widget.chat.type == ChatType.text) {
-                return TextChatBubble(
-                  animation: now.difference(widget.chat.createAt).inSeconds < 3,
-                  text: widget.chat.contents ?? '알수없는 채팅',
-                  isSender: isSender,
-                  tail: widget.tail,
+                return Column(
+                  crossAxisAlignment: isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                  children: [
+                    if(widget.chat.reply != null)...[
+                      Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16.w),
+                          child: ReplyBubble(isMe: isSender, chat: widget.chat)),
+                      SizedBox(height: 4.h,),
+                    ],
+                    TextChatBubble(
+                      animation: now.difference(widget.chat.createAt).inSeconds < 3,
+                      text: widget.chat.contents ?? '알수없는 채팅',
+                      isSender: isSender,
+                      tail: widget.tail,
+                    ),
+                  ],
                 );
               } else if (widget.chat.type == ChatType.schedule) {
                 if (widget.chat.scheduleId == null) {
@@ -131,8 +171,7 @@ class _ChatFrameState extends State<ChatFrame> {
                   );
                 }
               } else if (widget.chat.type == ChatType.image) {
-                // 이미지 채팅 처리 (필요시 구현)
-                return Container();
+                return ImageChatBubble(chat: widget.chat, isMe: isSender);
               } else if (widget.chat.type == ChatType.removed) {
                 return RemovedChatBubble(
                   isSender: isSender,
@@ -184,27 +223,7 @@ class _ChatFrameState extends State<ChatFrame> {
                     // 메시지 버블
                     GestureDetector(
                       onLongPress: (){
-                        showCupertinoModalPopup(
-                            context: context,
-                            builder: (context){
-                              final nav = Navigator.of(context);
-                              return  NadalSheet(actions: [
-                                CupertinoActionSheetAction(
-                                    onPressed: (){
-                                      nav.pop();
-                                    },
-                                    child: Text('복사', style: theme.textTheme.bodyLarge?.copyWith(color: theme.secondaryHeaderColor),)
-                                ),
-                                CupertinoActionSheetAction(
-                                    onPressed: (){
-                                      nav.pop();
-                                    },
-                                    child: Text('공유', style: theme.textTheme.bodyLarge?.copyWith(color: theme.secondaryHeaderColor),)
-                                ),
-                              ],
-                              );
-                            }
-                        );
+                          _chatAction(theme, isSender);
                       },
                       child: Builder(builder: (context) {
                         if (widget.chat.type == ChatType.text) {

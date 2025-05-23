@@ -7,9 +7,9 @@ import '../../../../manager/project/Import_Manager.dart';
 
 //게임중
 class GameState4 extends StatefulWidget {
-  const GameState4({super.key, required this.gameProvider});
+  const GameState4({super.key, required this.gameProvider, required this.scheduleProvider});
   final GameProvider gameProvider;
-
+  final ScheduleProvider scheduleProvider;
   @override
   State<GameState4> createState() => _GameState4State();
 }
@@ -38,13 +38,13 @@ class _GameState4State extends State<GameState4> {
     return SingleChildScrollView(
       child: Column(
         children: [
-          if(widget.gameProvider.scheduleProvider.scheduleMembers!.containsKey(FirebaseAuth.instance.currentUser!.uid))//내가 참가했다면
-            MyResult(gameProvider: widget.gameProvider),
-          if(widget.gameProvider.scheduleProvider.scheduleMembers!.containsKey(FirebaseAuth.instance.currentUser!.uid))//내가 참가했다면
-            MyLevel(gameProvider: widget.gameProvider),
+          if(widget.scheduleProvider.scheduleMembers!.containsKey(FirebaseAuth.instance.currentUser!.uid))//내가 참가했다면
+            MyResult(gameProvider: widget.gameProvider, scheduleProvider: widget.scheduleProvider,),
+          if(widget.scheduleProvider.scheduleMembers!.containsKey(FirebaseAuth.instance.currentUser!.uid))//내가 참가했다면
+            MyLevel(gameProvider: widget.gameProvider, scheduleProvider:  widget.scheduleProvider,),
           //대진표 결과
-          if(widget.gameProvider.scheduleProvider.schedule!['isKDK'] == 1)
-          KdkResult(gameProvider: widget.gameProvider)
+          if(widget.scheduleProvider.schedule!['isKDK'] == 1)
+          KdkResult(gameProvider: widget.gameProvider, scheduleProvider:  widget.scheduleProvider,)
         ],
       ),
     );

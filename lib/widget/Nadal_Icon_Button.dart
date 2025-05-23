@@ -36,8 +36,10 @@ class NadalReportIcon extends StatelessWidget {
       customBorder: CircleBorder(),
       overlayColor: WidgetStatePropertyAll(Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)),
       child: Padding(
-          padding: EdgeInsets.all(4),
-          child: SvgPicture.asset('assets/svg/siren.svg', height: size ?? 24.r, width: size ?? 24.r, colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.onSurface, BlendMode.srcIn),)
+          padding: EdgeInsets.all(4.r),
+          child: Image.asset('assets/image/icon/siren.png', height: size ?? 24.r, width: size ?? 24.r,
+            color: Theme.of(context).colorScheme.onSurface,
+            colorBlendMode: BlendMode.srcIn,)
       ),
     );
   }

@@ -14,22 +14,18 @@ class _RoomAnnouncedWidgetState extends State<RoomAnnouncedWidget> {
   bool isExpanded = false;
   bool showToggle = false;
 
-  final _textKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
     // 높이 측정은 build 후에 해야 하므로
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final context = _textKey.currentContext;
-      if (context != null) {
-        final renderBox = context.findRenderObject() as RenderBox;
-        final height = renderBox.size.height;
-        if (height > 80) {
-          setState(() {
-            showToggle = true;
-          });
-        }
+      final renderBox = context.findRenderObject() as RenderBox;
+      final height = renderBox.size.height;
+      if (height > 80) {
+        setState(() {
+          showToggle = true;
+        });
       }
     });
   }
@@ -38,7 +34,7 @@ class _RoomAnnouncedWidgetState extends State<RoomAnnouncedWidget> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final announce = widget.announce;
-    final description = announce['description'] ?? '';
+    final description = announce['description'] ?? '내용없음';
 
     final displayText = TextFormManager.profileText(
       announce['displayName'],
@@ -104,12 +100,10 @@ class _RoomAnnouncedWidgetState extends State<RoomAnnouncedWidget> {
             duration: const Duration(milliseconds: 200),
             firstChild: Text(
               description,
-              key: _textKey,
               style: theme.textTheme.bodySmall,
             ),
             secondChild: Text(
               description,
-              key: _textKey,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall,
@@ -120,3 +114,5 @@ class _RoomAnnouncedWidgetState extends State<RoomAnnouncedWidget> {
     );
   }
 }
+
+

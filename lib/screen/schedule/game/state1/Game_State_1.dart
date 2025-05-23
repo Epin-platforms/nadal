@@ -76,7 +76,7 @@ class _GameState1State extends State<GameState1> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isOwner = widget.gameProvider.scheduleProvider.schedule!["uid"] == FirebaseAuth.instance.currentUser!.uid;
+    final isOwner = widget.scheduleProvider.schedule!["uid"] == FirebaseAuth.instance.currentUser!.uid;
     final members = widget.scheduleProvider.scheduleMembers!.entries.map((e) => e.value).toList();
 
     // 테마에서 컬러 가져오기
@@ -122,7 +122,7 @@ class _GameState1State extends State<GameState1> {
                     top: MediaQuery.of(context).padding.top + 20,
                     left: 24,
                     child: Text(
-                      widget.gameProvider.scheduleProvider.schedule!['title'],
+                      widget.scheduleProvider.schedule!['title'],
                       style: theme.textTheme.headlineSmall?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -155,7 +155,7 @@ class _GameState1State extends State<GameState1> {
                 ),
 
                 // 하단 버튼 영역
-                if (isOwner && widget.gameProvider.scheduleProvider.schedule!['state'] == 1)
+                if (isOwner && widget.scheduleProvider.schedule!['state'] == 1)
                   Padding(
                     padding: const EdgeInsets.only(
                       left: 24,
@@ -265,7 +265,7 @@ class _GameState1State extends State<GameState1> {
             label: '예상 소요 시간',
             value: calculateEstimatedTime(
               members: members,
-              isSingles: widget.gameProvider.scheduleProvider.schedule!['isSingle']  ==1, // 복식 게임
+              isSingles: widget.scheduleProvider.schedule!['isSingle']  ==1, // 복식 게임
               courts: 2,  // 코트 수
             ),
           ),

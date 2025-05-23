@@ -34,23 +34,17 @@ class ScheduleChatBubble extends StatelessWidget {
     // 깔끔한 말풍선 색상 설정 (텍스트 버블과 동일한 스타일)
     final backgroundColor = isSender
         ? colorScheme.primary
-        : (isDark
-        ? const Color(0xFF2A2A36)
-        : const Color(0xFFF2F2F7));
+        : theme.highlightColor;
 
     // 텍스트 색상
     final textColor = isSender
-        ? Colors.white
-        : (isDark
-        ? Colors.white.withValues(alpha: 0.9)
-        : const Color(0xFF1F1F1F));
+        ? theme.colorScheme.onPrimary
+        : theme.colorScheme.onPrimary.withValues(alpha: 0.9);
 
     // 보조 색상 (날짜, 버튼 등)
     final secondaryColor = isSender
-        ? Colors.white.withValues(alpha: 0.8)
-        : (isDark
-        ? Colors.white.withValues(alpha: 0.6)
-        : const Color(0xFF656565));
+        ? theme.colorScheme.surfaceContainerLowest
+        : theme.colorScheme.surfaceContainerHighest;
 
     // 강조 색상 (버튼 배경 등)
     final accentColor = isSender

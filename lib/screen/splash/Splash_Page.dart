@@ -23,35 +23,19 @@ class _SplashPageState extends State<SplashPage> {
 
   void _stepToSettingApp() async{
     await _startProviderInit();
-    appProvider.addListener(_handleStateChange);
-    userProvider.addListener(_handleStateChange);
   }
 
-  @override
-  void dispose(){
-    super.dispose();
-    appProvider.removeListener(_handleStateChange);
-    userProvider.removeListener(_handleStateChange);
-  }
 
   Future<void> _startProviderInit() async{
-    await appProvider.initAppProvider().then((_)=> userProvider.userProviderInit());
-  }
-
-  _handleStateChange(){
-    final appState = appProvider.state;
-    final userState = userProvider.state;
-
-    if(appState == AppProviderState.inspection){
+    final res = await appProvider.initAppProvider();
+    if(res == AppProviderState.none){
+      DialogManager.showBasicDialog(title: '알수없는 이유로 로그인에 실패했습니다', content: '다시 시도해주세요', confirmText: '확인');
+    }else if(res == AppProviderState.inspection){
       DialogManager.inspectionHandler(); //업데이트 다이알로그 띄우기
-    }else if(appState == AppProviderState.update){
+    }else if(res == AppProviderState.update){
       DialogManager.updateHandler(); //업데이트 다이알로그 띄우기
-    }else if(appState == AppProviderState.ready){
-      if(userState == UserProviderState.loggedIn){
-        context.go('/my');
-      }else if(userState == UserProviderState.loggedOut){
-        context.go('/login');
-      }
+    }else{
+      userProvider.userProviderInit();
     }
   }
 
@@ -61,15 +45,8 @@ class _SplashPageState extends State<SplashPage> {
     userProvider = Provider.of<UserProvider>(context);
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF3CB8C5),
-              Color(0xFF007E94),
-            ],
-          ),
+        decoration:  BoxDecoration(
+          gradient: ThemeManager.primaryGradient
         ),
         child: Center(
           child: BounceWidget(child: Image.asset('assets/image/app/splash_icon.png', height: 100, width: 100, fit: BoxFit.cover,))

@@ -6,20 +6,20 @@ import 'dart:io';
 
 import '../../project/Theme_Manager.dart';
 
+void launchStore() async {
+  final links = await FirebaseFirestore.instance.collection('app').doc('link').get();
+
+  final url = Platform.isIOS
+      ? links['ios'] // iOS 앱스토어 주소
+      : links['android']; // Android
+
+  if (await canLaunchUrl(Uri.parse(url))) {
+    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  }
+}
+
 class UpdateDialog extends StatelessWidget {
   const UpdateDialog({super.key});
-
-  void _launchStore() async {
-    final links = await FirebaseFirestore.instance.collection('app').doc('link').get();
-
-    final url = Platform.isIOS
-        ? links['ios'] // iOS 앱스토어 주소
-        : links['android']; // Android
-
-    if (await canLaunchUrl(Uri.parse(url))) {
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    }
-  }
 
   void _exitApp() {
     exit(0); // 강제 종료
@@ -72,7 +72,7 @@ class UpdateDialog extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: ElevatedButton(
-                onPressed: _launchStore,
+                onPressed: launchStore,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   foregroundColor: Colors.white,

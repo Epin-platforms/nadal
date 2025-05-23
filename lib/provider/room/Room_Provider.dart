@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -6,10 +7,12 @@ import 'package:my_sports_calendar/manager/dialog/Dialog_Manager.dart';
 import 'package:my_sports_calendar/manager/project/Import_Manager.dart';
 import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
 import 'package:my_sports_calendar/model/room/Room_Log.dart';
+import 'package:my_sports_calendar/provider/notification/Notification_Provider.dart';
 
 import '../../manager/server/Socket_Manager.dart';
 
 class RoomProvider extends ChangeNotifier{
+  final int MAX_IMAGE_LENGTH = 5;
   final SocketManager socket = SocketManager(); //방 로그 리스너를 위한 소켓 연결
 
   _socketListener({required bool isOn}){
@@ -18,13 +21,20 @@ class RoomProvider extends ChangeNotifier{
       socket.on('refreshMember', _fetchRoomMembers);
       socket.on('updateLastRead', _updateLastRead);
       socket.on('gradeChanged', _gradeHandler);
+      socket.on('announce', _getAnnounce);
     }else{
       socket.off('roomLog', _addRoomLog);
       socket.off('refreshMember', _fetchRoomMembers);
       socket.off('updateLastRead', _updateLastRead);
       socket.off('gradeChanged', _gradeHandler);
+      socket.off('announce', _getAnnounce);
     }
   }
+
+  _getAnnounce(dynamic data){
+    _fetchLastAnnounce();
+  }
+
 
   _addRoomLog(dynamic data){
     final log = RoomLog.fromJson(data);
@@ -112,6 +122,9 @@ class RoomProvider extends ChangeNotifier{
 
   Future<void> _fetchLastAnnounce() async {
     if (_room == null || _room!['roomId'] == null) return;
+    //한번 초기화하고 불러오기
+    _lastAnnounce = {};
+    notifyListeners();
 
     try {
       final res = await serverManager.get('room/lastAnnounce?roomId=${_room!['roomId']}');
@@ -126,8 +139,14 @@ class RoomProvider extends ChangeNotifier{
   }
 
   //방내 채팅 시스템에서 해야하는거
-  List<File>? images;
   int? _reply;
+  int? get reply => _reply;
+
+  setReply(int? value){
+    _reply = value;
+    notifyListeners();
+  }
+
 
   bool _sending = false;
   bool get sending => _sending;
@@ -149,6 +168,103 @@ class RoomProvider extends ChangeNotifier{
       _sending = false;
       notifyListeners();
     }
+  }
+
+  //이미지 전송
+  final ImagePicker _picker = ImagePicker();
+
+  Future<List<File>> getImages() async {
+    try {
+      List<File> pickedImage = [];
+      final List<XFile> images = await _picker.pickMultiImage();
+      if (images.isEmpty) return [];
+
+      for (XFile image in images) {
+        pickedImage.add(File(image.path));
+      }
+
+      return pickedImage;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<File?> pickImageFromCamera() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+    if (image == null) {
+      return null;
+    }
+    return File(image.path);
+  }
+
+  //이미지 보내기
+  List<File> _sendingImage = [];
+  List<File> get sendingImage => _sendingImage;
+  void sendImage() async{
+    try{
+      final images = await getImages();
+      if(images.isEmpty) return;
+
+      if(images.length > MAX_IMAGE_LENGTH){
+        DialogManager.showBasicDialog(title: '앗 이런...', content: '이미지는 최대 5장까지만 가능해요', confirmText: '확인');
+        return;
+      }
+      _sendingImage = images;
+      notifyListeners();
+      final formData = FormData();
+
+      formData.fields.addAll([
+        MapEntry('roomId', _room!['roomId'].toString()),
+        MapEntry('type', '1'),
+      ]);
+
+      for (final image in images.take(5)) {
+        formData.files.add(
+          MapEntry(
+            'image',
+            await MultipartFile.fromFile(image.path, filename: image.path.split('/').last),
+          ),
+        );
+      }
+
+      await serverManager.post('chat/send', data: formData);
+    }catch(error){
+      print(error);
+    }finally{
+      _sendingImage.clear();
+      notifyListeners();
+    }
+  }
+
+  //카메라로 이미지보내기
+  void sentImageByCamera() async{
+    try{
+      final image = await pickImageFromCamera();
+      if(image == null) return;
+      _sendingImage.add(image);
+      notifyListeners();
+      final formData = FormData();
+
+      formData.fields.addAll([
+        MapEntry('roomId', _room!['roomId'].toString()),
+        MapEntry('type', '1'),
+      ]);
+
+      formData.files.add(
+        MapEntry(
+          'image',
+          await MultipartFile.fromFile(image.path, filename: image.path.split('/').last),
+        ),
+      );
+
+      await serverManager.post('chat/send', data: formData);
+    }catch(error){
+      print(error);
+    }finally{
+      _sendingImage.clear();
+      notifyListeners();
+    }
+
   }
 
   //방 설정 페이지
@@ -233,5 +349,11 @@ class RoomProvider extends ChangeNotifier{
     };
     await serverManager.put('roomMember/grade', data:  data);
     AppRoute.popLoading();
+  }
+
+
+  //사용자 초대하기
+  List<String> filterInviteAbleUsers(List<String> uid){
+    return uid.where((e)=> !roomMembers.keys.contains(e)).toList(); //사용자가 아닌 사람들만
   }
 }

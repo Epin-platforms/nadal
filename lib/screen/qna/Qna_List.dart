@@ -1,6 +1,7 @@
 import 'package:intl/intl.dart';
 import 'package:my_sports_calendar/model/qna/Qna_Model.dart';
 import 'package:my_sports_calendar/provider/qna/Qna_Provider.dart';
+import 'package:my_sports_calendar/screen/qna/Qna_Detail_Page.dart';
 
 import '../../manager/project/Import_Manager.dart';
 
@@ -17,19 +18,27 @@ class _QnaListState extends State<QnaList> {
   bool _isFaqExpanded = true;
 
   // 새 문의 작성 페이지로 이동
-  void _navigateToNewInquiry() {
-    // 실제 앱에서는 네비게이션 로직으로 대체
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('새 문의 작성 페이지로 이동합니다')),
-    );
+  void _navigateToNewInquiry() async{
+    final QnaModel? res = await context.push('/qna/write');
+
+    if(res != null){
+      DialogManager.showBasicDialog(title: '문의가 접수되었습니다', content: '문의가 성공적으로 접수되었습니다. 빠른 시일 내에 답변 드리겠습니다.', confirmText: '확인');
+      provider.updateRecently(res);
+    }
   }
 
   // 문의 상세 페이지로 이동
-  void _navigateToInquiryDetail(QnaModel inquiry) {
-    // 실제 앱에서는 네비게이션 로직으로 대체
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('문의 상세 페이지로 이동: ${inquiry.title}')),
-    );
+  void _navigateToInquiryDetail(QnaModel inquiry) async{
+    final res = await Navigator.of(context).push(MaterialPageRoute(builder: (_)=> QnaDetailPage(qnaModel: inquiry)));
+
+    if(res != null){
+      if(res['action'] == 'delete'){
+        final qid = res['qid'];
+        provider.removeQna(qid);
+      }else if(res['action'] == 'write'){
+        _navigateToNewInquiry();
+      }
+    }
   }
 
   @override
@@ -97,15 +106,8 @@ class _QnaListState extends State<QnaList> {
   Widget _buildFaqSection() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10.r,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Column(
         children: [

@@ -35,10 +35,13 @@ class HomeProvider extends ChangeNotifier{
 
   _fetchMorePageBanner() async{
     final res = await serverManager.get('app/banner/more');
-
     if(res.statusCode == 200){
-      _morePageBanner = res.data;
-      notifyListeners();
+      final data = List.from(res.data);
+
+      if(data.isNotEmpty){
+        _morePageBanner = res.data;
+        notifyListeners();
+      }
     }
   }
 }

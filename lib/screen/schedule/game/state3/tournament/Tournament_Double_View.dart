@@ -8,9 +8,9 @@ import '../../../../../manager/project/Import_Manager.dart';
 import 'Wait_Pre_Round.dart';
 
 class TournamentTeamView extends StatefulWidget {
-  const TournamentTeamView({super.key, required this.gameProvider});
+  const TournamentTeamView({super.key, required this.gameProvider, required this.scheduleProvider});
   final GameProvider gameProvider;
-
+  final ScheduleProvider scheduleProvider;
   @override
   State<TournamentTeamView> createState() => _TournamentTeamViewState();
 }
@@ -25,7 +25,7 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
   void initState() {
     _roundList = widget.gameProvider.tables!.entries.map((e) => (e.value['tableId'] ~/ 1000) as int).toList();
     _lastRound = _roundList.isEmpty ? 1 : _roundList.reduce((a,b) => a > b ? a : b);
-    finalScore = widget.gameProvider.scheduleProvider.schedule!['finalScore'];
+    finalScore = widget.scheduleProvider.schedule!['finalScore'];
     WidgetsBinding.instance.addPostFrameCallback((_)=> _calculateCurrentRound());
     super.initState();
   }
@@ -39,7 +39,7 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
         .map((e) => (e.value['tableId'] ~/ 1000) as int)
         .toList();
     final maxRound = roundsList.isEmpty ? 1 : roundsList.reduce((a, b) => a > b ? a : b);
-    final finalScore = widget.gameProvider.scheduleProvider.schedule?['finalScore'] ?? 6;
+    final finalScore = widget.scheduleProvider.schedule?['finalScore'] ?? 6;
 
     for (int round = 1; round <= maxRound; round++) {
       final roundTables = tables.entries
@@ -98,9 +98,9 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
     gameTable.sort((a,b)=> a['tableId'].compareTo(b['tableId']));
 
     //기타 내용
-    final isProgress = widget.gameProvider.scheduleProvider.schedule?['state'] == 3;
+    final isProgress = widget.scheduleProvider.schedule?['state'] == 3;
     final uid = context.read<UserProvider>().user?['uid'];
-    final isOwner = uid == widget.gameProvider.scheduleProvider.schedule?['uid'];
+    final isOwner = uid == widget.scheduleProvider.schedule?['uid'];
     final isLastRound = _lastRound == _currentRound;
     final rounds = gameTable.map((e)=> e['tableId'] ~/ 1000).toSet().length;
 
@@ -450,7 +450,7 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
 
   String _getRoundName(int round){
     // 팀 기반이므로 팀 수를 계산
-    final membersCount = widget.gameProvider.scheduleProvider.scheduleMembers!.length;
+    final membersCount = widget.scheduleProvider.scheduleMembers!.length;
     // 평균 2명이 한 팀이라고 가정하면 팀 수는 대략 멤버 수의 절반
     final teamCount = (membersCount / 2).ceil();
     final num = teamCount ~/ pow(2, round-1);
@@ -475,7 +475,7 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
 
           // 팀 멤버 정보 가져오기
           final members = validUids.map((uid) =>
-          widget.gameProvider.scheduleProvider.scheduleMembers![uid]).toList();
+          widget.scheduleProvider.scheduleMembers![uid]).toList();
 
           // 팀 인덱스(모든 멤버는 같은 인덱스 가짐)
           final teamIndex = members.first['memberIndex'];

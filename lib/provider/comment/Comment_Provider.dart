@@ -3,12 +3,12 @@ import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
 
 class CommentProvider extends ChangeNotifier{
   DateTime? _lastUpdate;
-  late final int _scheduleId;
+  int? _scheduleId;
 
-
-  CommentProvider(int scheduleId){
-    print('here');
-    _scheduleId = scheduleId;
+  ///댓글 프로바이더 스케줄 아이디 지정
+  initCommentProvider(int id){
+    _scheduleId = id;
+    notifyListeners();
     fetchComment();
   }
 

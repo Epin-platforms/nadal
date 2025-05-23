@@ -26,7 +26,7 @@ class SearchRoom extends StatelessWidget {
                     child: Column(
                       children: [
                         Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
                             child: SearchTextField(controller: provider.searchController, node: provider.searchNode, onSubmit: (String value)=> provider.onSubmit(value),)),
                         Expanded(
                             child: SingleChildScrollView(
@@ -42,10 +42,10 @@ class SearchRoom extends StatelessWidget {
                                   ResultList(provider: provider),
                                   if(provider.recentlySearch.isNotEmpty || provider.autoTextSearch.isNotEmpty || provider.mode == SearchMode.result)
                                     ...[
-                                      SizedBox(height: 24,),
+                                      SizedBox(height: 24.h,),
                                       if(provider.recommendRooms.isNotEmpty)
                                       Padding(
-                                          padding: EdgeInsets.only(left: 16),
+                                          padding: EdgeInsets.only(left: 16.w),
                                           child: Text('이런 클럽은 어떠세요?', style: Theme.of(context).textTheme.titleLarge,)),
                                       RecommendList(provider: provider)
                                     ],

@@ -3,12 +3,16 @@ import 'package:flutter/cupertino.dart';
 import '../manager/project/Import_Manager.dart';
 
 class NadalUserProfile extends StatelessWidget {
-  const NadalUserProfile({super.key, required this.item});
+  const NadalUserProfile({super.key, required this.item, this.onTap});
   final Map item;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
+      onTap: onTap ?? (){
+        context.push('/user/${item['uid']}');
+      } ,
       leading: NadalProfileFrame(
         imageUrl: item['profileImage'],
       ),

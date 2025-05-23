@@ -10,12 +10,14 @@ class NadalSolidContainer extends StatelessWidget {
     this.margin,
     this.padding,
     this.onTap,
-    this.color
+    this.color,
+    this.fitted = false
   });
 
   final VoidCallback? onTap;
   final Widget? child;
   final double? height;
+  final bool fitted;
   final Alignment alignment;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
@@ -27,7 +29,7 @@ class NadalSolidContainer extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       onTap: onTap,
       child: Container(
-        height: height ?? 48.h,
+        height: fitted ? null : height ?? 48.h,
         padding: padding,
         margin: margin,
         alignment: alignment,

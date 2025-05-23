@@ -1,9 +1,12 @@
 import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
 import 'package:my_sports_calendar/manager/form/room/Grader_Form_Manger.dart';
+import 'package:my_sports_calendar/model/share/Share_Parameter.dart';
+import 'package:my_sports_calendar/provider/notification/Notification_Provider.dart';
 import 'package:my_sports_calendar/provider/room/Room_Provider.dart';
 import 'package:my_sports_calendar/widget/Nadal_Room_Frame.dart';
 import '../../../manager/project/Import_Manager.dart';
+import '../../../widget/Share_Bottom_Sheet.dart';
 
 class RoomDrawer extends StatefulWidget {
   const RoomDrawer({super.key, required this.roomId});
@@ -35,7 +38,7 @@ class _RoomDrawerState extends State<RoomDrawer> {
 
   @override
   Widget build(BuildContext context) {
-    final double size = 38;
+    final double size = 38.r;
     roomsProvider = Provider.of<RoomsProvider>(context);
     provider = Provider.of<RoomProvider>(context);
     chatProvider = Provider.of<ChatProvider>(context);
@@ -50,12 +53,23 @@ class _RoomDrawerState extends State<RoomDrawer> {
         appBar: NadalAppbar(
           actions: [
             NadalIconButton(
-              onTap: () async{
-
+              onTap: () {
+                showModalBottomSheet(
+                  context: context,
+                  backgroundColor: Colors.transparent,
+                  isScrollControlled: true,
+                  builder: (context) => ShareBottomSheet(shareParameter: ShareParameter(
+                      title: '${room['roomName']}',
+                      link: null,
+                      imageUrl: room['roomImage'] ?? 'https://cdn.imweb.me/thumbnail/20250520/d0cc0303965c0.png',
+                      subTitle: '지금 바로 커뮤니티를 구경해볼까요?',
+                      routing: '/room/${widget.roomId}'
+                  ),),
+                );
               },
               icon: CupertinoIcons.share
             ),
-            SizedBox(width: 8,),
+            SizedBox(width: 8.w,),
             NadalIconButton(
                 onTap: () async{
                   final result = await provider.switchAlarm(alarm);
@@ -64,7 +78,7 @@ class _RoomDrawerState extends State<RoomDrawer> {
                 icon:  alarm ?
                 BootstrapIcons.bell : BootstrapIcons.bell_slash,
             ),
-            SizedBox(width: 8,),
+            SizedBox(width: 8.w,),
             if(my['grade'] < 2)
             NadalIconButton(
               onTap: () async{
@@ -100,50 +114,50 @@ class _RoomDrawerState extends State<RoomDrawer> {
         body: SafeArea(
           child: SingleChildScrollView(
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
+                padding: EdgeInsets.symmetric(horizontal: 16.w),
                 child: Column(
                   children: [
-                    SizedBox(height: 40,),
-                    Center(child: NadalRoomFrame(size: 80, imageUrl: room['roomImage'])),
-                    SizedBox(height: 12,),
+                    SizedBox(height: 40.h,),
+                    Center(child: NadalRoomFrame(size: 80.r, imageUrl: room['roomImage'])),
+                    SizedBox(height: 12.h,),
                     Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20),
+                        padding: EdgeInsets.symmetric(horizontal: 20.w),
                         child: Text(provider.room?['roomName'] ?? '알수없는 채팅방', style: theme.textTheme.titleLarge,)),
-                    SizedBox(height: 4,),
+                    SizedBox(height: 4.h,),
                     Text('${room['local']} ${room['city']}', style: theme.textTheme.labelMedium,),
                     Text(DateFormat('yyyy.MM.dd').format(DateTime.parse(room['createAt']).toLocal()), style: theme.textTheme.labelSmall,),
-                    SizedBox(height: 24,),
+                    SizedBox(height: 24.h,),
                     //방소개 탭
                     Container(
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(12.r),
                         color: theme.highlightColor.withValues(alpha: 0.2)
                       ),
-                      padding: EdgeInsets.all(12),
+                      padding: EdgeInsets.all(12.r),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              SizedBox(width: 30, height: 20,
+                              SizedBox(width: 30.w, height: 20.h,
                                 child: FittedBox(
                                     fit: BoxFit.fitHeight,
-                                    child: Icon(BootstrapIcons.chat_dots_fill, size: 24,)),
+                                    child: Icon(BootstrapIcons.chat_dots_fill, size: 24.r,)),
                               ),
                               Text('방 소개', style: theme.textTheme.titleSmall,),
                             ],
                           ),
-                          SizedBox(height: 12,),
+                          SizedBox(height: 12.h,),
                           Container(
                               constraints: BoxConstraints(
-                                maxHeight: 150,
+                                maxHeight: 150.h,
                               ),
                               child: SingleChildScrollView(child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(room['description'].isEmpty ?  '소개가 없습니다.' : room['description'], style: theme.textTheme.bodyMedium),
                                   if(room['tag'].isNotEmpty && room['description'].isNotEmpty)
-                                  SizedBox(height: 4,),
+                                  SizedBox(height: 4.h,),
                                   Text(room['tag'].isNotEmpty  ?  room['tag'] : '', style: theme.textTheme.bodyMedium?.copyWith(color: ThemeManager.infoColor)),
                                 ],
                               )))
@@ -151,35 +165,51 @@ class _RoomDrawerState extends State<RoomDrawer> {
                       ),
                     ),
                     SizedBox(
-                      height: 16,
+                      height: 16.h,
                     ),
                     Container(
                       decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(12.r),
                           color: theme.highlightColor.withValues(alpha: 0.2)
                       ),
-                      padding: EdgeInsets.symmetric(vertical: 12),
+                      padding: EdgeInsets.symmetric(vertical: 12.r),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              SizedBox(width: 12,),
-                              SizedBox(width: 30, height: 20,
+                              SizedBox(width: 12.w,),
+                              SizedBox(width: 30.w, height: 20.h,
                                 child: FittedBox(
                                     fit: BoxFit.fitHeight,
-                                    child: Icon(BootstrapIcons.people_fill, size: 24,)),
+                                    child: Icon(BootstrapIcons.people_fill, size: 24.r,)),
                               ),
                               Text('인원 ${room['memberCount']}', style: theme.textTheme.titleSmall,),
                             ],
                           ),
-                          SizedBox(height: 12,),
+                          SizedBox(height: 12.h,),
                           ListTile(
-                            onTap: (){
-                              context.push('/search/friends');
+                            onTap: () async{
+                              final notiProvider = context.read<NotificationProvider>();
+                              final List<String>? res = await context.push('/friends?selectable=true');
+
+                              if(res != null && res.isNotEmpty){
+                                final users = provider.filterInviteAbleUsers(res);
+                                if(users.length != res.length){
+                                  SnackBarManager.showCleanSnackBar(context,
+                                      '이미 참가 중인 사용자가 있어 제외하고 전송됩니다');
+                                }
+                                final failed = await notiProvider.sendNotification(
+                                    receivers: users,
+                                    title: '${provider.room!['roomName']} 커뮤니티에서 초대가 왔습니다',
+                                    subTitle: '지금 바로 입장해볼까요?',
+                                    routing: '/previewRoom/${provider.room!['roomId']}'
+                                );
+                                SnackBarManager.showCleanSnackBar(context, '${users.length - failed.length}/${users.length}명에게 초대장을 보냈습니다.');
+                              }
                             },
-                            minTileHeight: 42,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                            minTileHeight: 42.h,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 5.h),
                             leading: ClipPath(
                               clipper: SoftEdgeClipper(),
                               child: Container(
@@ -202,7 +232,7 @@ class _RoomDrawerState extends State<RoomDrawer> {
                               final user = context.read<UserProvider>().user!;
                               return ListTile(
                                 onTap: (){
-
+                                  context.push('/user/${my['uid']}');
                                 },
                                 minTileHeight: 42,
                                 contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 5),
@@ -226,7 +256,7 @@ class _RoomDrawerState extends State<RoomDrawer> {
 
                                 return ListTile(
                                   onTap: (){
-
+                                    context.push('/user/${member['uid']}');
                                   },
                                   minTileHeight: 42,
                                   contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 5),

@@ -26,10 +26,10 @@ class ResultList extends StatelessWidget {
       itemBuilder: (context, index){
         final item = provider.resultRooms[index];
         return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          margin:  EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
           decoration: BoxDecoration(
             color: theme.cardColor,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(16.r),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.04),
@@ -40,9 +40,8 @@ class ResultList extends StatelessWidget {
             ],
           ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(16.r),
             onTap: () {
-
               if(context.read<RoomsProvider>().rooms!.containsKey(item['roomId'])){
                 context.push('/room/${item['roomId']}');
               }else{
@@ -51,16 +50,16 @@ class ResultList extends StatelessWidget {
               HapticFeedback.lightImpact();
             },
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(12.r),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // 룸 이미지
                   Container(
-                    width: 70,
-                    height: 70,
+                    width: 70.r,
+                    height: 70.r,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(12.r),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.05),
@@ -73,7 +72,7 @@ class ResultList extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                       child: NadalRoomFrame(
                         imageUrl: item['roomImage'],
-                        size: 70,
+                        size: 70.r,
                       ),
                     ),
                   ),
@@ -90,14 +89,14 @@ class ResultList extends StatelessWidget {
                         Text(
                           item['roomName'],
                           style: theme.textTheme.titleSmall?.copyWith(
-                            fontSize: 16,
+                            fontSize: 16.sp,
                             fontWeight: FontWeight.w600,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
 
-                        const SizedBox(height: 5),
+                        SizedBox(height: 5.h),
 
                         // 룸 설명
                         Text(
@@ -110,40 +109,40 @@ class ResultList extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
 
-                        const SizedBox(height: 8),
+                        SizedBox(height: 8.h),
 
                         // 태그 및 멤버 카운트
                         Row(
                           children: [
                             // 태그 표시
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.secondary.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                item['tag'],
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.secondary,
-                                  fontWeight: FontWeight.w500,
+                            Expanded(
+                              child: Container(
+                                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.secondary.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                                child: Text(
+                                  item['tag'],
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: theme.colorScheme.secondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ),
-
-                            const Spacer(),
-
+                            SizedBox(width: 8.w,),
                             // 멤버 수 표시
                             Row(
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.people_alt_rounded,
-                                  size: 14,
+                                  size: 14.r,
                                   color: Colors.grey,
                                 ),
-                                const SizedBox(width: 4),
+                                 SizedBox(width: 4.w),
                                 RichText(
                                   text: TextSpan(
                                     children: [

@@ -47,7 +47,7 @@ class _RoomState extends State<Room> {
     //그래도 없다면 조인 삭제 및 플레이스 변경
     if(chatProvider.my[widget.roomId] == null){
       await chatProvider.removeRoom(widget.roomId);
-      context.pushReplacement('room/preview/${widget.roomId}');
+      context.pushReplacement('/room/preview/${widget.roomId}');
     }
 
     //룸데이터 룸 프로바이더에 세팅하기
@@ -108,13 +108,13 @@ class _RoomState extends State<Room> {
                             roomProvider: provider,
                           )
                       ),
-                      SizedBox(height: 10,),
+                      SizedBox(height: 10.h,),
                       ChatField(roomProvider: provider,),
                     ],
                   ),
                   if(provider.lastAnnounce.isNotEmpty)
                   Positioned(
-                      top: 0, right: 0, left: 0,
+                      top: 0, right: 16.w, left: 16.w,
                       child: RoomAnnouncedWidget(announce: provider.lastAnnounce)
                   )
                 ],

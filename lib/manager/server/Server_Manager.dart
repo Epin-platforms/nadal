@@ -7,13 +7,13 @@ class ServerManager{
   final Dio _dio;
   final String baseUrl;
   final String defaultHeaders;
-
-  ServerManager({required this.baseUrl, required this.defaultHeaders}) :
+  final int duration;
+  ServerManager({required this.baseUrl, required this.defaultHeaders, this.duration = 15}) :
         _dio = Dio(
             BaseOptions(
                 baseUrl: baseUrl,
-                connectTimeout: Duration(seconds: 15),
-                receiveTimeout: Duration(seconds: 15),
+                connectTimeout: Duration(seconds: duration),
+                receiveTimeout: Duration(seconds: duration),
                 headers: {
                   'Content-Type': defaultHeaders,
                   'Accept': defaultHeaders,
@@ -95,6 +95,8 @@ class ServerManager{
           'requiresToken': true,
           if (data is FormData) 'Content-Type': 'multipart/form-data',
         },
+        sendTimeout: data is FormData ? const Duration(seconds: 60) : const Duration(seconds: 10),
+        receiveTimeout: data is FormData ? const Duration(seconds: 60) : const Duration(seconds: 10),
       ) : null;
 
       final response = await _dio.post(path, data: data, options: options);
@@ -103,6 +105,7 @@ class ServerManager{
       return _handleError(e);
     }
   }
+
 
   // ✅ PUT 요청
   Future<Response> put(String path, {dynamic data, bool requiredToken = true}) async {
@@ -212,5 +215,6 @@ class ServerManager{
 final ServerManager serverManager = ServerManager(
   baseUrl: dotenv.get('SERVER_URL'),
   defaultHeaders: 'application/json; charset=UTF-8',
+  duration: 15
 );
 

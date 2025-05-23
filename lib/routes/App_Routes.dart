@@ -1,6 +1,16 @@
+import 'package:my_sports_calendar/model/report/Report_Model.dart';
+import 'package:my_sports_calendar/provider/profile/User_Profile_Provider.dart';
+import 'package:my_sports_calendar/screen/auth/cancel/Cancel_User.dart';
+import 'package:my_sports_calendar/screen/friends/Friend_List_Page.dart';
+import 'package:my_sports_calendar/screen/image/Image_View.dart';
 import 'package:my_sports_calendar/screen/notification/Notification_Page.dart';
+import 'package:my_sports_calendar/screen/profile/User_Profile.dart';
 import 'package:my_sports_calendar/screen/qna/Qna_List.dart';
+import 'package:my_sports_calendar/screen/qna/Qna_Write.dart';
 import 'package:my_sports_calendar/screen/report/Report_Page.dart';
+import 'package:my_sports_calendar/screen/schedule/Schedule.dart';
+import 'package:my_sports_calendar/screen/web/Nadal_WebView.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../manager/project/Import_Manager.dart';
 import '../provider/game/Game_Provider.dart';
@@ -18,6 +28,16 @@ import '../screen/profile/Profile_Edit.dart';
 import '../screen/profile/Profile_More.dart';
 import '../screen/rooms/create/Create_Room.dart';
 import '../screen/splash/Splash_Page.dart';
+
+Future<void> launchWebPage(String url) async {
+  final Uri uri = Uri.parse(url);
+
+  if (await canLaunchUrl(uri)) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } else {
+    throw 'Could not launch $url';
+  }
+}
 
 class AppRoute{
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -222,7 +242,17 @@ class AppRoute{
         ),
         //친구관련
         GoRoute(
-            path: '/select/friends',
+            path: '/friends',
+            pageBuilder: (context, state){
+              final bool selectable = state.uri.queryParameters['selectable'] == 'true' ? true : false;
+              return NadalTransitionPage(
+                child: FriendListPage(selectable: selectable),
+                key: state.pageKey,
+              );
+            }
+        ),
+        GoRoute(
+            path: '/search/friends',
             pageBuilder: (context, state) => NadalTransitionPage(
               child: FriendsSearch(),
               key: state.pageKey,
@@ -240,21 +270,11 @@ class AppRoute{
         //스케줄 메인페이지
         ShellRoute(
           builder: (context, state, child){
-            final rawId = state.pathParameters['scheduleId'];
-            final scheduleId = int.parse(rawId ?? '-1');
-
             return  MultiProvider(
                 providers: [
-                  ChangeNotifierProvider(create: (_)=> ScheduleProvider(scheduleId)),
-                  ChangeNotifierProvider(create: (_)=> CommentProvider(scheduleId)),
-                  //스케줄 프로바이더 등록해놓기
-                  ChangeNotifierProxyProvider<ScheduleProvider, GameProvider>(
-                    create: (_) => GameProvider(),
-                    update: (_, scheduleProvider, gameProvider) {
-                      gameProvider!.initGameProvider(scheduleProvider);
-                      return gameProvider;
-                    },
-                  ),
+                  ChangeNotifierProvider(create: (_)=> ScheduleProvider()),
+                  ChangeNotifierProvider(create: (_)=> CommentProvider()),
+                  ChangeNotifierProvider(create: (_)=> GameProvider())
                 ],
                 child: child,
             );
@@ -262,11 +282,16 @@ class AppRoute{
           routes: [
           GoRoute(
               path: '/schedule/:scheduleId',
-              pageBuilder: (context, state) => NadalTransitionPage(
-                  child: ScheduleStreamView(),
-                  key: state.pageKey,
-                  transitionType: PageTransitionType.slideFromRight
-              ),
+              pageBuilder: (context, state){
+                final rawId = state.pathParameters['scheduleId'];
+                final scheduleId = int.parse(rawId ?? '-1');
+
+                return NadalTransitionPage(
+                    child: Schedule(scheduleId: scheduleId),
+                    key: state.pageKey,
+                    transitionType: PageTransitionType.slideFromRight
+                );
+              }
             ),
             GoRoute(
                 path: '/schedule/:scheduleId/participation',
@@ -314,7 +339,32 @@ class AppRoute{
                   )
               ),
             ]),
-
+        //이미지 보가
+        GoRoute(
+            path: '/image',
+            pageBuilder: (context, state){
+              final url = state.uri.queryParameters['url']!;
+              return  NadalTransitionPage(
+                child: ImageView(imageUrl: url),
+                transitionType: PageTransitionType.slideFromRight,
+                key: state.pageKey,
+              );
+            }
+        ),
+        //사용자 프로필
+        GoRoute(
+            path: '/user/:uid',
+            pageBuilder: (context, state){
+              final uid = state.pathParameters['uid'];
+              return  NadalTransitionPage(
+                child: ChangeNotifierProvider(
+                  create: (_)=> UserProfileProvider(uid),
+                  child: UserProfile(),
+                ),
+                key: state.pageKey,
+              );
+            }
+        ),
         //알림 페이지
         GoRoute(
             path: '/notification',
@@ -351,30 +401,53 @@ class AppRoute{
                 transitionType: PageTransitionType.slideFromRight
             )
         ),
+        GoRoute(
+            path: '/qna/write',
+            pageBuilder: (context, state) => NadalTransitionPage(
+                child: QnaWrite(),
+                key: state.pageKey,
+                transitionType: PageTransitionType.slideFromRight
+            )
+        ),
 
         GoRoute(
             path: '/report',
             pageBuilder: (context, state){
-              final item = state.pathParameters;
+              final targetId = state.uri.queryParameters['targetId'] ?? 'null';
+              final type = ReportModel.switchToType(state.uri.queryParameters['type']);
               return NadalTransitionPage(
-                  child: ReportPage(item: item,),
+                  child: ReportPage(targetId: targetId, type: type,),
                   key: state.pageKey,
                   transitionType: PageTransitionType.slideFromRight
               );
             }
         ),
 
+        //웹뷰
         GoRoute(
-            path: 'web/:url',
+            path: '/web',
             pageBuilder: (context, state){
-              final item = state.pathParameters;
+              final url = state.uri.queryParameters['url'];
               return NadalTransitionPage(
-                  child: ReportPage(item: item,),
+                  child: NadalWebView(url: url),
                   key: state.pageKey,
                   transitionType: PageTransitionType.slideFromRight
               );
             }
-        )
+        ),
+
+        //회원탈퇴
+        GoRoute(
+            path: '/cancel',
+            pageBuilder: (context, state){
+              return NadalTransitionPage(
+                  child: CancelUser(),
+                  key: state.pageKey,
+                  transitionType: PageTransitionType.slideFromRight
+              );
+            }
+        ),
+
       ],
     errorBuilder: (context, state) => Scaffold(
       appBar: NadalAppbar(),
@@ -398,9 +471,7 @@ class AppRoute{
     final ctx = navigatorKey.currentContext;
     if (ctx != null && GoRouter.of(ctx).canPop()) {
       final location = GoRouter.of(ctx).state.uri.toString();
-      print(location);
       if (location == '/loading') {
-        print('로딩 닫기 실행');
         GoRouter.of(ctx).pop();
       }
     }

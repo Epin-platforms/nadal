@@ -1,3 +1,5 @@
+import 'package:my_sports_calendar/manager/game/Game_Manager.dart';
+
 import '../../../manager/project/Import_Manager.dart';
 
 class ParticipationSolo extends StatefulWidget {
@@ -79,7 +81,7 @@ class _ParticipationSoloState extends State<ParticipationSolo> {
                                             ),
                                           ),
                                           TextSpan(
-                                            text: ' /${game == '대진표단식' ? '13' : '16'}',
+                                            text: ' /${game == '대진표단식' ? '${GameManager.max_kdk_single_member}' : '${GameManager.max_kdk_double_member}'}',
                                             style: theme.textTheme.bodyMedium?.copyWith(
                                               color: theme.hintColor,
                                               fontWeight: FontWeight.normal,

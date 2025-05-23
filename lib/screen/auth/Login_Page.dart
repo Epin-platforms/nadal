@@ -12,42 +12,46 @@ class LoginPage extends StatelessWidget {
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+          padding:  EdgeInsets.symmetric(horizontal: 32.w),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SizedBox(height: 100),
+              SizedBox(height: 100.h),
               // 앱 로고
-              Image.asset("assets/image/app/login_logo.png"),
+              Image.asset(MediaQuery.of(context).platformBrightness == Brightness.dark ?
+              "assets/image/app/login_logo_dark.png"
+              : "assets/image/app/login_logo.png"),
 
               Text(
                 '오늘부터 나달과 함께하는 스포츠 라이프!',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
 
-              const SizedBox(height: 10),
+              SizedBox(height: 10.h),
               Text(
                 '소셜 계정으로 간편하게 시작하세요',
                 style: Theme.of(context).textTheme.labelMedium,
               ),
 
-              const SizedBox(height: 20),
+              Spacer(),
       
               // 소셜 로그인 버튼들
-              Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      InkWell(
-                          onTap: (){
-                            KakaoManager().kakaoLogin();
-                          },
-                          child: KakaoButton()),
-                      GoogleButton(),
-                      if(Platform.isIOS)
-                        AppleButton()
-                    ],
-                  )
+              Column(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  InkWell(
+                      onTap: (){
+                        KakaoManager().kakaoLogin();
+                      },
+                      child: KakaoButton()),
+                  SizedBox(height: 12.h,),
+                  GoogleButton(),
+                  if(Platform.isIOS) ...[
+                    SizedBox(height: 12.h,),
+                    AppleButton()
+                  ]
+
+                ],
               ),
 
               const SizedBox(height: 40),
@@ -61,7 +65,10 @@ class LoginPage extends StatelessWidget {
                     textAlign: TextAlign.center,
                   ),
                   InkWell(
-                    onTap: (){},
+                    onTap: (){
+                      final url = dotenv.get('PRIVACY_POLICY');
+                      context.push('/web?url=$url');
+                    },
                     child: Text(
                       '개인정보 처리방침',
                       style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.w500),
@@ -74,7 +81,10 @@ class LoginPage extends StatelessWidget {
                     textAlign: TextAlign.center,
                   ),
                   InkWell(
-                    onTap: (){},
+                    onTap: (){
+                      final url = dotenv.get('TERM_OF_USE');
+                      context.push('/web?url=$url');
+                    },
                     child: Text(
                       '이용약관',
                       style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.w500),

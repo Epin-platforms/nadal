@@ -1,13 +1,14 @@
 import 'package:intl/intl.dart';
 import 'package:my_sports_calendar/model/app/Notifications_Model.dart';
+import 'package:my_sports_calendar/provider/notification/Notification_Provider.dart';
 
 import '../../manager/project/Import_Manager.dart';
 import 'Notification_Icons.dart';
 
 class NotificationItem extends StatefulWidget {
-  const NotificationItem({super.key, required this.notification});
+  const NotificationItem({super.key, required this.notification, required this.provider});
   final NotificationModel notification;
-
+  final NotificationProvider provider;
   @override
   State<NotificationItem> createState() => _NotificationItemState();
 }
@@ -51,6 +52,23 @@ class _NotificationItemState extends State<NotificationItem> {
         ? colorScheme.primary.withValues(alpha: 0.7)
         : colorScheme.primary;
 
-    return const Placeholder();
+
+    return ListTile(
+      onTap: (){
+        if(!widget.notification.isRead){
+          widget.provider.readNotification(widget.notification.notificationId);
+        }
+
+        if(widget.notification.routing != null){
+          final form = !widget.notification.routing!.startsWith('/') ? '/${widget.notification.routing}' : widget.notification.routing!;
+          context.push(form);
+        }
+      },
+      tileColor: backgroundColor,
+      leading: Icon(iconData, color: iconColor,),
+      title: Text(widget.notification.title ?? '새로운 소식이 도착했어요', style: theme.textTheme.labelLarge,),
+      subtitle: Text(widget.notification.subTitle ?? '지금 확인해볼까요?', style: theme.textTheme.labelMedium,),
+      trailing: Text(timeStr, style: theme.textTheme.labelSmall,),
+    );
   }
 }

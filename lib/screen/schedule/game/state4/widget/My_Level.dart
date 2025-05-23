@@ -3,14 +3,14 @@ import 'package:my_sports_calendar/provider/game/Game_Provider.dart';
 import '../../../../../manager/project/Import_Manager.dart';
 
 class MyLevel extends StatelessWidget {
-  const MyLevel({super.key, required this.gameProvider});
+  const MyLevel({super.key, required this.gameProvider, required this.scheduleProvider});
   final GameProvider gameProvider;
-  
+  final ScheduleProvider scheduleProvider;
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final uid = FirebaseAuth.instance.currentUser!.uid;
-    final me = gameProvider.scheduleProvider.scheduleMembers![uid];
+    final me = scheduleProvider.scheduleMembers![uid];
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: Container(

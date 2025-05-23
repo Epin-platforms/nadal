@@ -1,13 +1,29 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import '../../manager/project/Import_Manager.dart';
 
-class ProfileMore extends StatelessWidget {
+class ProfileMore extends StatefulWidget {
   const ProfileMore({super.key});
+
+  @override
+  State<ProfileMore> createState() => _ProfileMoreState();
+}
+
+class _ProfileMoreState extends State<ProfileMore> {
+  late AppProvider appProvider;
+  @override
+  void initState() {
+    WidgetsBinding.instance.addPostFrameCallback((_){
+      appProvider.getTotalCacheSize();
+    });
+    super.initState();
+  }
 
   @override
   Widget build(BuildContext context) {
     final titleStyle = Theme.of(context).textTheme.titleSmall;
     final provider = Provider.of<UserProvider>(context);
+    appProvider = Provider.of<AppProvider>(context);
     final user = provider.user!;
     return Scaffold(
       appBar: NadalAppbar(
@@ -16,45 +32,60 @@ class ProfileMore extends StatelessWidget {
       body: ListView(
         children: [
           ListTile(
-            onTap: ()=> context.push('/myProfile'),
-            contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-            leading: NadalProfileFrame(imageUrl: user['profileImage'],),
-            title: Text(user['name'],  style: Theme.of(context).textTheme.titleMedium,),
-            subtitle: user['roomName'] == null ? null : Text(user['roomName'],  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor),),
-            trailing: SizedBox(
-              width: 80,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  NadalLevelFrame(level: user['level']),
-                  Icon(CupertinoIcons.forward, size: 20, color: Theme.of(context).hintColor)
-                ],
-              ),
-            ),
-          ),
-          Divider(height: 0.5),
-          ListTile(
             onTap: () async{
-
+              showCupertinoModalPopup(context: context,
+                  builder: (context){
+                    final nav = Navigator.of(context);
+                    return NadalSheet(actions: [
+                      CupertinoActionSheetAction(
+                          onPressed: (){
+                              nav.pop();
+                              context.read<AppProvider>().setTheme('dark');
+                          },
+                          child: Text('다크모드', style: Theme.of(context).textTheme.bodyLarge,)
+                      ),
+                      CupertinoActionSheetAction(
+                          onPressed: (){
+                            nav.pop();
+                            context.read<AppProvider>().setTheme('light');
+                          },
+                          child: Text('라이트모드', style: Theme.of(context).textTheme.bodyLarge,)
+                      ),
+                      CupertinoActionSheetAction(
+                          onPressed: (){
+                            nav.pop();
+                            context.read<AppProvider>().setTheme('system');
+                          },
+                          child: Text('시스템', style: Theme.of(context).textTheme.bodyLarge,)
+                      )
+                    ]);
+                  });
             },
             leading: Icon(BootstrapIcons.brush, size: 24,),
             title: Text('테마', style: titleStyle),
           ),
           Divider(height: 0.5,),
           ListTile(
-            onTap: () async{
+            onTap: () {
+                DialogManager.showBasicDialog(
+                    title: '저장된 캐시를 삭제할까요?',
+                    content: '삭제시 불러오기가 느려질수 있어요\n삭제해도 앱 사용에는 문제가 없어요.',
+                    confirmText: '취소',
+                    cancelText: '삭제하기',
+                    onCancel: () async{
+                      try{
+                        await DefaultCacheManager().emptyCache(); // 캐시 비우기
+                        await appProvider.getTotalCacheSize();
+                        SnackBarManager.showCleanSnackBar(context, '삭제가 완료되었습니다.\n삭제 불가능한 캐시가 남아있을 수 있습니다');
+                      }catch(e){
+                        print(e);
+                      }
+                    }
+                );
             },
             leading: Icon(BootstrapIcons.clipboard_data, size: 24,),
             title: Text('저장공간', style: titleStyle,),
-          ),
-          Divider(height: 0.5,),
-          ListTile(
-            onTap: () async{
-
-            },
-            leading: Icon(BootstrapIcons.info_circle),
-            title: Text('앱 관리', style: titleStyle),
-            subtitle: Text('${context.read<AppProvider>().appVersion} 버전', style: Theme.of(context).textTheme.labelMedium,)
+            trailing: Text('사용량: ${appProvider.cacheSize.toStringAsFixed(2)} MB', style: Theme.of(context).textTheme.labelSmall)
           ),
           Divider(height: 0.5,),
           ListTile(
@@ -82,7 +113,7 @@ class ProfileMore extends StatelessWidget {
           ),
           Divider(),
           ListTile(
-            onTap: ()=> showLicensePage(context: context),
+            onTap: ()=> context.push('/cancel'),
             leading: Icon(BootstrapIcons.person_dash , size: 24,),
             title: Text('회원탈퇴', style: titleStyle),
           ),
@@ -90,6 +121,4 @@ class ProfileMore extends StatelessWidget {
       ),
     );
   }
-
-
 }

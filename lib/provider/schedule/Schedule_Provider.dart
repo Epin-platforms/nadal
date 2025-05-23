@@ -5,12 +5,6 @@ class ScheduleProvider extends ChangeNotifier{
   final _auth = FirebaseAuth.instance;
   late int _scheduleId;
 
-  ScheduleProvider(int scheduleId){
-    _scheduleId = scheduleId;
-    _fetchSchedule();
-  }
-
-
   Map? _schedule;
   Map? get schedule => _schedule;
 
@@ -41,7 +35,14 @@ class ScheduleProvider extends ChangeNotifier{
     return teamMap;
   }
 
-  _fetchSchedule() async{
+  Future<void> fetchSchedule(int scheduleId) async{
+     _scheduleId = scheduleId;
+
+     if(_schedule != null){
+       _schedule = null;
+       notifyListeners();
+     }
+
      final res = await serverManager.get('schedule/$_scheduleId');
 
      if(res.statusCode == 200){

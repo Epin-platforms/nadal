@@ -95,7 +95,7 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
                                           tag: 'profile-${post['uid']}',
                                           child: NadalProfileFrame(
                                             imageUrl: post['profileImage'],
-                                            size: 42,
+                                            size: 42.r,
                                           ),
                                         ),
                                         const SizedBox(width: 12),
@@ -112,7 +112,7 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
                                               ),
                                               style: theme.textTheme.bodyMedium?.copyWith(
                                                 fontWeight: FontWeight.w600,
-                                                fontSize: 15,
+                                                fontSize: 15.sp,
                                               ),
                                             ),
                                             const SizedBox(height: 2),
@@ -132,18 +132,18 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
                                     if (post['tag'] != null)
                                       NadalScheduleTag(
                                         tag: post['tag'],
-                                        fontSize: 13,
+                                        fontSize: 13.r,
                                       ),
                                   ],
                                 ),
 
-                                const SizedBox(height: 24),
+                                SizedBox(height: 24.h),
 
                                 // 제목
                                 Text(
                                   post['title'] ?? '제목 없음',
                                   style: TextStyle(
-                                    fontSize: 22,
+                                    fontSize: 22.sp,
                                     fontWeight: FontWeight.bold,
                                     height: 1.3,
                                   ),
@@ -151,11 +151,11 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
 
                                 // 설명
                                 if (post['description'] != null && post['description'].isNotEmpty) ...[
-                                  const SizedBox(height: 12),
+                                  SizedBox(height: 12.h),
                                   Text(
                                     post['description'],
                                     style: TextStyle(
-                                      fontSize: 15.5,
+                                      fontSize: 15.5.sp,
                                       height: 1.5,
                                       color: theme.textTheme.bodyMedium?.color?.withValues(alpha : 0.9),
                                     ),
@@ -167,7 +167,7 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
                         ),
                       ),
                   
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8.h),
 
 
                       // 일정 정보 카드
@@ -183,7 +183,7 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(height: 16),
+                             SizedBox(height: 16.h),
                   
                             // 일정 시간
                             _buildInfoRow(
@@ -613,16 +613,16 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
                                           child: Row(
                                             mainAxisAlignment: MainAxisAlignment.center,
                                             children: [
-                                              const Icon(
+                                              Icon(
                                                 Icons.check_circle_outline_rounded,
-                                                color: Colors.white,
+                                                color: Theme.of(context).colorScheme.onPrimary,
                                                 size: 18,
                                               ),
                                               const SizedBox(width: 6),
                                               Text(
                                                 '모집 종료',
                                                 style: theme.textTheme.bodyMedium?.copyWith(
-                                                  color: Colors.white,
+                                                  color: Theme.of(context).colorScheme.onPrimary,
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                               ),

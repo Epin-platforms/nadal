@@ -216,6 +216,7 @@ class RoomEdit extends StatelessWidget {
                                     }, local: provider.local))
                                   ],
                                 ),
+                                SizedBox(height: 50,),
                               ],
                             ),
                           ),
@@ -240,7 +241,7 @@ class RoomEdit extends StatelessWidget {
                               title: active ? '수정하기' : DateFormat('MM월 dd일 이후 수정 가능').format(date),
                           );
                         }
-                      )
+                      ),
                     ],
                   )
               ),

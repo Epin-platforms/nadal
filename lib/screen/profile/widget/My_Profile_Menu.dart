@@ -8,6 +8,7 @@ class MyProfileMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final size = 88.r;
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 12),
       child: Row(
@@ -19,51 +20,51 @@ class MyProfileMenu extends StatelessWidget {
             },
             borderRadius: BorderRadius.circular(12),
             child: SizedBox(
-              height: 80,
-              width: 80,
+              height: size,
+              width: size,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(BootstrapIcons.pencil_fill, size: 24, color: Theme.of(context).colorScheme.onSurface,),
-                  SizedBox(height: 12,),
+                  Icon(BootstrapIcons.pencil_fill, size: 24.r, color: Theme.of(context).colorScheme.onSurface,),
+                  SizedBox(height: 12.h,),
                   Text('프로필 편집', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w400),)
                 ],
               ),
             ),
           ),
-          SizedBox(width: 16,),
+          SizedBox(width: 16.w,),
           InkWell(
             onTap: (){
               context.push('/myProfile/affiliationEdit');
             },
             borderRadius: BorderRadius.circular(12),
             child: SizedBox(
-              height: 80,
-              width: 80,
+              height: size,
+              width: size,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(BootstrapIcons.house_gear_fill, size: 24, color: Theme.of(context).colorScheme.onSurface,),
-                  SizedBox(height: 12,),
+                  Icon(BootstrapIcons.house_gear_fill, size: 24.r, color: Theme.of(context).colorScheme.onSurface,),
+                  SizedBox(height: 12.h,),
                   Text('대표클럽 설정', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w400))
                 ],
               ),
             ),
           ),
-          SizedBox(width: 16,),
+          SizedBox(width: 16.w,),
           InkWell(
             onTap: (){
               context.push('/myProfile/kakaoConnect');
             },
             borderRadius: BorderRadius.circular(12),
             child: SizedBox(
-              height: 80,
-              width: 80,
+              height: size,
+              width: size,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(BootstrapIcons.patch_check_fill, size: 24, color: Theme.of(context).colorScheme.onSurface,),
-                  SizedBox(height: 12,),
+                  Icon(BootstrapIcons.patch_check_fill, size: 24.r, color: Theme.of(context).colorScheme.onSurface,),
+                  SizedBox(height: 12.h,),
                   Text('카카오 연결', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w400))
                 ],
               ),

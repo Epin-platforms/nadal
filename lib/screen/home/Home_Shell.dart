@@ -1,11 +1,11 @@
 import 'package:app_links/app_links.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:my_sports_calendar/provider/app/Advertisement_Provider.dart';
 import 'package:my_sports_calendar/screen/home/Nadal_BottomNav.dart';
-import 'package:permission_handler/permission_handler.dart';
 
+import '../../manager/permission/Permission_Manager.dart';
 import '../../manager/project/Import_Manager.dart';
+import '../../provider/notification/Notification_Provider.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key, required this.child});
@@ -17,6 +17,7 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   late HomeProvider homeProvider;
+  late NotificationProvider notificationProvider;
   final AppLinks _appLinks = AppLinks();
 
   @override
@@ -30,14 +31,18 @@ class _HomeShellState extends State<HomeShell> {
   void setCommunity() async{
     final roomsProvider = context.read<RoomsProvider>();
     final chatProvider = context.read<ChatProvider>();
+    final userProvider = context.read<UserProvider>();
     await roomsProvider.roomInitialize();
     chatProvider.initializeSocket(); //소켓 연결하면 자동으로 채팅 데이터 불러와줌
-    context.read<UserProvider>().fetchMySchedules(DateTime.now()); //스케줄 init
+    userProvider.fetchMySchedules(DateTime.now()); //스케줄 init
+    _initStep();
   }
 
-  void initStep() async{
+  void _initStep() async{
+    //알림 초기화
+    notificationProvider.initialize();
     //권한 체크
-    await requestPermissions();
+    _checkPermissions();
     //마케팅 체크
     //await _marketingCheck();
     //푸쉬메시지로 접속했는지 체크
@@ -46,35 +51,17 @@ class _HomeShellState extends State<HomeShell> {
     _initDeepLinks();
   }
 
-  Future<void> requestPermissions() async {
-    DeviceInfoPlugin deviceInfoPlugin = DeviceInfoPlugin();
-    final info = await deviceInfoPlugin.androidInfo;
-
-    if(Platform.isAndroid && info.version.sdkInt < 33){
-      await [
-        Permission.camera,
-        Permission.storage,
-        Permission.notification,
-        Permission.backgroundRefresh,
-      ].request();
-    }else{
-      await [
-        Permission.camera,
-        Permission.photos,
-        Permission.notification,
-        Permission.backgroundRefresh,
-      ].request();
-    }
+  Future<void> _checkPermissions() async {
+    // 홈 화면에서 권한 요청
+    await PermissionManager.checkAndShowPermissions(context);
   }
-
 
   //푸시 메시지로 들어왔으면
   void _checkPush() {
+    final nav =  GoRouter.of(context);
     FirebaseMessaging.instance.getInitialMessage().then((msg) {
       if (msg != null) {
         Future.microtask(() {
-          final nav =  GoRouter.of(context);
-
           if (msg.data['routing'] != null) {
             nav.go('/my');
             nav.push(msg.data['routing']);
@@ -83,8 +70,7 @@ class _HomeShellState extends State<HomeShell> {
       }
     });
   }
-
-
+  
   //카카오 공유하기로 접속한 경우
   Future<void> _initDeepLinks() async {
     print('딥링크 실행');
@@ -114,6 +100,7 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    notificationProvider = Provider.of<NotificationProvider>(context);
     homeProvider = Provider.of<HomeProvider>(context);
     return Scaffold(
       body: widget.child,

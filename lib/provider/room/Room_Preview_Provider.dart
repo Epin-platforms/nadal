@@ -15,6 +15,10 @@ class RoomPreviewProvider extends ChangeNotifier{
 
     if(res.statusCode == 200){
       _room = res.data;
+      print(_room);
+      if(_room!['isJoined'] == 1){ //이미 참가중이라면
+        AppRoute.context!.pushReplacement('/room/${room!['roomId']}');
+      }
       notifyListeners();
     }else{
       AppRoute.context?.pop();
@@ -40,7 +44,7 @@ class RoomPreviewProvider extends ChangeNotifier{
       AppRoute.context!.pushReplacement('/room/${room!['roomId']}');
       return;
     }else if(res.statusCode == 200){
-      DialogManager.showBasicDialog(title: "이미 참가가되어있어요!", content: "앱을 재실행 해보시겠어요?", confirmText: "확인");
+      AppRoute.context!.pushReplacement('/room/${room!['roomId']}');
       return;
     }
   }

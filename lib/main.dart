@@ -58,7 +58,14 @@ class AppDriver extends StatelessWidget {
       builder: (context, child){
         return MultiProvider(
             builder: (context, child) {
-              return child!;
+              final provider = Provider.of<AppProvider>(context);
+              return MaterialApp.router(
+                debugShowCheckedModeBanner: false,
+                themeMode: provider.themeMode,
+                theme: ThemeManager.lightTheme,
+                darkTheme: ThemeManager.darkTheme,
+                routerConfig: AppRoute.router,
+              );
             },
             providers: [
               ChangeNotifierProvider(create: (_)=> AppProvider()),
@@ -69,13 +76,7 @@ class AppDriver extends StatelessWidget {
               ChangeNotifierProvider(create: (_)=> RoomsProvider()),
               ChangeNotifierProvider(create: (_)=> NotificationProvider()),
               ChangeNotifierProvider(create: (_)=> AdvertisementProvider())
-            ],
-            child: MaterialApp.router(
-              theme: ThemeManager.lightTheme,
-              darkTheme: ThemeManager.darkTheme,
-              routerConfig: AppRoute.router,
-            )
-        );
+            ],);
       }
     );
   }

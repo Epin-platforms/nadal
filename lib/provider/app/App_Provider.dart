@@ -1,13 +1,52 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:my_sports_calendar/model/app/App_Version_Info.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../manager/project/Import_Manager.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 enum AppProviderState{
   none, ready, update, inspection
 }
 
 class AppProvider extends ChangeNotifier with WidgetsBindingObserver{
+  final _themeKey = 'epin.nadal.themeKey';
+  ThemeMode _themeMode = ThemeMode.system;
+  ThemeMode get themeMode => _themeMode;
+
+  _fetchThemeKey() async{
+    final pref = await SharedPreferences.getInstance();
+
+    final mode = pref.getString(_themeKey);
+    if(mode != null){
+      if(mode == 'dark'){
+        _themeMode = ThemeMode.dark;
+      }else if(mode == 'light'){
+        _themeMode = ThemeMode.light;
+      }
+      notifyListeners();
+    }
+  }
+
+  setTheme(String value) async{
+    final pref = await SharedPreferences.getInstance();
+
+    if(value == 'dark'){
+      _themeMode = ThemeMode.dark;
+      pref.setString(_themeKey, value);
+    }else if(value == 'light'){
+      _themeMode = ThemeMode.light;
+      pref.setString(_themeKey, value);
+    }else{
+      _themeMode = ThemeMode.system;
+      pref.remove(_themeKey);
+    }
+    notifyListeners();
+  }
+
+
   AppProviderState _state = AppProviderState.none;
   AppProviderState get state => _state;
 
@@ -15,10 +54,12 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver{
   AppLifecycleState _appState = AppLifecycleState.resumed;
   AppLifecycleState get appState => _appState;
 
-  Future<void> initAppProvider() async{
+  Future<AppProviderState> initAppProvider() async{
     WidgetsBinding.instance.addObserver(this);
     _initConnectivityListener();
-    await _fetchAppData();
+    _fetchThemeKey();
+    final res = await _fetchAppData();
+    return res;
   }
 
   @override
@@ -73,7 +114,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver{
   DateTime? _inspectionDate;
   DateTime? get inspectionDate => _inspectionDate;
 
-  Future<void> _fetchAppData() async{
+  Future<AppProviderState> _fetchAppData() async{
     try{
       final versionState = await AppVersionInfo.fetchAppVersion(isIOS: Platform.isIOS);
 
@@ -100,6 +141,8 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver{
     }finally{
       notifyListeners();
     }
+
+    return _state;
   }
 
   String _appVersion = '';
@@ -117,5 +160,35 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver{
      return buildCode;
   }
 
+
+  //앱 캐시 보기
+  double _cacheSize = 0;
+  double get cacheSize => _cacheSize;
+
+  Future<void> getTotalCacheSize() async {
+    try {
+      final cacheDir = await getTemporaryDirectory();
+      final cacheManagerDir = Directory('${cacheDir.path}/libCachedImageData');
+
+      double totalSize = 0;
+
+      if (await cacheManagerDir.exists()) {
+        await for (final entity in cacheManagerDir.list(recursive: true, followLinks: false)) {
+          if (entity is File) {
+            try {
+              totalSize += await entity.length();
+            } catch (e) {
+              print('Error reading file size: $e');
+            }
+          }
+        }
+      }
+
+      _cacheSize = totalSize / (1024 * 1024); // MB 단위
+      notifyListeners();
+    } catch (e) {
+      print('Error calculating total cache size: $e');
+    }
+  }
 
 }

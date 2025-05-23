@@ -74,8 +74,7 @@ class ChatProvider extends ChangeNotifier{
   //초기 리스너 등록
   setSocketListeners(){
     socket.on("error", (data)=> DialogManager.errorHandler(data['error']));
-    socket.on("joinedRoom", (data)=> _joinedRoomHandler(data)); //룸 정보 업데이트
-    socket.on("chat", (data)=> _chatHandler(data)); //채팅이 옴
+    socket.on("chat", _chatHandler); //채팅이 옴
     socket.on("removeChat", _removeChatHandler);
     socket.on("kicked", _kickedHandler);
   }
@@ -112,11 +111,8 @@ class ChatProvider extends ChangeNotifier{
     notifyListeners();
   }
 
-  _joinedRoomHandler(data){
-    print('조인완료');
-  }
-
   _chatHandler(data){
+     print(data);
      final Chat chat = Chat.fromJson(json: data);
      final int roomId = chat.roomId;
 
@@ -227,7 +223,16 @@ class ChatProvider extends ChangeNotifier{
     final response = await serverManager.get('chat/reconnect?roomId=$roomId&lastChatId=$lastChatId');
     if (response.statusCode == 200) {
       final newChats = List<Chat>.from(response.data.map((e) => Chat.fromJson(json: e)));
-      _chat[roomId]?.addAll(newChats); // 또는 중복 필터 후 추가
+
+      // ✅ 이미 존재하는 chatId를 Set으로 추출 (O(1) lookup)
+      final existingIds = _chat[roomId]?.map((e) => e.chatId).toSet() ?? <int>{};
+
+      for (Chat chat in newChats) {
+        if (!existingIds.contains(chat.chatId)) {
+          _chat[roomId]?.add(chat);
+        }
+      }
+
       notifyListeners();
     }
   }

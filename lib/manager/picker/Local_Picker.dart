@@ -45,6 +45,7 @@ class _LocalPickerState extends State<LocalPicker> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return SafeArea(
       child: IosPopGesture(
         child: Scaffold(
@@ -58,7 +59,7 @@ class _LocalPickerState extends State<LocalPicker> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(local),
-                child: Text('확인', style: TextStyle(fontSize: 18, color: Theme.of(context).colorScheme.onSurface)),
+                child: Text('확인', style: theme.textTheme.labelLarge),
               ),
             ],
           ),
@@ -66,7 +67,7 @@ class _LocalPickerState extends State<LocalPicker> {
             padding: EdgeInsets.only(bottom: 200, top: 100),
             child: ListWheelScrollView.useDelegate(
               controller: _wheelController,
-              itemExtent: 45,
+              itemExtent: 45.h,
               diameterRatio: 1.2,
               physics: const FixedExtentScrollPhysics(),
               onSelectedItemChanged: (index) {
@@ -82,13 +83,10 @@ class _LocalPickerState extends State<LocalPicker> {
                     child: Center(
                       child: Text(
                         locals[index],
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: local == locals[index]
-                              ? Theme.of(context).colorScheme.onSurface
-                              : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: local == locals[index]
+                                ? Theme.of(context).colorScheme.onSurface
+                                : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2))
                       ),
                     ),
                   );

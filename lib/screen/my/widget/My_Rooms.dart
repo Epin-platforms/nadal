@@ -67,8 +67,8 @@ class MyRooms extends StatelessWidget {
                 itemBuilder: (context, index){
                   final roomEntry = roomsProvider.getRoomsList(context)[index];
                   final roomData = roomEntry.value;
-                  final chatForm = chatProvider.chat[roomData['roomId']]?.lastOrNull;
-                  final chatText = chatForm?.type == ChatType.text ? chatForm?.contents : chatForm?.type == ChatType.image ? '사진' : chatForm?.type == ChatType.schedule ? '일정' : '';
+                  final chatForm = chatProvider.chat[roomData['roomId']]?.firstOrNull;
+                  final chatText = chatForm == null ? '' : chatForm.type == ChatType.text ? chatForm.contents : chatForm.type == ChatType.image ? '사진' : chatForm.type == ChatType.schedule ? '일정' : '삭제된 메시지 입니다';
                   final unread = chatProvider.my[roomData['roomId']]?['unreadCount'];
                   return ListTile(
                     onTap: ()=> context.push('/room/${roomData['roomId']}'),

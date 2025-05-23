@@ -8,9 +8,9 @@ import '../../../../provider/game/Game_Provider.dart';
 
 //게임진행중
 class GameState3 extends StatefulWidget {
-  const GameState3({super.key, required this.gameProvider});
+  const GameState3({super.key, required this.gameProvider, required this.scheduleProvider});
   final GameProvider gameProvider;
-
+  final ScheduleProvider scheduleProvider;
   @override
   State<GameState3> createState() => _GameState3State();
 }
@@ -36,12 +36,12 @@ class _GameState3State extends State<GameState3> {
         child: NadalCircular(),
       );
     }
-    final isKDK = widget.gameProvider.scheduleProvider.schedule?['isKDK'] == 1;
-    final isSinge =  widget.gameProvider.scheduleProvider.schedule?['isSingle'] == 1;
+    final isKDK = widget.scheduleProvider.schedule?['isKDK'] == 1;
+    final isSinge =  widget.scheduleProvider.schedule?['isSingle'] == 1;
     if(isKDK){
-      return isSinge ? KdkSingleView(gameProvider: widget.gameProvider) : KdkDoubleView(gameProvider: widget.gameProvider);
+      return isSinge ? KdkSingleView(gameProvider: widget.gameProvider, scheduleProvider: widget.scheduleProvider,) : KdkDoubleView(gameProvider: widget.gameProvider, scheduleProvider: widget.scheduleProvider);
     }else{ //토너먼트
-      return  isSinge ? TournamentSingleView(gameProvider: widget.gameProvider) : TournamentTeamView(gameProvider: widget.gameProvider);
+      return  isSinge ? TournamentSingleView(gameProvider: widget.gameProvider, scheduleProvider: widget.scheduleProvider) : TournamentTeamView(gameProvider: widget.gameProvider, scheduleProvider: widget.scheduleProvider);
     }
   }
 }

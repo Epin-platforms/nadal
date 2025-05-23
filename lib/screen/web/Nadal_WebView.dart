@@ -4,7 +4,7 @@ import '../../manager/project/Import_Manager.dart';
 
 class NadalWebView extends StatefulWidget {
   const NadalWebView({super.key, required this.url});
-  final String url;
+  final String? url;
   @override
   State<NadalWebView> createState() => _NadalWebViewState();
 }
@@ -15,6 +15,11 @@ class _NadalWebViewState extends State<NadalWebView> {
 
   @override
   void initState() {
+    if(widget.url == null){
+      context.pop();
+      DialogManager.showBasicDialog(title: '주소형식이 올바르지 않습니다', content: '잠시후 다시 시도해주세요', confirmText: '확인');
+    }
+
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
@@ -25,7 +30,7 @@ class _NadalWebViewState extends State<NadalWebView> {
                 });
               }
           )
-      )..loadRequest(Uri.parse(widget.url));
+      )..loadRequest(Uri.parse(widget.url!));
     super.initState();
   }
 
@@ -38,6 +43,7 @@ class _NadalWebViewState extends State<NadalWebView> {
   Widget build(BuildContext context) {
     return IosPopGesture(
       child: Scaffold(
+          appBar: NadalAppbar(),
           body: SafeArea(
             child: Stack(
               children: [

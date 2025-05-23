@@ -1,18 +1,15 @@
-import 'package:bootstrap_icons/bootstrap_icons.dart';
-import 'package:my_sports_calendar/provider/friends/Friend_Provider.dart';
+
 import 'package:my_sports_calendar/provider/auth/profile/My_Profile_Provider.dart';
-import 'package:my_sports_calendar/screen/profile/Friends_List.dart';
 import 'package:my_sports_calendar/screen/profile/widget/My_Profile_Card.dart';
 import 'package:my_sports_calendar/screen/profile/widget/My_Profile_Menu.dart';
-import 'package:my_sports_calendar/widget/Nadal_Icon_Button.dart';
 import '../../manager/project/Import_Manager.dart';
-import '../../widget/Nadal_Empty_List.dart';
 
 class MyProfile extends StatelessWidget {
   const MyProfile({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return ChangeNotifierProvider(
       create: (_)=> MyProfileProvider(),
       lazy: true,
@@ -48,25 +45,15 @@ class MyProfile extends StatelessWidget {
                     ),
                     Padding(
                         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('친구', style: Theme.of(context).textTheme.titleLarge,),
-                            IconButton(onPressed: (){}, icon: Icon(BootstrapIcons.person_add, color: Theme.of(context).colorScheme.onSurface,))
-                          ],
-                        )
+                        child: Text('메뉴', style: Theme.of(context).textTheme.titleLarge,)
                     ),
-                    if(context.watch<FriendsProvider>().friends.isEmpty)
-                    NadalEmptyList(
-                      title: '아직 추가한 친구가 없어요',
-                      subtitle: '지금 친구를 찾아서 추가해보세요',
-                      actionText: '친구 추가하기',
-                      onAction: (){
-
+                    ListTile(
+                      onTap: (){
+                        context.push('/friends');
                       },
-                    )
-                    else
-                    FriendsList()
+                      leading: Icon(BootstrapIcons.people_fill, size: 24.r, color: Theme.of(context).colorScheme.primary),
+                      title: Text('친구목록', style: theme.textTheme.titleMedium),
+                    ),
                   ],
                 ),
               ),

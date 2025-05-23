@@ -15,12 +15,17 @@ class NotificationPage extends StatefulWidget {
 
 class _NotificationPageState extends State<NotificationPage> {
   late NotificationProvider notificationProvider;
-
+  late ScrollController _controller;
 
   @override
   void initState() {
+    _controller = ScrollController();
     WidgetsBinding.instance.addPostFrameCallback((_){
-      notificationProvider.initialize();
+      _controller.addListener((){
+        if(_controller.position.pixels >= _controller.position.maxScrollExtent - 100){
+          notificationProvider.fetchNotifications();
+        }
+      });
     });
     super.initState();
   }
@@ -42,6 +47,12 @@ class _NotificationPageState extends State<NotificationPage> {
     } else {
       return DateFormat('yyyy년 MM월').format(date);
     }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
@@ -82,6 +93,7 @@ class _NotificationPageState extends State<NotificationPage> {
           SafeArea(
             child: sortedKeys.isNotEmpty ?
             ListView.builder(
+                controller: _controller,
                 padding: const EdgeInsets.only(top: 8, bottom: 24),
                 itemCount: sortedKeys.length,
                 itemBuilder: (context, index){
@@ -101,8 +113,8 @@ class _NotificationPageState extends State<NotificationPage> {
                       ),
                       ...notificationGroup.map((notification) =>
                           FadeInUp(
-                            duration: Duration(milliseconds: 300 + (50 * notificationGroup.indexOf(notification))),
-                            child: NotificationItem(notification: notification),
+                            duration: Duration(milliseconds: 300),
+                            child: NotificationItem(notification: notification, provider: notificationProvider,),
                           )
                       ),
                     ],

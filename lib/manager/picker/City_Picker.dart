@@ -58,7 +58,7 @@ class _CityPickerState extends State<CityPicker> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(city),
-                child: Text('확인', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Theme.of(context).colorScheme.onPrimary)),
+                child: Text('확인', style: Theme.of(context).textTheme.labelLarge),
               ),
             ],
           ),
@@ -66,7 +66,7 @@ class _CityPickerState extends State<CityPicker> {
             padding: EdgeInsets.only(bottom: 200, top: 100),
             child: ListWheelScrollView.useDelegate(
               controller: _wheelController,
-              itemExtent: 45,
+              itemExtent: 45.h,
               diameterRatio: 1.2,
               physics: FixedExtentScrollPhysics(),
               onSelectedItemChanged: (index) {
@@ -82,11 +82,10 @@ class _CityPickerState extends State<CityPicker> {
                     child: Center(
                       child: Text(
                         cities[index],
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: city == cities[index]
                               ? Theme.of(context).colorScheme.onSurface
                               : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2))
-
                       ),
                     ),
                   );

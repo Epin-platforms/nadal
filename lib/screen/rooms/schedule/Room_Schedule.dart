@@ -25,7 +25,7 @@ class _RoomScheduleState extends State<RoomSchedule> {
             NadalIconButton(icon: BootstrapIcons.calendar2_plus, size: 22, onTap: (){
               final date = provider.selectedDay;
               final roomId = provider.roomId;
-              final canUseGenderLimit = context.read<RoomProvider>().room?['useNickName'] == false;
+              final canUseGenderLimit = context.read<RoomProvider>().room?['useNickName'] == 0;
               context.push('/create/schedule', extra: ScheduleParams(date: date, roomId: roomId, canUseGenderLimit: canUseGenderLimit));
             })
           ],

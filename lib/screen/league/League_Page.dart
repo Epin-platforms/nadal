@@ -93,7 +93,7 @@ class _LeaguePageState extends State<LeaguePage> {
           ),
           body: SafeArea(
               child: provider.leagues!.isEmpty ?
-                NadalEmptyList(title: '대회 정보가 없어요', subtitle: '대회 정보는 매달 월요일 업데이트되요',)
+                NadalEmptyList(title: '대회 정보가 없어요', subtitle: '대회 정보는 매달 월요일 업데이트 돼요',)
               : Column(
                 children: [
                   // 지역 필터
@@ -103,6 +103,7 @@ class _LeaguePageState extends State<LeaguePage> {
                       height: 50.h,
                       child: Center(
                         child: ListView.builder(
+                          controller: _scrollController,
                           scrollDirection: Axis.horizontal,
                           padding: EdgeInsets.symmetric(horizontal: 16.w),
                           itemCount: provider.locals.length,
@@ -194,11 +195,11 @@ class _LeaguePageState extends State<LeaguePage> {
     return Container(
       margin: EdgeInsets.only(bottom: 16.h),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Theme.of(context).shadowColor,
             spreadRadius: 0,
             blurRadius: 6.r,
             offset: const Offset(0, 2),
@@ -306,11 +307,11 @@ class _LeaguePageState extends State<LeaguePage> {
     return Container(
       margin: EdgeInsets.only(bottom: 12.h),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Theme.of(context).shadowColor,
             spreadRadius: 0,
             blurRadius: 6.r,
             offset: const Offset(0, 2),

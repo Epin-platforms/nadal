@@ -19,7 +19,11 @@ class RoomPreview extends StatelessWidget {
           appBar: NadalAppbar(
             backgroundColor: Colors.transparent,
             actions: [
-              NadalReportIcon()
+              NadalReportIcon(
+                onTap: (){
+                  context.push('/report?targetId=${provider.room!['roomId']}&type=room');
+                },
+              )
             ],
           ),
           extendBodyBehindAppBar: true,
@@ -51,24 +55,24 @@ class RoomPreview extends StatelessWidget {
                               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                               boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8)],
                             ),
-                            padding: EdgeInsets.symmetric(horizontal: 16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            padding: EdgeInsets.symmetric(horizontal: 16.w),
+                            child: ListView(
+                              padding: EdgeInsets.only(top: 24.h, bottom: 50),
+                              controller: scrollController,
+                              shrinkWrap: true,
                               children: [
                                 // 핸들
                                 Center(
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 24),
-                                    child: Container(
-                                      width: 40,
-                                      height: 4,
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[400],
-                                        borderRadius: BorderRadius.circular(2),
-                                      ),
+                                  child: Container(
+                                    width: 40,
+                                    height: 4,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[400],
+                                      borderRadius: BorderRadius.circular(2),
                                     ),
                                   ),
                                 ),
+                                SizedBox(height: 60.h,),
                                 Text(provider.room!['roomName'], style: theme.textTheme.titleLarge,),
                                 SizedBox(height: 6,),
                                 Text('개설 ${DateFormat('yyyy.MM.dd').format(DateTime.parse(provider.room!['createAt']))}', style: theme.textTheme.labelSmall?.copyWith(color: theme.hintColor),),
@@ -81,7 +85,7 @@ class RoomPreview extends StatelessWidget {
                                       SizedBox(width: 4,),
                                       Text(TextFormManager.formToLocal(provider.room!['local'])),
                                       SizedBox(width: 4,),
-                                      Text(TextFormManager.formToLocal(provider.room!['city'])),
+                                      Text(provider.room!['city']),
                                       NadalDot(color: theme.highlightColor,),
                                       Text('멤버'),
                                       SizedBox(width: 4,),

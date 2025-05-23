@@ -64,10 +64,11 @@ class Chat{
 
   factory Chat.fromJson({required Map<String,dynamic> json}){
     final type = intToChatType(json['type']);
+    final uid = json['uid'] ?? '-1';
     return Chat(
         chatId: json['chatId'] ,
         roomId: json['roomId'],
-        uid: json['uid'],
+        uid: uid,
         type: type, //type == -1면 삭제된 메시지
         contents: json['contents'],
         images: json['images'] == null ? null : List<String>.from(jsonDecode(json['images'])),
@@ -78,9 +79,9 @@ class Chat{
         startDate: DateTime.tryParse(json['startDate'] ?? '')?.toLocal(),
         endDate: DateTime.tryParse(json['endDate'] ?? '')?.toLocal(),
         tag: json['tag'],
-        name: json['name'],//이름이 없다면 탈퇴한 사용자
-        gender: json['gender'],
-        birthYear: json['birthYear'],
+        name: uid == -1 ? '(알수없음)' : json['name'] ,//이름이 없다면 탈퇴한 사용자
+        gender: uid == -1 ? '?' : json['gender'],
+        birthYear: uid == -1 ? 0 : json['birthYear'],
         profileImage: json['profileImage'],
         reply: json['reply'],
         replyName: json['replyName'],
