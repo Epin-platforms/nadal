@@ -122,6 +122,7 @@ class SearchRoomProvider extends ChangeNotifier{
   Timer? _debounce;
 
   void _onSearchChanged() {
+    if(_searchController.text.trim().length < 2) return;
     // 기존 타이머 있으면 취소
     if (_debounce?.isActive ?? false) _debounce!.cancel();
 
@@ -178,6 +179,8 @@ class SearchRoomProvider extends ChangeNotifier{
 
 
   Future<void> onSubmit(String text) async {
+    if(text.length < 2) return;
+
     if (_searchController.text != text) {
       _searchController.text = text;
     }
@@ -192,6 +195,7 @@ class SearchRoomProvider extends ChangeNotifier{
 
     if (res.statusCode == 200) {
       final results = List<Map<String, dynamic>>.from(res.data);
+
       // 기존 결과에 누적 저장
       final prev = _searchResults[text] ?? [];
       _searchResults[text] = [...prev, ...results];

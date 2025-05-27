@@ -33,18 +33,25 @@ class ScheduleChatBubble extends StatelessWidget {
 
     // 깔끔한 말풍선 색상 설정 (텍스트 버블과 동일한 스타일)
     final backgroundColor = isSender
-        ? colorScheme.primary
-        : theme.highlightColor;
+        ? colorScheme.primary // 발신자 메시지는 메인 컬러 사용
+        : (isDark
+        ? const Color(0xFF2A2A36) // 다크 모드에서 수신자 메시지는 어두운 회색
+        : const Color(0xFFF2F2F7)); // 라이트 모드에서 수신자 메시지는 밝은 회색
 
     // 텍스트 색상
+    // 텍스트 색상 - 좋은 대비를 위해 색상 조정
     final textColor = isSender
-        ? theme.colorScheme.onPrimary
-        : theme.colorScheme.onPrimary.withValues(alpha: 0.9);
+        ? theme.colorScheme.onPrimary // 발신자 메시지는 흰색 텍스트
+        : (isDark
+        ? Colors.white.withValues(alpha: 0.9) // 다크 모드에서 수신자 메시지는 밝은 텍스트
+        : const Color(0xFF1F1F1F)); // 라이트 모드에서 수신자 메시지는 거의 검은색 텍스트
 
     // 보조 색상 (날짜, 버튼 등)
     final secondaryColor = isSender
-        ? theme.colorScheme.surfaceContainerLowest
-        : theme.colorScheme.surfaceContainerHighest;
+        ? theme.colorScheme.onPrimary // 발신자 메시지는 흰색 텍스트
+        : (isDark
+        ? Colors.white.withValues(alpha: 0.9) // 다크 모드에서 수신자 메시지는 밝은 텍스트
+        : const Color(0xFF1F1F1F)); // 라이트 모드에서 수신자 메시지는 거의 검은색 텍스트
 
     // 강조 색상 (버튼 배경 등)
     final accentColor = isSender
@@ -69,9 +76,9 @@ class ScheduleChatBubble extends StatelessWidget {
       duration: const Duration(milliseconds: 350),
       animation: animation,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 12),
-        padding: const EdgeInsets.all(14),
-        constraints: const BoxConstraints(maxWidth: 220),
+        margin:  EdgeInsets.symmetric(vertical: 2.h, horizontal: 12.w),
+        padding:  EdgeInsets.all(14.r),
+        constraints:  BoxConstraints(maxWidth: 220.w),
         decoration: BoxDecoration(
           color: backgroundColor,
           borderRadius: borderRadius,
@@ -89,8 +96,8 @@ class ScheduleChatBubble extends StatelessWidget {
             // 태그 표시
             if (tag != null) ...[
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                margin: const EdgeInsets.only(bottom: 8),
+                padding:  EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                margin:  EdgeInsets.only(bottom: 8.h),
                 decoration: BoxDecoration(
                   color: accentColor,
                   borderRadius: BorderRadius.circular(6),
@@ -99,7 +106,7 @@ class ScheduleChatBubble extends StatelessWidget {
                   '#$tag',
                   style: TextStyle(
                     color: secondaryColor,
-                    fontSize: 12,
+                    fontSize: 12.sp,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -111,34 +118,34 @@ class ScheduleChatBubble extends StatelessWidget {
               title,
               style: TextStyle(
                 fontWeight: FontWeight.w600,
-                fontSize: 16,
+                fontSize: 16.sp,
                 color: textColor,
                 height: 1.3,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8.h),
 
             // 일정 기간
             Row(
               children: [
                 Icon(
                   Icons.event_outlined,
-                  size: 14,
+                  size: 14.sp,
                   color: secondaryColor,
                 ),
-                const SizedBox(width: 4),
+                SizedBox(width: 4.w),
                 Expanded(
                   child: Text(
                     '${formatter.format(startDate)} ~ ${formatter.format(endDate)}',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 12.sp,
                       color: secondaryColor,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12.h),
 
             // 스케줄 보기 버튼
             Align(
@@ -146,7 +153,7 @@ class ScheduleChatBubble extends StatelessWidget {
               child: GestureDetector(
                 onTap: () => context.push('/schedule/$scheduleId'),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
                   decoration: BoxDecoration(
                     color: accentColor,
                     borderRadius: BorderRadius.circular(12),
@@ -156,14 +163,14 @@ class ScheduleChatBubble extends StatelessWidget {
                     children: [
                       Icon(
                         Icons.calendar_today_outlined,
-                        size: 14,
+                        size: 14.sp,
                         color: textColor,
                       ),
-                      const SizedBox(width: 4),
+                       SizedBox(width: 4.w),
                       Text(
                         '스케줄 보기',
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 13.sp,
                           fontWeight: FontWeight.w600,
                           color: textColor,
                         ),

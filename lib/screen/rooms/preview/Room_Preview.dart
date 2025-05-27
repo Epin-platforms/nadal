@@ -57,17 +57,17 @@ class RoomPreview extends StatelessWidget {
                             ),
                             padding: EdgeInsets.symmetric(horizontal: 16.w),
                             child: ListView(
-                              padding: EdgeInsets.only(top: 24.h, bottom: 50),
+                              padding: EdgeInsets.only(top: 24.h, bottom: 100),
                               controller: scrollController,
                               shrinkWrap: true,
                               children: [
                                 // 핸들
                                 Center(
                                   child: Container(
-                                    width: 40,
-                                    height: 4,
+                                    width: 40.w,
+                                    height: 4.h,
                                     decoration: BoxDecoration(
-                                      color: Colors.grey[400],
+                                      color: Theme.of(context).highlightColor,
                                       borderRadius: BorderRadius.circular(2),
                                     ),
                                   ),
@@ -82,21 +82,21 @@ class RoomPreview extends StatelessWidget {
                                   child: Row(
                                     children: [
                                       Text('활동지역'),
-                                      SizedBox(width: 4,),
+                                      SizedBox(width: 4.w,),
                                       Text(TextFormManager.formToLocal(provider.room!['local'])),
-                                      SizedBox(width: 4,),
+                                      SizedBox(width: 4.w,),
                                       Text(provider.room!['city']),
                                       NadalDot(color: theme.highlightColor,),
                                       Text('멤버'),
-                                      SizedBox(width: 4,),
+                                      SizedBox(width: 4.w),
                                       Text('${provider.room!['memberCount']} /200')
                                     ],
                                   ),
                                 ),
-                                SizedBox(height: 24,),
+                                SizedBox(height: 24.h,),
                                 Row(
                                   children: [
-                                    NadalProfileFrame(imageUrl: provider.room!['creatorProfile'], size: 40,),
+                                    NadalProfileFrame(imageUrl: provider.room!['creatorProfile'], size: 40.r,),
                                     SizedBox(width: 8,),
                                     Text('${provider.room!['creatorNickName'] ?? '(알수없음)'}', style: theme.textTheme.bodyMedium,)
                                   ],

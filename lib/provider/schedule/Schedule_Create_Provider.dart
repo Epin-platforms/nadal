@@ -1,3 +1,4 @@
+import 'package:my_sports_calendar/manager/game/Game_Manager.dart';
 import 'package:my_sports_calendar/manager/project/Import_Manager.dart';
 import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
 
@@ -73,7 +74,12 @@ class ScheduleCreateProvider extends ChangeNotifier{
   Map? get account => _account;
 
   setTag(int index){
-    if(_tag != tags[index]){
+    if(index == -1){
+        _tag = '개인';
+        _isKDK = null;;
+        _isSingle = null;
+        notifyListeners();
+    }else if(_tag != tags[index]){
       if(_tag == '게임' && tags[index] != "게임"){
         _isKDK = null;;
         _isSingle = null;
@@ -231,18 +237,18 @@ class ScheduleCreateProvider extends ChangeNotifier{
         if(useGenderLimit){
           final total = maleLimit! + femaleLimit!;
           if(_isKDK! && _isSingle!){ //대진표 단식
-            if(total < 4  || total > 14){
-              DialogManager.errorHandler('대진표 단식은 4~14인까지 가능해요');
+            if(total < GameManager.min_kdk_single_member || total > GameManager.max_kdk_double_member){
+              DialogManager.errorHandler('대진표 단식은 ${GameManager.min_kdk_single_member}~${GameManager.max_kdk_double_member}인까지 가능해요');
               return;
             }
           }else if(_isKDK! && !_isSingle!){
-            if(total < 5 || total > 16){
-              DialogManager.errorHandler('대진표 단식은 5~16인까지 가능해요');
+            if(total < GameManager.min_kdk_double_member || total > GameManager.max_kdk_double_member){
+              DialogManager.errorHandler('대진표 단식은 ${GameManager.min_kdk_double_member}~${GameManager.max_kdk_double_member}인까지 가능해요');
               return;
             }
           }else if(!_isKDK! && _isSingle!){
-            if(total < 4){
-              DialogManager.errorHandler('토너먼트 단식은 4인 이상 가능해요');
+            if(total < GameManager.min_tour_single_member || total > GameManager.max_tour_single_member){
+              DialogManager.errorHandler('토너먼트 단식은 ${GameManager.min_tour_single_member}_${GameManager.max_tour_single_member} 가능해요');
               return;
             }
           }

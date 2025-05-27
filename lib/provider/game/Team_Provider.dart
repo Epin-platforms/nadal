@@ -146,6 +146,7 @@ class TeamProvider extends ChangeNotifier{
       'otherUid': _selectUser,
       'teamName': teamName
     };
+
     int code = 0;
     try {
       final res = await serverManager.post('user/team', data: data);
@@ -158,6 +159,7 @@ class TeamProvider extends ChangeNotifier{
       print(e);
     } finally {
       AppRoute.popLoading();
+      _selectUser = null;
       if(code == 203){
         DialogManager.showBasicDialog(
           title: '앗! 이미 팀이에요',

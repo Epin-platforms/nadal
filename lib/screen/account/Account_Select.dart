@@ -1,11 +1,49 @@
+import 'package:flutter/cupertino.dart';
+
 import '../../manager/project/Import_Manager.dart';
 
-class AccountSelect extends StatelessWidget {
-  const AccountSelect({super.key});
+class AccountSelect extends StatefulWidget {
+  const AccountSelect({super.key, required this.selectable});
+  final bool selectable;
+
+  @override
+  State<AccountSelect> createState() => _AccountSelectState();
+}
+
+class _AccountSelectState extends State<AccountSelect> {
+  late AccountProvider provider;
+
+  void _option(theme, int accountId) {
+    showCupertinoModalPopup(
+        context: context,
+        builder: (context){
+          final nav = Navigator.of(context);
+          return NadalSheet(actions: [
+            CupertinoActionSheetAction(onPressed: (){
+              nav.pop();
+              context.push('/update/account?accountId=$accountId');
+            }, child: Text('수정', style: theme.textTheme.bodyLarge?.copyWith(color: theme.secondaryHeaderColor),)),
+            CupertinoActionSheetAction(onPressed: (){
+              nav.pop();
+              DialogManager.showBasicDialog(title: '정말 해당 계좌를 삭제할까요?', content: "삭제후 복구가 불가합니다",
+                  confirmText: "앗! 잠깐만요",
+                  cancelText: "삭제할레요",  onCancel: () async{
+                    final res = await provider.removeAccount(accountId);
+                    if(res != null){
+                      SnackBarManager.showCleanSnackBar(context, '성공적으로 제거되었습니다');
+                    }
+                  });
+            }, child: Text('삭제', style: theme.textTheme.bodyLarge,)),
+          ]);
+        }
+    );
+
+
+  }
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<AccountProvider>(context);
+    provider = Provider.of<AccountProvider>(context);
     final theme = Theme.of(context);
     return IosPopGesture(
         child: Scaffold(
@@ -27,18 +65,25 @@ class AccountSelect extends StatelessWidget {
                       subtitle: '지금 계좌를 등록할까요?',
                       actionText: '계좌 등록하기',
                       onAction: (){
-                        context.push('/create/account');
+                        if((provider.accounts?.length ?? 0) >= 5){
+                          DialogManager.showBasicDialog(title: '보유 계좌 갯수가 너무 많습니다', content: '1인당 최대 5개의 계좌를 생성할 수 있습니다', confirmText: '알겠어요');
+                        }else{
+                          context.push('/create/account');
+                        }
                       },
                   ) :
                   SingleChildScrollView(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SizedBox(height: 24,),
-                        Padding(
-                            padding: EdgeInsets.only(left: 16),
-                            child: Text('스케줄 진행에 사용할 계좌를\n선택해주세요', style: theme.textTheme.titleLarge,)),
-                        SizedBox(height: 24,),
+                        SizedBox(height: 24.h,),
+                        if(widget.selectable)
+                          ...[
+                            Padding(
+                                padding: EdgeInsets.only(left: 16.w),
+                                child: Text('스케줄 진행에 사용할 계좌를\n선택해주세요', style: theme.textTheme.titleLarge,)),
+                            SizedBox(height: 24.h,),
+                          ],
                         ListView.builder(
                             physics: NeverScrollableScrollPhysics(),
                             padding: EdgeInsets.zero,
@@ -48,11 +93,22 @@ class AccountSelect extends StatelessWidget {
                               final item = provider.accounts![index];
                               return ListTile(
                                 onTap: (){
-                                  context.pop(item);
+                                  if(widget.selectable){
+                                    context.pop(item);
+                                  }else{
+                                    _option(theme, item['accountId']);
+                                  }
                                 },
-                                leading: Image.asset(ListPackage.banks[item['bank']]!['logo'], height: 45, width: 45, fit: BoxFit.cover,),
+                                contentPadding: EdgeInsets.only(left: 16.w, right: 8.w, top: 8.h, bottom: 8.h),
+                                leading: Image.asset(ListPackage.banks[item['bank']]!['logo'], height: 45.r, width: 45.r, fit: BoxFit.cover,),
                                 title: Text(item['accountTitle'], style: theme.textTheme.titleMedium),
                                 subtitle: Text(item['account'], style: theme.textTheme.labelLarge,),
+                                trailing: IconButton(
+                                    onPressed: (){
+                                      _option(theme, item['accountId']);
+                                    },
+                                    icon: Icon(BootstrapIcons.three_dots_vertical, size: 24.r,)
+                                ),
                               );
                             }
                         ),

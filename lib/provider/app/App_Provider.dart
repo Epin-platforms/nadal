@@ -1,11 +1,10 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:my_sports_calendar/model/app/App_Version_Info.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../manager/project/Import_Manager.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import '../../manager/server/Socket_Manager.dart';
 
 enum AppProviderState{
   none, ready, update, inspection
@@ -68,13 +67,29 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver{
     notifyListeners(); // 필요 시 UI에 전달
     debugPrint("🔄 App state changed: $state");
 
-    // 예시: 포그라운드 진입 시 서버 재연결
+    // 포그라운드 진입 시 소켓 재연결
     if (state == AppLifecycleState.resumed) {
+      _handleAppResumed();
     }
 
-    // 예시: 백그라운드로 가면 리소스 해제
+    // 백그라운드로 가면 소켓 연결 해제
     if (state == AppLifecycleState.paused) {
+      _handleAppPaused();
     }
+  }
+
+  void _handleAppResumed() async {
+    debugPrint("🔄 App resumed - reconnecting socket");
+    try {
+      await SocketManager.instance.connect();
+    } catch (e) {
+      debugPrint("❌ Socket reconnection failed: $e");
+    }
+  }
+
+  void _handleAppPaused() {
+    debugPrint("🔄 App paused - disconnecting socket");
+    SocketManager.instance.disconnect();
   }
 
   //인터넷 연결 상태

@@ -41,7 +41,7 @@ class _ChatFieldState extends State<ChatField> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, Platform.isAndroid ? 15.h : 0),
       child: Column(
         children: [
           if(widget.roomProvider.reply != null)...[
@@ -51,12 +51,12 @@ class _ChatFieldState extends State<ChatField> {
                 return FadeInUp(
                   child: Container(
                     width: ScreenUtil.defaultSize.width,
-                    height: 50.h,
+                    height: 54.h,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12.r),
                       color: theme.highlightColor,
                     ),
-                    padding: EdgeInsets.all(8.r),
+                    padding: EdgeInsets.fromLTRB(12.w, 8.h, 0, 8.h),
                     child: Row(
                       children: [
                         Expanded(
@@ -97,7 +97,7 @@ class _ChatFieldState extends State<ChatField> {
                     customBorder: CircleBorder(),
                     onTap: (){
                       if(widget.roomProvider.sendingImage.isEmpty){
-                        widget.roomProvider.pickImageFromCamera();
+                        widget.roomProvider.sentImageByCamera();
                       }else{
                         SnackBarManager.showCleanSnackBar(context, '이미지 전송 중 입니다. 잠시만 기다려주세요');
                       }

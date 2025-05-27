@@ -49,10 +49,10 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                         Expanded(
                           child: SingleChildScrollView(
                             child: Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 16),
+                              padding: EdgeInsets.symmetric(horizontal: 16.w),
                               child: Column(
                                 children: [
-                                  SizedBox(height: 24,),
+                                  SizedBox(height: 24.h,),
                                   Row(
                                     children: [
                                       InkWell(
@@ -60,26 +60,26 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                             _upTagSheet();
                                           },
                                           child: SizedBox(
-                                            width: 100,
+                                            width: 100.w,
                                             child: NadalSolidContainer(
-                                              padding: EdgeInsets.symmetric(horizontal: 8),
+                                              padding: EdgeInsets.symmetric(horizontal: 8.w),
                                               child: Row(
                                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                 children: [
                                                   Text(provider.tag, style: theme.textTheme.bodyMedium,),
-                                                  Icon(CupertinoIcons.chevron_down, size: 18,)
+                                                  Icon(CupertinoIcons.chevron_down, size: 18.r,)
                                                 ],
                                               ),
                                             ),
                                           )
                                       ),
-                                      SizedBox(width: 8,),
+                                      SizedBox(width: 8.w,),
                                       Expanded(
                                           child: NadalTextField(controller: provider.titleController, label: '일정 제목', maxLength: 30, initText: provider.schedule['title'],)
                                       )
                                     ],
                                   ),
-                                  SizedBox(height: 16,),
+                                  SizedBox(height: 16.h,),
 
                                   if(provider.tag == "게임")
                                     Column(
@@ -89,14 +89,14 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                           children: [
                                             Row(
                                               children: [
-                                                Icon(Icons.sports_tennis_rounded, size: 18, color: theme.hintColor,),
-                                                SizedBox(width: 8,),
+                                                Icon(Icons.sports_tennis_rounded, size: 18.r, color: theme.hintColor,),
+                                                SizedBox(width: 8.w,),
                                                 Text(
                                                   '진행방식', style:  theme.textTheme.titleMedium,
                                                 ),
                                               ],
                                             ),
-                                            SizedBox(width: 16,),
+                                            SizedBox(width: 16.w,),
                                             Expanded(
                                                 child: Row(
                                                   children: [
@@ -109,7 +109,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                                           ),
                                                         )
                                                     ),
-                                                    SizedBox(width: 8,),
+                                                    SizedBox(width: 8.w,),
                                                     Flexible(
                                                         child: InkWell(
                                                           onTap: ()=> provider.setIsKDK(false),
@@ -124,19 +124,19 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                             )
                                           ],
                                         ),
-                                        SizedBox(height: 16,),
+                                        SizedBox(height: 16.h,),
                                         Row(
                                           children: [
                                             Row(
                                               children: [
-                                                Icon(Icons.people_alt_outlined, size: 18, color: theme.hintColor,),
-                                                SizedBox(width: 8,),
+                                                Icon(Icons.people_alt_outlined, size: 18.r, color: theme.hintColor,),
+                                                SizedBox(width: 8.w,),
                                                 Text(
                                                   '참가형태', style:  theme.textTheme.titleMedium,
                                                 ),
                                               ],
                                             ),
-                                            SizedBox(width: 16,),
+                                            SizedBox(width: 16.w,),
                                             Expanded(
                                                 child: Row(
                                                   children: [
@@ -149,7 +149,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                                           ),
                                                         )
                                                     ),
-                                                    SizedBox(width: 8,),
+                                                    SizedBox(width: 8.w,),
                                                     Flexible(
                                                         child: InkWell(
                                                           onTap: ()=> provider.setIsSingle(false),
@@ -164,7 +164,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                             )
                                           ],
                                         ),
-                                        SizedBox(height: 16,)
+                                        SizedBox(height: 16.h,)
                                       ],
                                     ),
 
@@ -175,8 +175,8 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                     children: [
                                       Row(
                                         children: [
-                                          Icon(BootstrapIcons.clock, size: 18, color: theme.hintColor,),
-                                          SizedBox(width: 8,),
+                                          Icon(BootstrapIcons.clock, size: 18.r, color: theme.hintColor,),
+                                          SizedBox(width: 8.w,),
                                           Text(
                                             '하루 종일', style:  theme.textTheme.titleMedium,
                                           ),
@@ -188,7 +188,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                       })
                                     ],
                                   ),
-                                  SizedBox(height: 10,),
+                                  SizedBox(height: 10.h,),
                                   Row(
                                     children: [
                                       Flexible(
@@ -202,14 +202,14 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                           },
                                           child: NadalSolidContainer(
                                               fitted: true,
-                                              padding: EdgeInsets.all(12),
+                                              padding: EdgeInsets.all(12.r),
                                               child: Text(TextFormManager.createFormToScheduleDate(provider.startDate, provider.isAllDay), style: theme.textTheme.bodyMedium,textAlign: TextAlign.center,)
                                           ),
                                         ),
                                       ),
                                       if(!provider.isAllDay)...[
                                         Padding(
-                                            padding: EdgeInsets.symmetric(horizontal: 8),
+                                            padding: EdgeInsets.symmetric(horizontal: 8.w),
                                             child: Icon(CupertinoIcons.arrow_right)
                                         ),
                                         Flexible(
@@ -224,7 +224,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                             child: NadalSolidContainer(
                                                 color: provider.endDate.isBefore(provider.startDate) ? theme.colorScheme.error : null,
                                                 fitted: true,
-                                                padding: EdgeInsets.all(12),
+                                                padding: EdgeInsets.all(12.r),
                                                 child: Text(TextFormManager.createFormToScheduleDate(provider.endDate, provider.isAllDay), style: theme.textTheme.bodyMedium,textAlign: TextAlign.center,)
                                             ),
                                           ),
@@ -232,7 +232,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                        ]
                                     ],
                                   ),
-                                  SizedBox(height: 16,),
+                                  SizedBox(height: 16.h,),
 
 
                                   //장소
@@ -241,14 +241,14 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                     children: [
                                       Row(
                                         children: [
-                                          Icon(BootstrapIcons.geo_alt, size: 18, color: theme.hintColor,),
-                                          SizedBox(width: 8,),
+                                          Icon(BootstrapIcons.geo_alt, size: 18.r, color: theme.hintColor,),
+                                          SizedBox(width: 8.w,),
                                           Text(
                                             '장소', style:  theme.textTheme.titleMedium,
                                           ),
                                         ],
                                       ),
-                                      SizedBox(width: 16,),
+                                      SizedBox(width: 16.w,),
                                       Expanded(
                                           child: InkWell(
                                             onTap: () async{
@@ -265,15 +265,15 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                               }
                                             },
                                             child: NadalSolidContainer(
-                                              padding: EdgeInsets.symmetric(horizontal: 8),
+                                              padding: EdgeInsets.symmetric(horizontal: 8.w),
                                               child: Row(
                                                 children: [
                                                   Expanded(child: Text(provider.address ?? '', style: theme.textTheme.bodyMedium,)),
 
                                                   if(provider.address == null)
-                                                    Icon(CupertinoIcons.chevron_forward, size: 18,)
+                                                    Icon(CupertinoIcons.chevron_forward, size: 18.r,)
                                                   else
-                                                    Icon(CupertinoIcons.xmark_circle_fill, size: 18, color: CupertinoColors.destructiveRed,)
+                                                    Icon(CupertinoIcons.xmark_circle_fill, size: 18.r, color: CupertinoColors.destructiveRed,)
                                                 ],
                                               ),
                                             ),
@@ -282,18 +282,18 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                     ],
                                   ),
                                   if(provider.address != null)
-                                    Padding(padding: EdgeInsets.only(top: 10),
+                                    Padding(padding: EdgeInsets.only(top: 10.h),
                                       child: NadalTextField(controller: provider.addressDetailController, label: '장소 상세', maxLength: 30, ),
                                     ),
 
-                                  SizedBox(height: 16,),
+                                  SizedBox(height: 16.h,),
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                       Row(
                                         children: [
-                                          Icon(BootstrapIcons.person_badge, size: 18, color: theme.hintColor,),
-                                          SizedBox(width: 8,),
+                                          Icon(BootstrapIcons.person_badge, size: 18.r, color: theme.hintColor,),
+                                          SizedBox(width: 8.w,),
                                           Text(
                                             '참가 신청 받기', style:  theme.textTheme.titleMedium,
                                           ),
@@ -317,7 +317,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
 
                                   // if(provider.useParticipation && provider.roomId != null)
                                   Padding(
-                                    padding: EdgeInsets.only(top: 16),
+                                    padding: EdgeInsets.only(top: 16.h),
                                     child:  Column(
                                       children: [
                                         Row(
@@ -325,8 +325,8 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                           children: [
                                             Row(
                                               children: [
-                                                Icon(BootstrapIcons.gender_ambiguous, size: 18, color: theme.hintColor,),
-                                                SizedBox(width: 8,),
+                                                Icon(BootstrapIcons.gender_ambiguous, size: 18.r, color: theme.hintColor,),
+                                                SizedBox(width: 8.w,),
                                                 Text(
                                                   '참가 성별 제한', style:  theme.textTheme.titleMedium,
                                                 ),
@@ -347,17 +347,17 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                         ),
                                         if(provider.useGenderLimit)
                                           SizedBox(
-                                            height: 80,
+                                            height: 80.h,
                                             child: Row(
                                               children: [
                                                 Flexible(
                                                     child: Row(
                                                       children: [
                                                         Text('남자', style: theme.textTheme.titleMedium,),
-                                                        SizedBox(width: 8,),
+                                                        SizedBox(width: 8.w,),
                                                         Expanded(
                                                           child: ListWheelScrollView(
-                                                              itemExtent: 33,
+                                                              itemExtent: 33.h,
                                                               onSelectedItemChanged: (value){
                                                                 provider.setMaleGenderLimit(value);
                                                               },
@@ -369,15 +369,15 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                                       ],
                                                     )
                                                 ),
-                                                SizedBox(width: 8,),
+                                                SizedBox(width: 8.w,),
                                                 Flexible(
                                                     child: Row(
                                                       children: [
                                                         Text('여자', style: theme.textTheme.titleMedium,),
-                                                        SizedBox(width: 8,),
+                                                        SizedBox(width: 8.w,),
                                                         Expanded(
                                                           child: ListWheelScrollView(
-                                                              itemExtent: 30,
+                                                              itemExtent: 30.h,
                                                               onSelectedItemChanged: (value){
                                                                 provider.setFemaleGenderLimit(value);
                                                               },
@@ -394,7 +394,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                           ),
                                         if(provider.tag == "게임" && provider.isKDK != null && provider.isSingle != null)
                                           Padding(
-                                              padding: EdgeInsets.only(top: 8),
+                                              padding: EdgeInsets.only(top: 8.h),
                                               child: Text(
                                                 (provider.isKDK == true) && (provider.isSingle == true) ?
                                                 '대진표 단식 - 최소 ${GameManager.min_kdk_single_member}명 - 최대 ${GameManager.max_kdk_single_member}명' :
@@ -418,12 +418,12 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                           Row(
                                             children: [
                                               SizedBox(
-                                                height: 18,
-                                                width: 18,
+                                                height: 18.r,
+                                                width: 18.r,
                                                 child: FittedBox(
                                                     child: Text('₩', style: TextStyle(color: theme.hintColor, fontWeight: FontWeight.w600),)),
                                               ),
-                                              SizedBox(width: 8,),
+                                              SizedBox(width: 8.w,),
                                               Text(
                                                 '계좌첨부', style:  theme.textTheme.titleMedium,
                                               ),
@@ -446,7 +446,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                       ),
                                       if(provider.useAccount)
                                         Padding(
-                                          padding: EdgeInsets.only(top: 8),
+                                          padding: EdgeInsets.only(top: 8.h),
                                           child: InkWell(
                                             onTap: () async{
                                               final res = await context.push('/select/account');
@@ -456,11 +456,11 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                                               }
                                             },
                                             child: NadalSolidContainer(
-                                              padding: EdgeInsets.symmetric(horizontal: 8),
+                                              padding: EdgeInsets.symmetric(horizontal: 8.w),
                                               child: Row(
                                                 children: [
                                                   Expanded(child: Text(provider.account?['accountTitle'] ?? '계좌를 선택해주세요', style: theme.textTheme.bodyMedium,)),
-                                                  Icon(CupertinoIcons.chevron_forward, size: 18,)
+                                                  Icon(CupertinoIcons.chevron_forward, size: 18.r,)
                                                 ],
                                               ),
                                             ),

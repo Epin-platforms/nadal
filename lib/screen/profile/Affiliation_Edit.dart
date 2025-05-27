@@ -34,7 +34,7 @@ class AffiliationEdit extends StatelessWidget {
             body: SafeArea(
                 child: Column(
                   children: [
-                    SizedBox(height: 40,),
+                    SizedBox(height: 40.h,),
                     if(provider.myRooms == null)
                       Expanded(child: LoadingBlock())
                     else if(provider.myRooms!.isNotEmpty)
@@ -43,9 +43,9 @@ class AffiliationEdit extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Padding(
-                                padding: EdgeInsets.only(left: 16),
+                                padding: EdgeInsets.only(left: 16.w),
                                 child: Text('${user['name']}님이 참가 중인 클럽이에요\n어느 클럽을 대표로 할까요?', style: Theme.of(context).textTheme.titleLarge,)),
-                            SizedBox(height: 24,),
+                            SizedBox(height: 24.h,),
                             Expanded(
                                 child: CarouselOverlap(
                                   affiliationRoom: userProvider.user!['affiliationId'],
@@ -67,7 +67,7 @@ class AffiliationEdit extends StatelessWidget {
                         icon: Icon(CupertinoIcons.search),
                         onAction: ()=> context.push('/searchRoom'),
                     )),
-                    SizedBox(height: 24,),
+                    SizedBox(height: 24.h,),
                     if(provider.myRooms != null && provider.myRooms!.isNotEmpty)
                     NadalButton(
                       onPressed: (){
@@ -77,7 +77,7 @@ class AffiliationEdit extends StatelessWidget {
                       },
                       isActive: provider.originAffiliationId != provider.selectedRoomId, title: '대표클럽으로 설정',),
                     if(Platform.isIOS)
-                    SizedBox(height: 15,)
+                    SizedBox(height: 15.h,)
                   ],
                 )
             ),

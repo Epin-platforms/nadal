@@ -205,7 +205,7 @@ class ThemeManager {
     ),
 
     // 카드 테마
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16.r),
       ),
@@ -319,7 +319,7 @@ class ThemeManager {
     ),
 
     // 다이얼로그 테마
-    dialogTheme: DialogTheme(
+    dialogTheme: DialogThemeData(
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20.r),
@@ -450,7 +450,7 @@ class ThemeManager {
     ),
 
     // 카드 테마
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16.r),
       ),
@@ -564,7 +564,7 @@ class ThemeManager {
     ),
 
     // 다이얼로그 테마
-    dialogTheme: DialogTheme(
+    dialogTheme: DialogThemeData(
       backgroundColor: const Color(0xFF1C1C24),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20.r),

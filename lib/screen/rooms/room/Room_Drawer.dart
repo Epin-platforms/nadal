@@ -43,7 +43,6 @@ class _RoomDrawerState extends State<RoomDrawer> {
     provider = Provider.of<RoomProvider>(context);
     chatProvider = Provider.of<ChatProvider>(context);
     final theme = Theme.of(context);
-    final uid = FirebaseAuth.instance.currentUser!.uid;
     final my = chatProvider.my[provider.room!['roomId']]!;
     final alarm = my['alarm'] == 1;
     final room  = provider.room!;
@@ -234,11 +233,11 @@ class _RoomDrawerState extends State<RoomDrawer> {
                                 onTap: (){
                                   context.push('/user/${my['uid']}');
                                 },
-                                minTileHeight: 42,
-                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                                minTileHeight: 42.h,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 5.h),
                                 leading: NadalProfileFrame(imageUrl: user['profileImage'], size: size,),
                                 trailing: NadalMeTag(),
-                                title: Text(TextFormManager.profileText(user['nickName'], user['name'], user['birthYear'], user['gender'], useNickname: room['useNickname'] == 1 ),
+                                title: Text(TextFormManager.profileText(user['nickName'], user['name'], user['birthYear'], user['gender'], useNickname: provider.room!['useNickname'] == 1),
                                     style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
                                 subtitle: Text(GraderFormManager.intToGrade(my['grade']), style: theme.textTheme.labelSmall?.copyWith(height: 1)),
                               );
@@ -258,10 +257,10 @@ class _RoomDrawerState extends State<RoomDrawer> {
                                   onTap: (){
                                     context.push('/user/${member['uid']}');
                                   },
-                                  minTileHeight: 42,
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                                  minTileHeight: 42.h,
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 5.h),
                                   leading: NadalProfileFrame(imageUrl: member['profileImage'], size: size,),
-                                  title: Text(TextFormManager.profileText(member['displayName'] , member['displayName'], member['birthYear'], member['gender'], useNickname: room['useNickname'] == 1 ),
+                                  title: Text(TextFormManager.profileText(member['displayName'] , member['displayName'], member['birthYear'], member['gender'], useNickname: member['useNickname'] == 1 ),
                                       style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)
                                   ),
                                   subtitle: Text(GraderFormManager.intToGrade(member['grade']), style: theme.textTheme.labelSmall?.copyWith(height: 1)),

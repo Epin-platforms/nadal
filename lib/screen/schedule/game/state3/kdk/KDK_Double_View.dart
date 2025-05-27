@@ -1,13 +1,11 @@
 import 'package:flutter/services.dart';
 import 'package:my_sports_calendar/manager/game/Game_Manager.dart';
-import 'package:my_sports_calendar/provider/game/Game_Provider.dart';
 import 'package:my_sports_calendar/widget/Nadal_Coat_Input.dart';
 
 import '../../../../../manager/project/Import_Manager.dart';
 
 class KdkDoubleView extends StatefulWidget {
-  const KdkDoubleView({super.key, required this.gameProvider, required this.scheduleProvider});
-  final GameProvider gameProvider;
+  const KdkDoubleView({super.key, required this.scheduleProvider});
   final ScheduleProvider scheduleProvider;
   @override
   State<KdkDoubleView> createState() => _KdkDoubleViewViewState();
@@ -33,7 +31,11 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
     );
 
     // 애니메이션 시작 (게임 종료 버튼에 주목하게 하는 효과)
-    _startButtonAnimation();
+    WidgetsBinding.instance.addPostFrameCallback((_){
+      if(widget.scheduleProvider.schedule?['state'] == 3){
+        _startButtonAnimation();
+      }
+    });
   }
 
   void _startButtonAnimation() {
@@ -60,11 +62,11 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
     final uid = FirebaseAuth.instance.currentUser!.uid;
     final theme = Theme.of(context);
     final int finalScore = widget.scheduleProvider.schedule!['finalScore'] ?? 6;
-    final bool isEnd = widget.gameProvider.tables!.entries.where((e) =>
+    final bool isEnd = widget.scheduleProvider.gameTables!.entries.where((e) =>
     e.value['score1'] == finalScore ||
         e.value['score2'] == finalScore ||
         (e.value['score1'] == e.value['score2'] && e.value['score1'] != 0)
-    ).length == widget.gameProvider.tables!.entries.length;
+    ).length == widget.scheduleProvider.gameTables!.entries.length;
 
     return Column(
       children: [
@@ -118,7 +120,7 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                   onPressed: () {
                     // 실시간 진행 보기 페이지로 이동
                     HapticFeedback.mediumImpact();
-                    context.push('/live-match-view'); // 적절한 라우트로 변경
+                    context.push('/schedule/live-match-view'); // 적절한 라우트로 변경
                   },
                   icon: const Icon(Icons.live_tv_rounded, size: 16),
                   label: const Text('실시간 결과'),
@@ -140,7 +142,7 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
         Expanded(
           child: ListView.separated(
             padding: const EdgeInsets.only(top: 8, bottom: 50),
-            itemCount: widget.gameProvider.tables!.entries.length,
+            itemCount: widget.scheduleProvider.gameTables!.entries.length,
             separatorBuilder: (BuildContext context, int index) =>
                 Divider(
                   height: 1,
@@ -150,7 +152,7 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                   color: theme.dividerColor.withValues(alpha: 0.4),
                 ),
             itemBuilder: (context, index) {
-              final item = widget.gameProvider.tables!.entries.toList()[index];
+              final item = widget.scheduleProvider.gameTables!.entries.toList()[index];
               final player1 = widget.scheduleProvider.scheduleMembers![item.value['player1_0']];
               final player1_1 = widget.scheduleProvider.scheduleMembers![item.value['player1_1']];
               final player2 = widget.scheduleProvider.scheduleMembers![item.value['player2_0']];
@@ -217,10 +219,10 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                                   ),
                                   const SizedBox(width: 4),
 
-                                  if (widget.gameProvider.courtInputTableId == item.value['tableId'])
+                                  if (widget.scheduleProvider.courtInputTableId == item.value['tableId'])
                                     Expanded(
                                       child: NadalCoatInput(
-                                        controller: widget.gameProvider.courtController!,
+                                        controller: widget.scheduleProvider.courtController!,
                                       ),
                                     )
                                   else
@@ -240,10 +242,10 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                             ),
 
                             // 코트 편집 버튼
-                            if (widget.gameProvider.courtInputTableId == null)
+                            if (widget.scheduleProvider.courtInputTableId == null)
                               IconButton(
                                 onPressed: () {
-                                  widget.gameProvider.setCourtInputTableId(item.value['tableId']);
+                                  widget.scheduleProvider.setCourtInput(item.value['tableId']);
                                   HapticFeedback.lightImpact();
                                 },
                                 icon: const Icon(Icons.edit_rounded, size: 18),
@@ -260,14 +262,14 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                                   ),
                                 ),
                               )
-                            else if (widget.gameProvider.courtInputTableId == item.value['tableId'])
+                            else if (widget.scheduleProvider.courtInputTableId == item.value['tableId'])
                               TextButton(
                                 onPressed: () {
-                                  final court = widget.gameProvider.courtController!.text;
+                                  final court = widget.scheduleProvider.courtController!.text;
                                   if (court.isNotEmpty && court != item.value['court']) {
-                                    widget.gameProvider.onChangedCourt(item.value['tableId'], court);
+                                    widget.scheduleProvider.updateCourt(item.value['tableId'], court);
                                   }
-                                  widget.gameProvider.setCourtInputTableId(null);
+                                  widget.scheduleProvider.setCourtInput(null);
                                   HapticFeedback.mediumImpact();
                                 },
                                 style: TextButton.styleFrom(
@@ -428,7 +430,7 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                   onPressed: isEnd
                       ? () {
                     HapticFeedback.mediumImpact();
-                    DialogManager.showBasicDialog(title: '이대로 게임을 끝낼까요?', content: '끝내면 수정은 어렵고 기록만 남아요!', confirmText: '게임종료!', onConfirm: ()=> widget.gameProvider.endGame(), cancelText: '앗! 잠시만요');
+                    DialogManager.showBasicDialog(title: '이대로 게임을 끝낼까요?', content: '끝내면 수정은 어렵고 기록만 남아요!', confirmText: '게임종료!', onConfirm: ()=> widget.scheduleProvider.endGame(), cancelText: '앗! 잠시만요');
                   }
                       : null,
                   style: ElevatedButton.styleFrom(
@@ -685,7 +687,7 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                 final newScore = await GameManager.scoreInput(finalScore, score);
 
                 if (newScore != null && newScore != score) {
-                  widget.gameProvider.onChangedScore(tableId, newScore, playerIndex);
+                  widget.scheduleProvider.updateScore(tableId, newScore, playerIndex);
                 }
               },
               child: Container(

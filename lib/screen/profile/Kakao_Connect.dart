@@ -19,6 +19,7 @@ class _KakaoConnectState extends State<KakaoConnect> {
   Widget build(BuildContext context) {
     userProvider = Provider.of<UserProvider>(context);
     final user = userProvider.user!;
+
     return ChangeNotifierProvider(
       create: (_)=> KakaoProvider(user),
       builder: (context, child) {
@@ -40,10 +41,10 @@ class _KakaoConnectState extends State<KakaoConnect> {
                         child: Icon(
                           isConnected ? BootstrapIcons.person_fill_check : BootstrapIcons.person_fill_exclamation,
                           color: isConnected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error,
-                          size: 50,
+                          size: 50.r,
                         ),
                       ),
-                      SizedBox(width: 8,),
+                      SizedBox(width: 8.w,),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -62,18 +63,18 @@ class _KakaoConnectState extends State<KakaoConnect> {
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(height: 24,),
+                      SizedBox(height: 24.h,),
                       Padding(
                           padding: EdgeInsets.only(bottom: 8),
                           child: Text('카카오 가입자가 아니라면 이메일을 변경할 수 없어요.', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Theme.of(context).colorScheme.secondary),)),
                       NadalReadOnlyContainer(label: '이메일', value: user['email']),
-                      SizedBox(height: 16,),
+                      SizedBox(height: 16.h,),
                       NadalReadOnlyContainer(label: '이름', value: user['name']),
-                      SizedBox(height: 16,),
+                      SizedBox(height: 16.h,),
                       NadalReadOnlyContainer(label: '출생연도', value: '${user['birthYear']}'),
-                      SizedBox(height: 16,),
+                      SizedBox(height: 16.h),
                       NadalReadOnlyContainer(label: '성별', value: user['gender'] == 'M' ? '남자' : user['gender'] == 'F' ? '여자' : '알수없음'),
-                      SizedBox(height: 16,),
+                      SizedBox(height: 16.h),
                       NadalReadOnlyContainer(label: '연락처', value: '${user['phone'] ?? '없음'}'),
                     ],
                   ),

@@ -45,6 +45,6 @@ class RoomScheduleProvider extends ChangeNotifier{
   }
 
   // 특정 날짜에 일정을 불러오는 함수
-  List<Map> getEventsForDay(DateTime day) => schedules!.where((schedule) => isSameDay(DateTime.parse(schedule['startDate']).toLocal(), day)).toList();
+  List<Map> getEventsForDay(DateTime day) => schedules!.where((schedule) => isSameDay(DateTime.parse(schedule['startDate']), day)).toList();
 
 }

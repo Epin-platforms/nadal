@@ -1,15 +1,13 @@
 import 'dart:math';
 
 import 'package:my_sports_calendar/manager/game/Game_Manager.dart';
-import 'package:my_sports_calendar/provider/game/Game_Provider.dart';
 import 'package:my_sports_calendar/screen/schedule/game/state3/tournament/Walk_Over_Card.dart';
 
 import '../../../../../manager/project/Import_Manager.dart';
 import 'Wait_Pre_Round.dart';
 
 class TournamentSingleView extends StatefulWidget {
-  const TournamentSingleView({super.key, required this.gameProvider, required this.scheduleProvider});
-  final GameProvider gameProvider;
+  const TournamentSingleView({super.key, required this.scheduleProvider});
   final ScheduleProvider scheduleProvider;
   @override
   State<TournamentSingleView> createState() => _TournamentSingleViewState();
@@ -23,100 +21,152 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
 
   @override
   void initState() {
-    _roundList = widget.gameProvider.tables!.entries.map((e) => (e.value['tableId'] ~/ 1000) as int).toList();
-    _lastRound = _roundList.isEmpty ? 1 : _roundList.reduce((a,b) => a > b ? a : b);
-    finalScore = widget.scheduleProvider.schedule!['finalScore'];
-    WidgetsBinding.instance.addPostFrameCallback((_)=> _calculateCurrentRound());
     super.initState();
+    _initializeRoundData();
+    _setupScheduleListener();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _calculateCurrentRound());
+  }
+
+  void _initializeRoundData() {
+    final gameTables = widget.scheduleProvider.gameTables;
+    if (gameTables == null || gameTables.isEmpty) {
+      _roundList = [];
+      _lastRound = 1;
+    } else {
+      _roundList = gameTables.entries.map((e) => (e.value['tableId'] ~/ 1000) as int).toList();
+      _lastRound = _roundList.isEmpty ? 1 : _roundList.reduce((a, b) => a > b ? a : b);
+    }
+    finalScore = widget.scheduleProvider.schedule?['finalScore'] ?? 6;
+  }
+
+  void _setupScheduleListener() {
+    widget.scheduleProvider.addListener(_onScheduleDataChanged);
+  }
+
+  void _onScheduleDataChanged() {
+    if (mounted) {
+      _initializeRoundData();
+      _calculateCurrentRound();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.scheduleProvider.removeListener(_onScheduleDataChanged);
+    super.dispose();
   }
 
   void _calculateCurrentRound() {
-    // 가장 높은 라운드 중 모든 매치가 완료되지 않은 라운드를 현재 라운드로 설정
-    final tables = widget.gameProvider.tables;
-    if (tables == null || tables.isEmpty) return;
+    final tables = widget.scheduleProvider.gameTables;
+    if (tables == null || tables.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _currentRound = 1;
+        });
+      }
+      return;
+    }
 
     final List<int> roundsList = tables.entries
         .map((e) => (e.value['tableId'] ~/ 1000) as int)
         .toList();
-    final maxRound = roundsList.isEmpty ? 1 : roundsList.reduce((a, b) => a > b ? a : b);
-    final finalScore = widget.scheduleProvider.schedule?['finalScore'] ?? 6;
+
+    if (roundsList.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _currentRound = 1;
+        });
+      }
+      return;
+    }
+
+    final maxRound = roundsList.reduce((a, b) => a > b ? a : b);
+    final currentFinalScore = widget.scheduleProvider.schedule?['finalScore'] ?? 6;
+
+    int targetRound = 1;
 
     for (int round = 1; round <= maxRound; round++) {
       final roundTables = tables.entries
           .where((e) => e.value['tableId'] ~/ 1000 == round)
-          .map((e) => e.value);
+          .map((e) => e.value)
+          .toList();
 
-      // 현재 라운드의 모든 경기가 완료되었는지 확인
+      if (roundTables.isEmpty) continue;
+
       final allCompleted = roundTables.every((table) =>
-      table['score1'] == finalScore || table['score2'] == finalScore);
+      table['score1'] == currentFinalScore || table['score2'] == currentFinalScore);
 
       if (!allCompleted) {
-        setState(() {
-          _currentRound = round;
-        });
+        targetRound = round;
         break;
       }
 
-      // 현재 라운드의 모든 경기가 완료된 경우, 다음 라운드에 선수가 배치되었는지 확인
       if (round < maxRound) {
         final nextRoundTables = tables.entries
             .where((e) => e.value['tableId'] ~/ 1000 == round + 1)
-            .map((e) => e.value);
+            .map((e) => e.value)
+            .toList();
 
-        // 다음 라운드에 선수가 모두 배치되었는지 확인
-        final allPlayersAssigned = nextRoundTables.every((table) =>
-        table['player1_0'] != null &&
-            table['player1_0'] != '' &&
-            table['player2_0'] != null &&
-            table['player2_0'] != '');
+        if (nextRoundTables.isNotEmpty) {
+          final allPlayersAssigned = nextRoundTables.every((table) =>
+          table['player1_0'] != null &&
+              table['player1_0'] != '' &&
+              table['player2_0'] != null &&
+              table['player2_0'] != '');
 
-        // 다음 라운드에 선수가 배치되지 않았으면 현재 라운드로 설정
-        if (!allPlayersAssigned) {
-          setState(() {
-            _currentRound = round;
-          });
-          break;
+          if (!allPlayersAssigned) {
+            targetRound = round;
+            break;
+          }
         }
       }
 
-      // 마지막 라운드이고 모든 경기가 완료된 경우
-      if (round == maxRound && allCompleted) {
-        setState(() {
-          _currentRound = round;
-        });
+      if (round == maxRound) {
+        targetRound = round;
       }
     }
-  }
 
+    if (mounted && _currentRound != targetRound) {
+      setState(() {
+        _currentRound = targetRound;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    //게임 테이블
-    final gameTable = widget.gameProvider.tables!.entries.map((e)=> e.value).toList();
-    gameTable.sort((a,b)=> a['tableId'].compareTo(b['tableId']));
+    final gameTable = widget.scheduleProvider.gameTables?.entries.map((e) => e.value).toList() ?? [];
+    gameTable.sort((a, b) => a['tableId'].compareTo(b['tableId']));
 
-    //기타 내용
     final isProgress = widget.scheduleProvider.schedule?['state'] == 3;
     final uid = context.read<UserProvider>().user?['uid'];
     final isOwner = uid == widget.scheduleProvider.schedule?['uid'];
     final isLastRound = _lastRound == _currentRound;
-    final rounds = gameTable.map((e)=> e['tableId'] ~/ 1000).toSet().length;
+    final rounds = gameTable.isEmpty ? 0 : gameTable.map((e) => e['tableId'] ~/ 1000).toSet().length;
+
+    if (_roundList.isEmpty) {
+      return SafeArea(
+        child: Center(
+          child: Text('게임 데이터가 없습니다.'),
+        ),
+      );
+    }
 
     return SafeArea(
       child: Column(
         children: [
           Expanded(
               child: InteractiveViewer(
-                  constrained: false, // 내부 위젯 크기 제한 없음
-                  minScale: 0.1,      // 최소 축소 비율
-                  maxScale: 2.5,      // 최대 확대 비율
-                  boundaryMargin: const EdgeInsets.all(100), // 밖으로 패닝 허용
+                  constrained: false,
+                  minScale: 0.1,
+                  maxScale: 2.5,
+                  boundaryMargin: const EdgeInsets.all(100),
                   child: IntrinsicHeight(
                     child: Row(
-                      children: List.generate(_roundList.length, (round){
-                        final roundTables = gameTable.where((e)=> e['tableId'] ~/ 1000 == round + 1).toList();
+                      children: List.generate(_roundList.length, (round) {
+                        final roundTables = gameTable.where((e) => e['tableId'] ~/ 1000 == round + 1).toList();
                         return AbsorbPointer(
                           absorbing: !isProgress,
                           child: SizedBox(
@@ -128,11 +178,11 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                   child: Center(
                                     child: ChoiceChip(
                                       label: Text(
-                                        _getRoundName(round+1),
+                                        _getRoundName(round + 1),
                                         style: TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.w700,
-                                          color: _currentRound == round + 1  ? Colors.white : theme.colorScheme.primary,
+                                          color: _currentRound == round + 1 ? Colors.white : theme.colorScheme.primary,
                                         ),
                                       ),
                                       selected: _currentRound == round + 1,
@@ -146,13 +196,18 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                     ),
                                   ),
                                 ),
-                                ...List.generate(rounds == round ? 1 : roundTables.length, (index){
+                                ...List.generate(rounds == round ? 1 : roundTables.length, (index) {
                                   final itemHeight = 120 * pow(2, round);
 
-                                  if(rounds <= round){
-                                    final lastId =  (_lastRound * 1000) + 1;
-                                    final finalGame = widget.gameProvider.tables![lastId]!;
-                                    return   SizedBox(
+                                  if (rounds <= round) {
+                                    final lastId = (_lastRound * 1000) + 1;
+                                    final finalGame = widget.scheduleProvider.gameTables?[lastId];
+
+                                    if (finalGame == null) {
+                                      return SizedBox(height: (120 * pow(2, round)).toDouble());
+                                    }
+
+                                    return SizedBox(
                                       height: (120 * pow(2, round)).toDouble(),
                                       child: Align(
                                         alignment: Alignment.centerLeft,
@@ -163,42 +218,45 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                                 color: finalGame['score1'] == finalScore || finalGame['score2'] == finalScore ? theme.scaffoldBackgroundColor : theme.highlightColor,
                                                 borderRadius: BorderRadius.circular(15),
                                                 boxShadow: [
-                                                  if(finalGame['score1'] == finalScore || finalGame['score2'] == finalScore)
+                                                  if (finalGame['score1'] == finalScore || finalGame['score2'] == finalScore)
                                                     BoxShadow(
                                                         color: theme.highlightColor,
                                                         blurRadius: 10,
-                                                        spreadRadius: 0
-                                                    )
-                                                ]
-                                            ),
-                                            child: finalGame['score1'] == finalScore || finalGame['score2'] == finalScore ?
-                                            Padding(
+                                                        spreadRadius: 0)
+                                                ]),
+                                            child: finalGame['score1'] == finalScore || finalGame['score2'] == finalScore
+                                                ? Padding(
                                                 padding: EdgeInsets.all(12),
                                                 child: Row(
                                                   children: [
                                                     Expanded(
-                                                      child: _playerCard(finalGame['score1'] == finalScore ? finalGame['player1_0'] : finalGame['player2_0'], finalGame)
-                                                    ),
+                                                        child: _playerCard(
+                                                            finalGame['score1'] == finalScore ? finalGame['player1_0'] : finalGame['player2_0'], finalGame)),
                                                     Container(
                                                       decoration: BoxDecoration(
                                                         borderRadius: BorderRadius.circular(15),
                                                         color: const Color(0xFFFFD700),
                                                       ),
                                                       padding: EdgeInsets.symmetric(vertical: 4, horizontal: 6),
-                                                      child: Text('WIN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: const Color(0xffffffff)),),
+                                                      child: Text(
+                                                        'WIN',
+                                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: const Color(0xffffffff)),
+                                                      ),
                                                     ),
                                                   ],
                                                 ))
-                                                :
-                                            WaitPreRound()
-                                        ),
+                                                : WaitPreRound()),
                                       ),
                                     );
                                   }
 
+                                  if (index >= roundTables.length) {
+                                    return SizedBox(height: itemHeight.toDouble());
+                                  }
+
                                   final game = roundTables[index];
                                   return AbsorbPointer(
-                                    absorbing: round+1 != _currentRound,
+                                    absorbing: round + 1 != _currentRound,
                                     child: Column(
                                       children: [
                                         SizedBox(
@@ -213,43 +271,28 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                                     decoration: BoxDecoration(
                                                         color: game['player1_0'] != null ? theme.scaffoldBackgroundColor : theme.highlightColor,
                                                         borderRadius: BorderRadius.circular(12),
-                                                        border: game['score1'] == finalScore || game['score2'] == finalScore ?
-                                                        game['score1'] == finalScore ?
-                                                        Border.all(
-                                                            color: theme.colorScheme.primary.withValues(alpha: 0.5),
-                                                            width: 2
-                                                        ) :
-                                                        Border.all(
-                                                            color: theme.colorScheme.primary.withValues(alpha: 0.2),
-                                                            width: 2
-                                                        )
-                                                            : Border.all(
-                                                            color: theme.highlightColor,
-                                                            width: 2
-                                                        ),
+                                                        border: game['score1'] == finalScore || game['score2'] == finalScore
+                                                            ? game['score1'] == finalScore
+                                                            ? Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.5), width: 2)
+                                                            : Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.2), width: 2)
+                                                            : Border.all(color: theme.highlightColor, width: 2),
                                                         boxShadow: [
-                                                          if(game['player1_0'] != null)
-                                                            BoxShadow(
-                                                                color: theme.highlightColor,
-                                                                blurRadius: 10,
-                                                                spreadRadius: 0
-                                                            )
-                                                        ]
-                                                    ),
-                                                    child:
-                                                    game['player1_0'] != null ?
-                                                    InkWell(
+                                                          if (game['player1_0'] != null)
+                                                            BoxShadow(color: theme.highlightColor, blurRadius: 10, spreadRadius: 0)
+                                                        ]),
+                                                    child: game['player1_0'] != null
+                                                        ? InkWell(
                                                       borderRadius: BorderRadius.circular(12),
-                                                      onTap: () async{
+                                                      onTap: () async {
                                                         final score1 = await GameManager.scoreInput(finalScore, game['score1']);
 
-                                                        if(score1 == game['score1']){
+                                                        if (score1 == game['score1']) {
                                                           DialogManager.showBasicDialog(title: '잠깐만요!', content: '토너먼트에서 동점기입은 불가해요', confirmText: '알겠어요');
                                                           return;
                                                         }
 
-                                                        if(score1 != null && score1 != game['score1']){
-                                                          widget.gameProvider.onChangedScore(game['tableId'], score1, 1);
+                                                        if (score1 != null && score1 != game['score1']) {
+                                                          widget.scheduleProvider.updateScore(game['tableId'], score1, 1);
                                                         }
                                                       },
                                                       child: Padding(
@@ -263,16 +306,17 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                                                   shape: BoxShape.circle,
                                                                   color: theme.colorScheme.secondary,
                                                                 ),
-                                                                child: Text('${game['score1']}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: theme.colorScheme.onSecondary),),
+                                                                child: Text(
+                                                                  '${game['score1']}',
+                                                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: theme.colorScheme.onSecondary),
+                                                                ),
                                                               )
                                                             ],
                                                           )),
                                                     )
-                                                        :
-                                                    game['overWalk'] == true ?
-                                                    WalkOverCard()
-                                                        : WaitPreRound()
-                                                ),
+                                                        : game['overWalk'] == true
+                                                        ? WalkOverCard()
+                                                        : WaitPreRound()),
                                               ),
                                               Expanded(
                                                 child: Container(
@@ -280,20 +324,18 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                                   decoration: BoxDecoration(
                                                       border: Border(
                                                         top: BorderSide(
-                                                            color: game['score1'] == finalScore ? theme.colorScheme.primary.withValues(alpha: 0.7) : theme.highlightColor,
-                                                            width: 2.5
-                                                        ),
+                                                            color: game['score1'] == finalScore ? theme.colorScheme.primary.withValues(alpha: 0.7) : theme.highlightColor, width: 2.5),
                                                         right: BorderSide(
-                                                            color: game['score1'] == finalScore ? theme.colorScheme.primary.withValues(alpha: 0.7) : theme.highlightColor,
-                                                            width: 2.5
-                                                        ),
-                                                      )
-                                                  ),
+                                                            color: game['score1'] == finalScore ? theme.colorScheme.primary.withValues(alpha: 0.7) : theme.highlightColor, width: 2.5),
+                                                      )),
                                                 ),
                                               ),
                                               Container(
-                                                height: 1.25, width: 15,
-                                                color: game['score1'] == finalScore || game['score2'] == finalScore ?  theme.colorScheme.primary.withValues(alpha: 0.7) : theme.highlightColor,
+                                                height: 1.25,
+                                                width: 15,
+                                                color: game['score1'] == finalScore || game['score2'] == finalScore
+                                                    ? theme.colorScheme.primary.withValues(alpha: 0.7)
+                                                    : theme.highlightColor,
                                               ),
                                             ],
                                           ),
@@ -310,42 +352,28 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                                     decoration: BoxDecoration(
                                                         color: game['player2_0'] != null ? theme.scaffoldBackgroundColor : theme.highlightColor,
                                                         borderRadius: BorderRadius.circular(15),
-                                                        border: game['score1'] == finalScore || game['score2'] == finalScore ?
-                                                        game['score2'] == finalScore ?
-                                                        Border.all(
-                                                            color: theme.colorScheme.primary.withValues(alpha: 0.7),
-                                                            width: 2
-                                                        ) :
-                                                        Border.all(
-                                                            color: theme.colorScheme.onError.withValues(alpha: 0.2),
-                                                            width: 2
-                                                        )
-                                                            : Border.all(
-                                                            color: theme.highlightColor,
-                                                            width: 2
-                                                        ),
+                                                        border: game['score1'] == finalScore || game['score2'] == finalScore
+                                                            ? game['score2'] == finalScore
+                                                            ? Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.7), width: 2)
+                                                            : Border.all(color: theme.colorScheme.onError.withValues(alpha: 0.2), width: 2)
+                                                            : Border.all(color: theme.highlightColor, width: 2),
                                                         boxShadow: [
-                                                          if(game['player2_0'] != null)
-                                                            BoxShadow(
-                                                                color: theme.highlightColor,
-                                                                blurRadius: 10,
-                                                                spreadRadius: 0
-                                                            )
-                                                        ]
-                                                    ),
-                                                    child: game['player2_0'] != null ?
-                                                    InkWell(
+                                                          if (game['player2_0'] != null)
+                                                            BoxShadow(color: theme.highlightColor, blurRadius: 10, spreadRadius: 0)
+                                                        ]),
+                                                    child: game['player2_0'] != null
+                                                        ? InkWell(
                                                       borderRadius: BorderRadius.circular(12),
-                                                      onTap: () async{
-                                                        final score1 = await GameManager.scoreInput(finalScore, game['score1']);
+                                                      onTap: () async {
+                                                        final score2 = await GameManager.scoreInput(finalScore, game['score2']);
 
-                                                        if(score1 == game['score1']){
+                                                        if (score2 == game['score2']) {
                                                           DialogManager.showBasicDialog(title: '잠깐만요!', content: '토너먼트에서 동점기입은 불가해요', confirmText: '알겠어요');
                                                           return;
                                                         }
 
-                                                        if(score1 != null && score1 != game['score1']){
-                                                          widget.gameProvider.onChangedScore(game['tableId'], score1, 1);
+                                                        if (score2 != null && score2 != game['score1']) {
+                                                          widget.scheduleProvider.updateScore(game['tableId'], score2, 2);
                                                         }
                                                       },
                                                       child: Padding(
@@ -359,16 +387,17 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                                                   shape: BoxShape.circle,
                                                                   color: theme.colorScheme.secondary,
                                                                 ),
-                                                                child: Text('${game['score2']}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: theme.colorScheme.onSecondary),),
+                                                                child: Text(
+                                                                  '${game['score2']}',
+                                                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: theme.colorScheme.onSecondary),
+                                                                ),
                                                               )
                                                             ],
                                                           )),
                                                     )
-                                                        :
-                                                    game['overWalk'] == true ?
-                                                    WalkOverCard()   :
-                                                    WaitPreRound()
-                                                ),
+                                                        : game['overWalk'] == true
+                                                        ? WalkOverCard()
+                                                        : WaitPreRound()),
                                               ),
                                               Expanded(
                                                 child: Container(
@@ -376,20 +405,18 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                                   decoration: BoxDecoration(
                                                       border: Border(
                                                         bottom: BorderSide(
-                                                            color: game['score2'] ==  finalScore ? theme.colorScheme.onPrimary : theme.highlightColor,
-                                                            width: 2.5
-                                                        ),
+                                                            color: game['score2'] == finalScore ? theme.colorScheme.primary.withValues(alpha: 0.7) : theme.highlightColor, width: 2.5),
                                                         right: BorderSide(
-                                                            color: game['score2'] == finalScore ? theme.colorScheme.onPrimary : theme.highlightColor,
-                                                            width: 2.5
-                                                        ),
-                                                      )
-                                                  ),
+                                                            color: game['score2'] == finalScore ? theme.colorScheme.primary.withValues(alpha: 0.7) : theme.highlightColor, width: 2.5),
+                                                      )),
                                                 ),
                                               ),
                                               Container(
-                                                height: 1.25, width: 15,
-                                                color: game['score1'] == finalScore || game['score2'] == finalScore ?  theme.colorScheme.primary.withValues(alpha: 0.7) : theme.highlightColor,
+                                                height: 1.25,
+                                                width: 15,
+                                                color: game['score1'] == finalScore || game['score2'] == finalScore
+                                                    ? theme.colorScheme.primary.withValues(alpha: 0.7)
+                                                    : theme.highlightColor,
                                               ),
                                             ],
                                           ),
@@ -404,100 +431,112 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                         );
                       }),
                     ),
-                  )
-              )
-          ),
+                  ))),
           if (isOwner && isProgress)
             NadalButton(
-              onPressed: (){
+              onPressed: () {
                 final currentRoundGame = gameTable.where((element) => element['tableId'] ~/ 1000 == _currentRound);
-                final isEnd = currentRoundGame.where((element) =>
-                (element['score1'] != finalScore && element['score2'] != finalScore) //둘다 최종 스코어에 도달하지 못한 경우
-                    || (element['score1'] == finalScore && element['score1'] == element['score2']) //둘다 최종 스코어에 도달한 경우
-                ).isEmpty;
+                final isEnd = currentRoundGame
+                    .where((element) =>
+                (element['score1'] != finalScore && element['score2'] != finalScore) ||
+                    (element['score1'] == finalScore && element['score1'] == element['score2']))
+                    .isEmpty;
 
-                if(!isEnd){ //끝나지 않았다면
-                  DialogManager.showBasicDialog(title: '조금만 더 기다려주세요!', content: '아직 끝나지 않은 경기가 있어요.\n모두 종료되면 다음으로 넘어갈 수 있어요.', confirmText: '알겠어요');
+                if (!isEnd) {
+                  DialogManager.showBasicDialog(
+                      title: '조금만 더 기다려주세요!', content: '아직 끝나지 않은 경기가 있어요.\n모두 종료되면 다음으로 넘어갈 수 있어요.', confirmText: '알겠어요');
                   return;
                 }
 
-                if(isLastRound){
+                if (isLastRound) {
                   DialogManager.showBasicDialog(
-                      onConfirm: (){
-                        widget.gameProvider.endGame();
+                      onConfirm: () {
+                        widget.scheduleProvider.endGame();
                       },
-                      title: '게임 끝낼까요?', content: '종료하면 기록은 저장되고 수정은 안 돼요!', confirmText: '게임 종료!', cancelText: '잠깐만요!');
-                }else{
+                      title: '게임 끝낼까요?',
+                      content: '종료하면 기록은 저장되고 수정은 안 돼요!',
+                      confirmText: '게임 종료!',
+                      cancelText: '잠깐만요!');
+                } else {
                   DialogManager.showBasicDialog(
-                      onConfirm: (){
-                        widget.gameProvider.nextRound(_currentRound);
+                      onConfirm: () {
+                        widget.scheduleProvider.nextRound(_currentRound);
                       },
-                      title: '이 라운드 확정해도 괜찮을까요?', content: '한 번 확정하면 수정은 어렵습니다!', confirmText: '다음 라운드 시작!', cancelText: '잠깐만요!' );
+                      title: '이 라운드 확정해도 괜찮을까요?',
+                      content: '한 번 확정하면 수정은 어렵습니다!',
+                      confirmText: '다음 라운드 시작!',
+                      cancelText: '잠깐만요!');
                 }
               },
               isActive: true,
-              title: isLastRound ? '토너먼트를 종료하기' :
-              '${_getRoundName(_currentRound)} 확정하기',)
+              title: isLastRound ? '토너먼트를 종료하기' : '${_getRoundName(_currentRound)} 확정하기',
+            )
         ],
       ),
     );
   }
 
-  String _getRoundName(int round){
-    final num = widget.scheduleProvider.scheduleMembers!.length ~/ pow(2, round-1);
-    return num == 2 ? '결승' :
-    num == 4 ? '준결승' :
-    num == 1 ? '우승' :
-    '$num강';
+  String _getRoundName(int round) {
+    final scheduleMembers = widget.scheduleProvider.scheduleMembers;
+    if (scheduleMembers == null) return '라운드 $round';
+
+    final num = scheduleMembers.length ~/ pow(2, round - 1);
+    return num == 2
+        ? '결승'
+        : num == 4
+        ? '준결승'
+        : num == 1
+        ? '우승'
+        : '$num강';
   }
 
-  Widget _playerCard(String uid, Map game){
-    return Builder(
-        builder: (context) {
-          final theme = Theme.of(context);
-          final player = widget.scheduleProvider.scheduleMembers![uid];
-          return Padding(
-              padding: EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  // 선수 번호
-                  Text(
-                    '${player['memberIndex']}.',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: theme.colorScheme.secondary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+  Widget _playerCard(String uid, Map game) {
+    return Builder(builder: (context) {
+      final theme = Theme.of(context);
+      final scheduleMembers = widget.scheduleProvider.scheduleMembers;
 
-                  const SizedBox(width: 10),
+      if (scheduleMembers == null || !scheduleMembers.containsKey(uid)) {
+        return Container();
+      }
 
-                  // 선수 이름
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          TextFormManager.profileText(
-                            player['nickName'],
-                            player['name'],
-                            player['birthYear'],
-                            player['gender'],
-                            useNickname: player['gender'] == null,
-                          ),
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+      final player = scheduleMembers[uid];
+
+      return Padding(
+          padding: EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Text(
+                '${player['memberIndex']}.',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: theme.colorScheme.secondary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      TextFormManager.profileText(
+                        player['nickName'],
+                        player['name'],
+                        player['birthYear'],
+                        player['gender'],
+                        useNickname: player['gender'] == null,
+                      ),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ],
-              )
-          );
-        }
-    );
+                  ],
+                ),
+              ),
+            ],
+          ));
+    });
   }
 }

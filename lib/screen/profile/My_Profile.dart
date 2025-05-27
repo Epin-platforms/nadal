@@ -54,6 +54,13 @@ class MyProfile extends StatelessWidget {
                       leading: Icon(BootstrapIcons.people_fill, size: 24.r, color: Theme.of(context).colorScheme.primary),
                       title: Text('친구목록', style: theme.textTheme.titleMedium),
                     ),
+                    ListTile(
+                      onTap: (){
+                        context.push('/select/account?selectable=false');
+                      },
+                      leading: Icon(BootstrapIcons.coin, size: 24.r, color: Theme.of(context).colorScheme.primary),
+                      title: Text('계좌목록', style: theme.textTheme.titleMedium),
+                    ),
                   ],
                 ),
               ),

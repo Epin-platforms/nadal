@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
 import 'package:my_sports_calendar/provider/room/Room_Provider.dart';
 import 'package:my_sports_calendar/screen/rooms/room/chat/bubble/Image_Chat_Bubble.dart';
@@ -42,9 +43,11 @@ class _ChatFrameState extends State<ChatFrame> {
           final nav = Navigator.of(context);
           return  NadalSheet(actions: [
             //공통
+            if(widget.chat.type == ChatType.text)
             CupertinoActionSheetAction(
                 onPressed: (){
                   nav.pop();
+                  Clipboard.setData(ClipboardData(text: widget.chat.contents ?? ''));
                 },
                 child: Text('복사', style: theme.textTheme.bodyLarge?.copyWith(color: theme.secondaryHeaderColor),)
             ),
@@ -97,9 +100,9 @@ class _ChatFrameState extends State<ChatFrame> {
           // 읽음 표시
           if (widget.read != 0)
             Container(
-              margin: const EdgeInsets.only(right: 4),
-              padding: const EdgeInsets.all(2),
-              constraints: const BoxConstraints(minWidth: 18),
+              margin: EdgeInsets.only(right: 4.w),
+              padding: EdgeInsets.all(2.r),
+              constraints: BoxConstraints(minWidth: 18.w),
               decoration: BoxDecoration(
                 color: colorScheme.primary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
@@ -108,7 +111,7 @@ class _ChatFrameState extends State<ChatFrame> {
                 '${widget.read > 99 ? "99+" : widget.read}',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: colorScheme.primary,
-                  fontSize: 10,
+                  fontSize: 10.sp,
                   fontWeight: FontWeight.w600,
                 ),
                 textAlign: TextAlign.center,
@@ -118,11 +121,11 @@ class _ChatFrameState extends State<ChatFrame> {
           // 시간 표시
           if (widget.timeVisible)
             Container(
-              margin: const EdgeInsets.only(right: 6, bottom: 4),
+              margin: EdgeInsets.only(right: 6.w, bottom: 4.h),
               child: Text(
                 TextFormManager.chatCreateAt(widget.chat.createAt),
                 style: theme.textTheme.labelSmall?.copyWith(
-                  fontSize: 10,
+                  fontSize: 10.sp,
                   color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                 ),
               ),
@@ -191,12 +194,14 @@ class _ChatFrameState extends State<ChatFrame> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          SizedBox(width: 12,),
+          SizedBox(width: 12.w,),
           // 발신자 프로필 이미지 (있으면 표시)
           if (widget.tail)
-            NadalProfileFrame(imageUrl: widget.chat.profileImage,)
+            GestureDetector(
+                onTap: ()=> context.push('/user/${widget.chat.uid}'),
+                child: NadalProfileFrame(imageUrl: widget.chat.profileImage, size: 36.r,))
           else
-            const SizedBox(width: 36),
+            SizedBox(width: 36.r),
 
           // 발신자 이름 및 메시지 영역
           Expanded(
@@ -206,7 +211,7 @@ class _ChatFrameState extends State<ChatFrame> {
                 // 발신자 이름 (꼬리가 있는 경우 = 연속 메시지가 아닌 경우)
                 if (widget.tail)
                   Padding(
-                    padding: const EdgeInsets.only(left: 14, bottom: 4),
+                    padding: EdgeInsets.only(left: 14.w, bottom: 4.h),
                     child: Text(
                       widget.chat.name!,
                       style: theme.textTheme.labelMedium?.copyWith(
@@ -268,11 +273,11 @@ class _ChatFrameState extends State<ChatFrame> {
                     // 시간 표시
                     if (widget.timeVisible)
                       Container(
-                        margin: const EdgeInsets.only(left: 6, bottom: 4, right: 6),
+                        margin: EdgeInsets.only(left: 6.w, bottom: 4.h, right: 6.w),
                         child: Text(
                           TextFormManager.chatCreateAt(widget.chat.createAt),
                           style: theme.textTheme.labelSmall?.copyWith(
-                            fontSize: 10,
+                            fontSize: 10.sp,
                             color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                           ),
                         ),
@@ -281,9 +286,9 @@ class _ChatFrameState extends State<ChatFrame> {
                     // 읽음 표시
                     if (widget.read != 0)
                       Container(
-                        margin: const EdgeInsets.only(bottom: 4, right: 6),
-                        padding: const EdgeInsets.all(2),
-                        constraints: const BoxConstraints(minWidth: 18),
+                        margin:  EdgeInsets.only(bottom: 4.h, right: 6.w),
+                        padding:  EdgeInsets.all(2.r),
+                        constraints:  BoxConstraints(minWidth: 18.w),
                         decoration: BoxDecoration(
                           color: colorScheme.secondary.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
@@ -292,7 +297,7 @@ class _ChatFrameState extends State<ChatFrame> {
                           '${widget.read > 99 ? "99+" : widget.read}',
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: colorScheme.secondary,
-                            fontSize: 10,
+                            fontSize: 10.sp,
                             fontWeight: FontWeight.w600,
                           ),
                           textAlign: TextAlign.center,

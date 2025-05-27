@@ -1,4 +1,3 @@
-import 'package:my_sports_calendar/screen/app/Loading_Block.dart';
 import 'package:my_sports_calendar/screen/auth/register/Birthyear_Field.dart';
 import 'package:my_sports_calendar/screen/auth/register/Career_Field.dart';
 import 'package:my_sports_calendar/screen/auth/register/Email_Field.dart';
@@ -51,32 +50,32 @@ class _RegisterPageState extends State<RegisterPage> {
                     Expanded(
                       child: SingleChildScrollView(
                         child: Padding(
-                          padding: EdgeInsets.fromLTRB(20, 24, 20, 0),
+                          padding: EdgeInsets.fromLTRB(20.w, 24.h, 20.w, 0),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               if(registerProvider.verificationCode == null)
                                 Padding(
-                                    padding: EdgeInsets.only(bottom: 24),
+                                    padding: EdgeInsets.only(bottom: 24.h),
                                     child: Text('간단한 정보만 입력하면\n곧 일정을 만들 수 있어요', style: Theme.of(context).textTheme.titleLarge,))
                               else
                                 NadalVerificationInformation(),
                               if(FirebaseAuth.instance.currentUser?.email?.isEmpty ?? false) //만약 이메일이 없다면 입력받기
                                 Padding(
-                                    padding: EdgeInsets.only(bottom: 16),
+                                    padding: EdgeInsets.only(bottom: 16.h),
                                     child: EmailField(registerProvider: registerProvider)),
                                 Column(
                                   children: [
                                     if(registerProvider.visibleNameSpace)
                                       ...[
                                         if(registerProvider.verificationCode != null)
-                                          SizedBox(height: 16,),
+                                          SizedBox(height: 16.h,),
                                         NameField(registerProvider: registerProvider),
                                       ],
 
                                     if(registerProvider.genderSpace || registerProvider.birthYearSpace)
                                       ... [
-                                        SizedBox(height: 16,),
+                                        SizedBox(height: 16.h,),
                                         Row(
                                           children: [
                                             if(registerProvider.genderSpace)
@@ -84,7 +83,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                                   flex: 5,
                                                   child: GenderField(registerProvider: registerProvider)),
                                             if(registerProvider.genderSpace && registerProvider.birthYearSpace)
-                                              SizedBox(width: 8,),
+                                              SizedBox(width: 8.w,),
                                             if(registerProvider.birthYearSpace)
                                               Expanded(
                                                   flex: 4,

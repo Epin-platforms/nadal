@@ -110,7 +110,7 @@ class MyRooms extends StatelessWidget {
                 title: '아직 참여한 클럽이 없어요',
                 subtitle: '근처 클럽을 찾아보거나, 새로운 클럽을 만들어보세요',
                 onAction: () => GoRouter.of(context).push('/searchRoom'),
-                icon: Icon(CupertinoIcons.search),
+                icon: Icon(CupertinoIcons.search, color: Theme.of(context).colorScheme.onPrimary,),
                 actionText: '클럽 둘러보기',),
             )
         ],

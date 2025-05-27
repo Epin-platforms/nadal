@@ -18,22 +18,22 @@ class AutoList extends StatelessWidget {
         return InkWell(
           onTap: ()=> provider.onSubmit(item),
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
             child: Row(
               children: [
                 Expanded(
                   child: Row(
                     children: [
-                      Icon(CupertinoIcons.search, size: 14, color: theme.hintColor),
-                      SizedBox(width: 8,),
+                      Icon(CupertinoIcons.search, size: 14.r, color: theme.hintColor),
+                      SizedBox(width: 8.w,),
                       Expanded(
                           child: Text(item, style: theme.textTheme.bodyMedium,)
                       ),
                     ],
                   ),
                 ),
-                SizedBox(width: 8,),
-                Icon(CupertinoIcons.arrow_turn_down_right, size: 14, color: theme.hintColor,)
+                SizedBox(width: 8.w,),
+                Icon(CupertinoIcons.arrow_turn_down_right, size: 14.r, color: theme.hintColor,)
               ],
             ),
           ),

@@ -1,29 +1,29 @@
-import 'package:my_sports_calendar/provider/game/Game_Provider.dart';
+
 
 import '../../../../../manager/project/Import_Manager.dart';
 
 class KdkResult extends StatelessWidget {
-  const KdkResult({super.key, required this.gameProvider, required this.scheduleProvider});
-  final GameProvider gameProvider;
+  const KdkResult({super.key, required this.scheduleProvider});
   final ScheduleProvider scheduleProvider;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Column(
       children: [
         Text('대진표 결과', style: theme.textTheme.titleMedium,),
-        SizedBox(height: 24,),
+        SizedBox(height: 24.h,),
         //상단부
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
           child: Row(
             children: [
               Container(
-                  width: 30,
+                  width: 30.w,
                   alignment: Alignment.center,
                   child: Text('순위', style: theme.textTheme.labelMedium)),
               Container(
-                  width: 80,
+                  width: 80.w,
                   alignment: Alignment.center,
                   child: Text('닉네임', style: theme.textTheme.labelMedium,)),
               Expanded(
@@ -35,16 +35,16 @@ class KdkResult extends StatelessWidget {
         ),
 
         ListView.builder(
-            padding: EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            padding: EdgeInsets.symmetric(vertical: 14.h, horizontal: 16.w),
             shrinkWrap: true,
             physics: NeverScrollableScrollPhysics(),
             itemCount: scheduleProvider.scheduleMembers!.entries.length,
             itemBuilder: (context, index){
               final member = scheduleProvider.scheduleMembers!.entries.map((e)=> e.value).toList()[index];
               final attendGame =  scheduleProvider.schedule!['isSingle'] == 1 ? //단식이라면
-              gameProvider.tables!.entries.where((element) => element.value['player1_0'] == member['uid'] || element.value['player2_0'] == member['uid']).toList() :
+              scheduleProvider.gameTables!.entries.where((element) => element.value['player1_0'] == member['uid'] || element.value['player2_0'] == member['uid']).toList() :
                   //복식일경우
-              gameProvider.tables!.entries.where((element) =>
+              scheduleProvider.gameTables!.entries.where((element) =>
               element.value['player1_0'] == member['uid'] || element.value['player1_1'] == member['uid'] || element.value['player2_0'] == member['uid'] || element.value['player2_1'] == member['uid']
               ).toList();
 

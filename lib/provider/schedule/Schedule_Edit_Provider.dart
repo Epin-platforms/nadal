@@ -189,56 +189,14 @@ class ScheduleEditProvider extends ChangeNotifier{
 
    setIsKDK(bool val){
      if(val != _isKDK){
-       if(val == false && _isSingle == false) { //토너먼트 복식으로변경
-         if (_existMember) { //참가자가 있는 상태라면
-           DialogManager.showBasicDialog(title: '이미 참가자가 존재합니다',
-               content: '참가자가 존재할 경우, 팀 참가 게임으로의 변경은 불가합니다',
-               confirmText: "확인");
-           return;
-         }
-         _warning =true;
-         setUseGenderLimit(false);
-       }else if(val == true && _isSingle == false){ //토너먼트 복식에서변경
-         if(_existMember){
-           DialogManager.showBasicDialog(title: '이미 팀이 존재합니다',
-               content: '팀이 존재할 경우, 개인 참가 개임으로의 변경은 불가합니다',
-               confirmText: "확인");
-         }
-         _warning = true;
-         return;
-       }else{
-         _warning = false;
-       }
-
        _isKDK = val;
        notifyListeners();
      }
    }
 
-   bool _warning = false;
 
    setIsSingle(bool val){
      if(val != _isSingle){
-       if(_isKDK == false && val == false){ //단식에서 복식으로변경
-         if (_existMember) { //참가자가 있는 상태라면
-           DialogManager.showBasicDialog(title: '이미 참가자가 존재합니다',
-               content: '참가자가 존재할 경우, 팀 참가 게임으로의 변경은 불가합니다',
-               confirmText: "확인");
-           return;
-         }
-         _warning =true;
-         setUseGenderLimit(false);
-       }else if(_isKDK == false && val == true){
-         if (_existMember) { //참가자가 있는 상태라면
-           DialogManager.showBasicDialog(title: '이미 팀이 존재합니다',
-               content: '팀이 존재할 경우, 개인 참가 개임으로의 변경은 불가합니다',
-               confirmText: "확인");
-           return;
-         }
-         _warning =true;
-       }else{
-         _warning = false;
-       }
        _isSingle = val;
        notifyListeners();
      }
@@ -304,7 +262,7 @@ class ScheduleEditProvider extends ChangeNotifier{
      AppRoute.pushLoading();
 
      try{
-       final res = await serverManager.put('schedule/update/$_warning', data: _toMap());
+       final res = await serverManager.put('schedule/update', data: _toMap());
        AppRoute.popLoading();
        if(res.statusCode == 200){
          AppRoute.context?.read<UserProvider>().fetchMySchedules(startDate, force: true);

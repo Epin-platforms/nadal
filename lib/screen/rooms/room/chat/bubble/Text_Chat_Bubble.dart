@@ -47,9 +47,9 @@ class TextChatBubble extends StatelessWidget {
       duration: const Duration(milliseconds: 350),
       animation: animation,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        constraints: const BoxConstraints(maxWidth: 230),
+        margin: EdgeInsets.symmetric(vertical: 2.h, horizontal: 12.w),
+        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+        constraints: BoxConstraints(maxWidth: 210.w),
         decoration: BoxDecoration(
           color: backgroundColor,
           borderRadius: borderRadius,
@@ -65,7 +65,7 @@ class TextChatBubble extends StatelessWidget {
           text,
           style: TextStyle(
             color: textColor,
-            fontSize: 15, // 조금 더 큰 글자 크기
+            fontSize: 15.sp, // 조금 더 큰 글자 크기
             height: 1.4, // 줄 간격을 적당히 조정
             fontWeight: FontWeight.w400, // 일반 텍스트 무게로 변경
             letterSpacing: -0.2, // 글자 간격 약간 줄임 (한글에 적합)

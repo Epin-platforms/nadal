@@ -34,6 +34,11 @@ class _RoomState extends State<Room> {
     super.initState();
   }
 
+  @override
+  void dispose() {
+    provider.socketListener(isOn: false);
+    super.dispose();
+  }
 
   void _roomSetting() async{
     //방정보 업데이트

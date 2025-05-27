@@ -13,6 +13,12 @@ class ParticipationSolo extends StatefulWidget {
 class _ParticipationSoloState extends State<ParticipationSolo> {
    bool _editMode = false;
 
+   @override
+  void initState() {
+    widget.provider.updateMembers();
+    super.initState();
+  }
+
   @override
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
@@ -172,7 +178,7 @@ class _ParticipationSoloState extends State<ParticipationSolo> {
                 Expanded(child:
                 members.isNotEmpty ?
                 RefreshIndicator(
-                  onRefresh: ()=> widget.provider.updateMembers,
+                  onRefresh: ()=> widget.provider.updateMembers(),
                   child: ListView.builder(
                       itemCount: members.length,
                       itemBuilder: (context,index){
@@ -208,7 +214,7 @@ class _ParticipationSoloState extends State<ParticipationSolo> {
                         }else{
                           return ListTile(
                             onTap: (){
-
+                                context.push('/user/${item['uid']}');
                             },
                             contentPadding: EdgeInsets.symmetric(vertical: 3, horizontal: 16),
                             leading: NadalProfileFrame(imageUrl: item['profileImage'], size: 45,),
@@ -228,7 +234,7 @@ class _ParticipationSoloState extends State<ParticipationSolo> {
                   onAction: _editMode  && (widget.provider.schedule!['state'] ?? 0) == 0 ?  null : () async{
                     final res = await widget.provider.participateSchedule();
                     if(res == 'complete'){
-                      await widget.provider.updateMembers;
+                      await widget.provider.updateMembers();
                     }
                   },
                 )
@@ -248,8 +254,8 @@ class _ParticipationSoloState extends State<ParticipationSolo> {
                   // 참가 로직
                   final res = await widget.provider.participateSchedule();
                   if(res == 'complete'){
-                    await widget.provider.updateMembers;
-                    userProvider.fetchMySchedules(DateTime.parse(widget.provider.schedule!['startDate']).toLocal(), force: true);
+                    await widget.provider.updateMembers();
+                    userProvider.fetchMySchedules(DateTime.parse(widget.provider.schedule!['startDate']), force: true);
                   }
                 }
               },

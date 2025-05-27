@@ -16,20 +16,27 @@ import 'manager/project/Import_Manager.dart';
 void main()  async{
   WidgetsFlutterBinding.ensureInitialized();
 
+  //패키지 초기화
+  await asyncInitPackage();
+
   //화면 세로 고정
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
-  //패키지 초기화
-  await asyncInitPackage();
-
   runApp(const AppDriver());
 }
 
 Future<void> asyncInitPackage() async{
   //파이어베이스 초기화
+  try {
+    final json = await rootBundle.loadString('GoogleService-Info.plist');
+    print('✅ GoogleService-Info.plist loaded!');
+  } catch (e) {
+    print('❌ GoogleService-Info.plist NOT found at runtime!');
+  }
+
   await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform
   );

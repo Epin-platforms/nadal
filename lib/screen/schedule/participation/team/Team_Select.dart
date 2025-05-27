@@ -110,6 +110,7 @@ class _TeamSelectState extends State<TeamSelect> {
                                           final user = await showModalBottomSheet(
                                               showDragHandle: true,
                                               useRootNavigator: false,
+                                              isScrollControlled: true,
                                               context: context,
                                               builder: (bottomSheetContext) {
                                                 // 상위 컨텍스트의 TeamProvider를 가져옵니다
@@ -136,7 +137,7 @@ class _TeamSelectState extends State<TeamSelect> {
                                           }
                                         },
                                         margin: EdgeInsets.zero,
-                                        isActive: true, color: ThemeManager.infoColor, title: '팀원선택', height: 40,),
+                                        isActive: true, color: ThemeManager.infoColor, title: '팀원선택', height: 40.h,),
                                     ),
                                     if(teamProvider.selectUser != null)...[
                                       SizedBox(width: 8,),
@@ -153,6 +154,7 @@ class _TeamSelectState extends State<TeamSelect> {
                                             DialogManager.showBasicDialog(
                                               onConfirm: (){
                                                 teamProvider.createTeam(_controller.text);
+                                                _controller.clear();
                                               },
                                               title: '팀 생성, 바로 갈까요?',
                                               content: '한 번 만들면 상대방에게도 보여요!',
@@ -160,15 +162,15 @@ class _TeamSelectState extends State<TeamSelect> {
                                               cancelText: '앗! 잠깐만요',
                                             );
                                           },
-                                          isActive: true, color: ThemeManager.accentLight, title: '팀 만들기', height: 40,),
+                                          isActive: true, color: ThemeManager.accentLight, title: '팀 만들기', height: 40.h,),
                                       ),
                                     ]
                                   ],
                                 ),
                               ),
                   
-                              SizedBox(height: 16,),
-                              Padding(padding: EdgeInsets.only(left: 16, bottom: 8),
+                              SizedBox(height: 16.h,),
+                              Padding(padding: EdgeInsets.only(left: 16.w, bottom: 8.h),
                                 child: Text('나의 팀', style: theme.textTheme.titleMedium,),
                               ),
                               if(teamProvider.teams!.isEmpty)
@@ -303,7 +305,10 @@ class _MemberListState extends State<MemberList> {
               Center(
                 child: NadalCircular(),
               ) :
-          ListView.builder(
+          widget.teamProvider.lastValue.isNotEmpty &&
+          widget.teamProvider.result.isEmpty ?
+            NadalEmptyList(title: '찾으시는 사용자거 없어요', subtitle: '다른 사용자를 검색해보세요',)
+          : ListView.builder(
               controller: _scroll,
               itemCount:
               widget.teamProvider.lastValue.isNotEmpty ?
@@ -318,7 +323,9 @@ class _MemberListState extends State<MemberList> {
                   },
                   leading: NadalProfileFrame(imageUrl: item['profileImage']),
                   title: Text(TextFormManager.profileText(item['displayName'], item['displayName'], item['birthYear'], item['gender'], useNickname: item['useNickname'] == 1)),
-                  subtitle: Text(item['isParticipation'] == 1 ? '이 일정 참가중' : '선택가능'),
+                  subtitle: Text(item['isParticipation'] == 1
+                      ? '이 일정에 참가 중이에요'
+                      : '이 일정에 참가하지 않았어요'),
                 );
               }
           ),

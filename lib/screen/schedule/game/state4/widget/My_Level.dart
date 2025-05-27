@@ -1,10 +1,9 @@
-import 'package:my_sports_calendar/provider/game/Game_Provider.dart';
+
 
 import '../../../../../manager/project/Import_Manager.dart';
 
 class MyLevel extends StatelessWidget {
-  const MyLevel({super.key, required this.gameProvider, required this.scheduleProvider});
-  final GameProvider gameProvider;
+  const MyLevel({super.key, required this.scheduleProvider});
   final ScheduleProvider scheduleProvider;
   @override
   Widget build(BuildContext context) {
@@ -30,8 +29,8 @@ class MyLevel extends StatelessWidget {
                 Builder(
                   builder: (context) {
                     return Container(
-                      width: 100,
-                      height: 100,
+                      width: 100.r,
+                      height: 100.r,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: theme.colorScheme.secondary.withValues(alpha: 0.15),
@@ -40,8 +39,8 @@ class MyLevel extends StatelessWidget {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text('${me?['ranking'] ?? '?'}위', style: theme.textTheme.labelLarge?.copyWith(fontSize: 22, color: theme.colorScheme.secondary, fontWeight: FontWeight.w800),),
-                          SizedBox(height: 8,),
+                          Text('${me?['ranking'] ?? '?'}위', style: theme.textTheme.labelLarge?.copyWith(fontSize: 22.sp, color: theme.colorScheme.secondary, fontWeight: FontWeight.w800),),
+                          SizedBox(height: 8.h,),
                           Text('등수', style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),)
                         ],
                       ),
@@ -51,7 +50,7 @@ class MyLevel extends StatelessWidget {
 
                 Builder(
                     builder: (context) {
-                      final games = gameProvider.myGames();
+                      final games = scheduleProvider.getMyGames();
                       final winCount = games.where(
                               (e) =>
                           ((e.value['player1_0'] == uid || e.value['player1_1'] == uid) && e.value['score1'] > e.value['score2']) ||
@@ -59,8 +58,8 @@ class MyLevel extends StatelessWidget {
                       ).length;
                       final winRatio = games.isEmpty ? 0.0 : winCount / games.length;
                       return Container(
-                        width: 100,
-                        height: 100,
+                        width: 100.r,
+                        height: 100.r,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                             color: theme.colorScheme.secondary.withValues(alpha: 0.15),
@@ -69,8 +68,8 @@ class MyLevel extends StatelessWidget {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            FittedBox(child: Text('${(winRatio * 100).toStringAsFixed(0)}%', style: theme.textTheme.labelLarge?.copyWith(fontSize: 22, color: theme.colorScheme.secondary, fontWeight: FontWeight.w800),)),
-                            SizedBox(height: 8,),
+                            FittedBox(child: Text('${(winRatio * 100).toStringAsFixed(0)}%', style: theme.textTheme.labelLarge?.copyWith(fontSize: 22.sp, color: theme.colorScheme.secondary, fontWeight: FontWeight.w800),)),
+                            SizedBox(height: 8.h,),
                             Text('승률', style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),)
                           ],
                         ),
@@ -81,15 +80,15 @@ class MyLevel extends StatelessWidget {
 
                 Builder(
                     builder: (context) {
-                      final origin = gameProvider.result!.first['original'];
-                      final fluctuationSum = gameProvider.result!
-                          .map((e) => e['fluctuation'] as double)
+                      final origin = (scheduleProvider.gameResult!.first['original'] as num).toDouble();
+                      final fluctuationSum = scheduleProvider.gameResult!
+                          .map((e) => (e['fluctuation'] as num).toDouble())
                           .fold(origin, (prev, element) => prev + element);
 
                       final double levelDiff = fluctuationSum - origin;
                       return Container(
-                        width: 100,
-                        height: 100,
+                        width: 100.r,
+                        height: 100.r,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                             color: theme.colorScheme.secondary.withValues(alpha: 0.15),
@@ -98,8 +97,8 @@ class MyLevel extends StatelessWidget {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            FittedBox(child: Text('${levelDiff > 0 ? '+':''}${(levelDiff * 100).toStringAsFixed(1)}%', style: theme.textTheme.labelLarge?.copyWith(fontSize: 22, color: theme.colorScheme.secondary, fontWeight: FontWeight.w800),)),
-                            SizedBox(height: 8,),
+                            FittedBox(child: Text('${levelDiff > 0 ? '+':''}${(levelDiff * 100).toStringAsFixed(1)}%', style: theme.textTheme.labelLarge?.copyWith(fontSize: 22.sp, color: theme.colorScheme.secondary, fontWeight: FontWeight.w800),)),
+                            SizedBox(height: 8.h,),
                             Text('레벨변화', style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),)
                           ],
                         ),

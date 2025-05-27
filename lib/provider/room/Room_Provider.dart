@@ -15,7 +15,7 @@ class RoomProvider extends ChangeNotifier{
   final int MAX_IMAGE_LENGTH = 5;
   final SocketManager socket = SocketManager(); //방 로그 리스너를 위한 소켓 연결
 
-  _socketListener({required bool isOn}){
+  socketListener({required bool isOn}){
     if(isOn){
       socket.on('roomLog', _addRoomLog);
       socket.on('refreshMember', _fetchRoomMembers);
@@ -37,10 +37,12 @@ class RoomProvider extends ChangeNotifier{
 
 
   _addRoomLog(dynamic data){
-    final log = RoomLog.fromJson(data);
-    if(!_roomLog.contains(log)){
-      _roomLog.add(log);
-      notifyListeners();
+    if(data.length > 0){
+      final log = RoomLog.fromJson(data[0]);
+      if(_roomLog.where((e)=> e.logId == log.logId).isEmpty){
+        _roomLog.add(log);
+        notifyListeners();
+      }
     }
   }
 
@@ -59,24 +61,16 @@ class RoomProvider extends ChangeNotifier{
     }
   }
 
-  @override
-  void dispose() {
-    _socketListener(isOn: false);
-    super.dispose();
-  }
-
-  RoomProvider(){
-    _socketListener(isOn: true);
-  }
 
   Map? _room;
   Map? get room => _room;
 
-  setRoom(Map? initRoom){
+  Future setRoom(Map? initRoom) async{
     _room = initRoom;
-    _fetchRoomMembers(null);
-    _fetchRoomLogs();
-    _fetchLastAnnounce();
+    await _fetchRoomMembers(null);
+    await _fetchRoomLogs();
+    await _fetchLastAnnounce();
+    socketListener(isOn: true);
     notifyListeners();
   }
 
@@ -194,6 +188,7 @@ class RoomProvider extends ChangeNotifier{
     if (image == null) {
       return null;
     }
+
     return File(image.path);
   }
 
@@ -239,8 +234,10 @@ class RoomProvider extends ChangeNotifier{
   //카메라로 이미지보내기
   void sentImageByCamera() async{
     try{
+
       final image = await pickImageFromCamera();
       if(image == null) return;
+
       _sendingImage.add(image);
       notifyListeners();
       final formData = FormData();

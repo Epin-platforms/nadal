@@ -82,9 +82,9 @@ class _CarouselOverlapState extends State<CarouselOverlap> {
                                   ],
                                   stops: [0.15, 0.9],
                                 ),
-                                borderRadius: BorderRadius.circular(20)
+                                borderRadius: BorderRadius.circular(20.r)
                               ),
-                              padding: EdgeInsets.all(16),
+                              padding: EdgeInsets.all(16.r),
                               child: FadeInUp(
                                 from: 8,
                                 animate: isOnTop,
@@ -99,7 +99,7 @@ class _CarouselOverlapState extends State<CarouselOverlap> {
                                           label: '대표클럽',
                                       ),
                                     ),
-                                    Text(item['roomName'], style: theme.textTheme.titleLarge?.copyWith(color: theme.scaffoldBackgroundColor, fontWeight: FontWeight.w800,
+                                    Text(item['roomName'], style: theme.textTheme.titleLarge?.copyWith(color: const Color(0xfff1f1f1), fontWeight: FontWeight.w800,
                                         shadows: [
                                         Shadow(
                                           color: Theme.of(context).highlightColor,
@@ -109,13 +109,13 @@ class _CarouselOverlapState extends State<CarouselOverlap> {
                                     Row(
                                       children: [
                                         NadalDot(),
-                                        Text('개설일 ${DateFormat('yyyy.MM.dd', 'ko_KR').format(DateTime.parse(item['createAt']).toLocal())}', style: theme.textTheme.labelMedium?.copyWith(fontSize: 12,color: theme.scaffoldBackgroundColor, fontWeight: FontWeight.w500, shadows: [
+                                        Text('개설일 ${DateFormat('yyyy.MM.dd', 'ko_KR').format(DateTime.parse(item['createAt']).toLocal())}', style: theme.textTheme.labelMedium?.copyWith(fontSize: 12.sp ,color: const Color(0xfff1f1f1), fontWeight: FontWeight.w500, shadows: [
                                           Shadow(
                                             color: Theme.of(context).highlightColor,
                                             blurRadius: 3,
                                           )])),
                                         NadalDot(),
-                                        Text('${item['memberCount']}/200', style: theme.textTheme.labelMedium?.copyWith(fontSize: 12,color: theme.scaffoldBackgroundColor, fontWeight: FontWeight.w500, shadows: [
+                                        Text('${item['memberCount']}/200', style: theme.textTheme.labelMedium?.copyWith(fontSize: 12.sp,color: const Color(0xfff1f1f1), fontWeight: FontWeight.w500, shadows: [
                                           Shadow(
                                             color: Theme.of(context).highlightColor,
                                             blurRadius: 3,
@@ -124,8 +124,8 @@ class _CarouselOverlapState extends State<CarouselOverlap> {
                                     ),
                                     SizedBox(height: 8,),
                                     SizedBox(
-                                        height: 18,
-                                        child: Text(item['tag'], style: theme.textTheme.labelMedium?.copyWith(fontSize: 12,color: theme.scaffoldBackgroundColor, fontWeight: FontWeight.w500),overflow: TextOverflow.ellipsis,)),
+                                        height: 18.h,
+                                        child: Text(item['tag'], style: theme.textTheme.labelMedium?.copyWith(fontSize: 12.sp,color: const Color(0xfff1f1f1), fontWeight: FontWeight.w500),overflow: TextOverflow.ellipsis,)),
                                   ],
                                 ),
                               ),
@@ -171,9 +171,9 @@ class _CarouselOverlapItemState extends State<CarouselOverlapItem> {
   Widget build(BuildContext context) {
     return Container(
       height: widget.height ?? 300.h,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: EdgeInsets.symmetric(horizontal: 16.w),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(20.r),
         image: widget.roomData['roomImage'] != null ? DecorationImage(
             image: NetworkImage(widget.roomData['roomImage']),
             fit: BoxFit.cover

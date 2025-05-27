@@ -1,12 +1,10 @@
 import 'package:flutter/services.dart';
-import 'package:my_sports_calendar/provider/game/Game_Provider.dart';
 import 'package:my_sports_calendar/screen/schedule/game/state2/widget/Nadal_Solo_Card.dart';
 
 import '../../../../../manager/project/Import_Manager.dart';
 
 class NadalKDKReorderList extends StatefulWidget {
-  const NadalKDKReorderList({super.key, required this.gameProvider, required this.scheduleProvider});
-  final GameProvider gameProvider;
+  const NadalKDKReorderList({super.key, required this.scheduleProvider});
   final ScheduleProvider scheduleProvider;
   @override
   State<NadalKDKReorderList> createState() => _NadalKDKReorderListState();
@@ -15,7 +13,7 @@ class NadalKDKReorderList extends StatefulWidget {
 class _NadalKDKReorderListState extends State<NadalKDKReorderList> with SingleTickerProviderStateMixin {
   bool isOwner = false;
   final ScrollController _scrollController = ScrollController();
-  List members = [];
+  List<Map<String, dynamic>> members = [];
   late AnimationController _buttonAnimationController;
   late Animation<double> _buttonScaleAnimation;
 
@@ -35,7 +33,9 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> with SingleTi
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       isOwner = widget.scheduleProvider.schedule?['uid'] == FirebaseAuth.instance.currentUser!.uid;
-      members = widget.scheduleProvider.scheduleMembers!.entries.map((e) => e.value).toList();
+      members = widget.scheduleProvider.scheduleMembers!.entries
+          .map((e) => Map<String, dynamic>.from(e.value))
+          .toList();
       members.sort((a, b) => a['memberIndex'].compareTo(b['memberIndex']));
       setState(() {});
 
@@ -312,8 +312,8 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> with SingleTi
                   onPressed: () async{
                     HapticFeedback.mediumImpact();
                     if (_isChanged) {
-                      final res = await widget.gameProvider.updateMemberIndex(members);
-                      if(res.statusCode == 200){
+                      final res = await widget.scheduleProvider.updateMemberIndex(members);
+                      if(res?.statusCode == 200){
                         setState(() {
                           _isChanged = false;
                         });
@@ -323,7 +323,7 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> with SingleTi
                       }
                     } else {
                       DialogManager.showBasicDialog(title: '해당 순서로 게임을 만들게요', content: '게임을 만든 후에는 순서 변경이 불가해요',
-                          confirmText: '네! 진행해주세요', onConfirm: ()=> widget.gameProvider.createGameTable(), cancelText: '음.. 잠시만요');
+                          confirmText: '네! 진행해주세요', onConfirm: ()=> widget.scheduleProvider.createGameTable(), cancelText: '음.. 잠시만요');
                     }
                   },
                   style: ElevatedButton.styleFrom(

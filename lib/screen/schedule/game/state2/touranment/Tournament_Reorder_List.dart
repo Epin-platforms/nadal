@@ -1,12 +1,10 @@
 import 'package:flutter/services.dart';
-import 'package:my_sports_calendar/provider/game/Game_Provider.dart';
 
 import '../../../../../manager/project/Import_Manager.dart';
 import '../widget/Nadal_Solo_Card.dart';
 
 class TournamentReorderList extends StatefulWidget {
-  const TournamentReorderList({super.key, required this.gameProvider, required this.scheduleProvider});
-  final GameProvider gameProvider;
+  const TournamentReorderList({super.key, required this.scheduleProvider});
   final ScheduleProvider scheduleProvider;
   @override
   State<TournamentReorderList> createState() => _TournamentReorderListState();
@@ -15,7 +13,7 @@ class TournamentReorderList extends StatefulWidget {
 class _TournamentReorderListState extends State<TournamentReorderList> with SingleTickerProviderStateMixin{
   bool isOwner = false;
   final ScrollController _scrollController = ScrollController();
-  List members = [];
+  List<Map<String, dynamic>> members = [];
   late AnimationController _buttonAnimationController;
   late Animation<double> _buttonScaleAnimation;
   bool _showTournamentView = false; // 토너먼트 보기 모드 토글
@@ -36,15 +34,16 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       isOwner = widget.scheduleProvider.schedule?['uid'] == FirebaseAuth.instance.currentUser!.uid;
-      initializeMembers();
 
       // 주기적으로 버튼 애니메이션 실행 (중요한 버튼임을 강조)
-      if (isOwner) {
+      if (isOwner && widget.scheduleProvider.schedule?['state'] == 2) {
         Future.delayed(const Duration(seconds: 1), () {
           _startButtonPulse();
         });
       }
     });
+
+    initializeMembersWhenReady();
     super.initState();
   }
 
@@ -55,15 +54,32 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
     super.dispose();
   }
 
-  void initializeMembers() {
+  void initializeMembersWhenReady() async {
+    while (
+      widget.scheduleProvider.scheduleMembers == null ||
+        widget.scheduleProvider.scheduleMembers!.values.any((e) => e['memberIndex'] == null)
+    ) {
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+
+    initializeMembers();
+  }
+
+
+  void initializeMembers() async{
+
     // 1. 원본 멤버 데이터 가져오기
     final originalMembers = widget.scheduleProvider.scheduleMembers!.entries
-        .map((e) => e.value)
+        .map((e){
+          return e.value;
+        })
         .toList();
 
     // 2. 모든 memberIndex 값을 찾기
     final List<int> memberIndices = originalMembers
-        .map<int>((member) => member['memberIndex'] as int)
+        .map<int>((member){
+            return (member['memberIndex'] as num).toInt();
+          })
         .toList();
 
     // 3. 최대 인덱스 찾기
@@ -299,8 +315,8 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
                   onPressed: () async{
                     HapticFeedback.mediumImpact();
                     if (_isChanged) {
-                      final res = await widget.gameProvider.updateMemberIndex(members);
-                      if(res.statusCode == 200){
+                      final res = await widget.scheduleProvider.updateMemberIndex(members);
+                      if(res?.statusCode == 200){
                         setState(() {
                           _isChanged = false;
                         });
@@ -336,7 +352,7 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
                             ElevatedButton(
                               onPressed: () {
                                 Navigator.pop(context);
-                                widget.gameProvider.createGameTable();
+                                widget.scheduleProvider.createGameTable();
                               },
                               child: Text('네! 진행해주세요'),
                             ),

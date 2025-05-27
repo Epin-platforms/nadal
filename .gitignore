@@ -14,8 +14,11 @@ migrate_working_dir/
 .env
 firebase.json
 assets
-android
-ios
+key.properties
+android/app/
+ios/Runner
+ios/Runner.xcodeproj
+ios/Runner.xcworkspace
 
 # IntelliJ related
 *.iml

@@ -21,8 +21,8 @@ class VerificationButton extends StatelessWidget {
       },
       icon: Image.asset(
         'assets/image/social/kakao_icon.png', // 카카오 아이콘 경로
-        width: 20,
-        height: 20,
+        width: 20.r,
+        height: 20.r,
       ),
       label: const Text(
         '카카오로 본인 정보 불러오기',

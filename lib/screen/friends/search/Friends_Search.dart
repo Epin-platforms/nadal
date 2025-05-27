@@ -66,7 +66,6 @@ class _FriendsSearchState extends State<FriendsSearch> {
                               icon: Icon(BootstrapIcons.search),
                               cancelText: '최소',
                               onConfirm: (value){
-                                 Navigator.pop(context);
                                  provider.searchUser(value, context);
                               }
                           );

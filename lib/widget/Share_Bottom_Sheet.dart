@@ -104,12 +104,6 @@ class ShareBottomSheet extends StatelessWidget {
                 onPressed: () {
                   // 링크 복사 로직
                   Clipboard.setData(ClipboardData(text: shareParameter.link!));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('링크가 복사되었습니다.'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
                   Navigator.pop(context);
                 },
                 icon: Icon(Icons.link, size: 18.sp),

@@ -1,5 +1,6 @@
 import 'package:my_sports_calendar/model/report/Report_Model.dart';
 import 'package:my_sports_calendar/provider/profile/User_Profile_Provider.dart';
+import 'package:my_sports_calendar/screen/account/Account_Edit.dart';
 import 'package:my_sports_calendar/screen/auth/cancel/Cancel_User.dart';
 import 'package:my_sports_calendar/screen/friends/Friend_List_Page.dart';
 import 'package:my_sports_calendar/screen/image/Image_View.dart';
@@ -13,7 +14,6 @@ import 'package:my_sports_calendar/screen/web/Nadal_WebView.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../manager/project/Import_Manager.dart';
-import '../provider/game/Game_Provider.dart';
 import '../provider/room/Room_Provider.dart';
 import '../screen/account/Account_Select.dart';
 import '../screen/auth/Login_Page.dart';
@@ -274,7 +274,6 @@ class AppRoute{
                 providers: [
                   ChangeNotifierProvider(create: (_)=> ScheduleProvider()),
                   ChangeNotifierProvider(create: (_)=> CommentProvider()),
-                  ChangeNotifierProvider(create: (_)=> GameProvider())
                 ],
                 child: child,
             );
@@ -309,6 +308,14 @@ class AppRoute{
                     transitionType: PageTransitionType.slideFromBottom
                 )
             ),
+            GoRoute(
+                path: '/schedule/live-match-view',
+                pageBuilder: (context, state) => NadalTransitionPage(
+                    child: ScheduleEditPage(),
+                    key: state.pageKey,
+                    transitionType: PageTransitionType.slideFromBottom
+                )
+            ),
         ]),
 
         //계좌페이지
@@ -323,11 +330,14 @@ class AppRoute{
               //계좌선택
               GoRoute(
                   path: '/select/account',
-                  pageBuilder: (context, state) => NadalTransitionPage(
-                      child: AccountSelect(),
-                      key: state.pageKey,
-                      transitionType: PageTransitionType.slideFromRight
-                  )
+                  pageBuilder: (context, state){
+                    final bool selectable = state.uri.queryParameters['selectable'] == 'false' ? false : true;
+                    return NadalTransitionPage(
+                        child: AccountSelect(selectable: selectable),
+                        key: state.pageKey,
+                        transitionType: PageTransitionType.slideFromRight
+                    );
+                  }
               ),
               //계좌만들기
               GoRoute(
@@ -337,6 +347,17 @@ class AppRoute{
                       key: state.pageKey,
                       transitionType: PageTransitionType.slideFromRight
                   )
+              ),
+              GoRoute(
+                  path: '/update/account',
+                  pageBuilder: (context, state){
+                    final int accountId = int.parse(state.uri.queryParameters['accountId'] ?? '-1');
+                    return NadalTransitionPage(
+                        child: AccountEdit(accountId: accountId,),
+                        key: state.pageKey,
+                        transitionType: PageTransitionType.slideFromRight
+                    );
+                  }
               ),
             ]),
         //이미지 보가

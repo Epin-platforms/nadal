@@ -22,7 +22,7 @@ class ReplyBubble extends StatelessWidget {
                     builder: (context) {
                       final url = jsonDecode(chat.replyContents!)[0] ?? '';
                       return CachedNetworkImage(
-                        cacheKey: url,
+                        cacheKey: '$url?DateTime:${DateTime.now().microsecondsSinceEpoch}',
                         imageUrl: url,
                         height: 50.h,
                         width: 50.h,

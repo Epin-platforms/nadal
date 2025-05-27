@@ -1,20 +1,142 @@
+import 'package:dio/dio.dart';
 import 'package:my_sports_calendar/manager/project/Import_Manager.dart';
 import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
+import 'package:my_sports_calendar/manager/server/Socket_Manager.dart';
 
-class ScheduleProvider extends ChangeNotifier{
+enum ScheduleState {
+  normal,     // 0: 일반 스케줄
+  recruiting, // 1: 게임 모집중
+  preparing,  // 2: 게임 준비중
+  ongoing,    // 3: 게임 진행중
+  completed   // 4: 게임 완료
+}
+
+enum GameType {
+  kdkSingle,    // KDK 단식
+  kdkDouble,    // KDK 복식
+  tourSingle,   // 토너먼트 단식
+  tourDouble    // 토너먼트 복식
+}
+
+class ScheduleProvider extends ChangeNotifier {
   final _auth = FirebaseAuth.instance;
-  late int _scheduleId;
+  final SocketManager _socket = SocketManager();
 
-  Map? _schedule;
-  Map? get schedule => _schedule;
-
+  // === Core Schedule Data ===
+  int? _scheduleId;
+  Map<String, dynamic>? _schedule;
   Map<String, dynamic>? _scheduleMembers;
+  Map<String, List<dynamic>>? _teams;
+
+  // === Game Specific Data ===
+  Map<int, Map<String, dynamic>>? _gameTables;
+  List<Map<String, dynamic>>? _gameResult;
+  int _currentStateView = 0;
+  bool _isGameInitialized = false;
+
+  // === Court Input State ===
+  int? _courtInputTableId;
+  TextEditingController? _courtController;
+
+  // === Loading & Error States ===
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  // === Getters ===
+  Map<String, dynamic>? get schedule => _schedule;
   Map<String, dynamic>? get scheduleMembers => _scheduleMembers;
+  Map<String, List<dynamic>>? get teams => _teams;
+  Map<int, Map<String, dynamic>>? get gameTables => _gameTables;
+  List<Map<String, dynamic>>? get gameResult => _gameResult;
+  int get currentStateView => _currentStateView;
+  bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
+  int? get courtInputTableId => _courtInputTableId;
+  TextEditingController? get courtController => _courtController;
 
-  Map<String, List<dynamic>>? teams;
+  // === Computed Properties ===
+  bool get isGameSchedule => _schedule?['tag'] == '게임';
+  bool get isOwner => _schedule?['uid'] == _auth.currentUser?.uid;
+  ScheduleState get currentState => ScheduleState.values[_schedule?['state'] ?? 0];
 
-  Map<String, List<dynamic>>? getTeams(){
-    if (_scheduleMembers == null)return null;
+  GameType? get gameType {
+    if (!isGameSchedule) return null;
+    final isKDK = _schedule?['isKDK'] == 1;
+    final isSingle = _schedule?['isSingle'] == 1;
+
+    if (isKDK && isSingle) return GameType.kdkSingle;
+    if (isKDK && !isSingle) return GameType.kdkDouble;
+    if (!isKDK && isSingle) return GameType.tourSingle;
+    return GameType.tourDouble;
+  }
+
+  bool get isTeamGame => gameType == GameType.tourDouble;
+
+  // === Initialization ===
+  Future<void> initializeSchedule(int scheduleId) async {
+    try {
+      _setLoading(true);
+      _clearError();
+      _scheduleId = scheduleId;
+
+      await _fetchScheduleData();
+
+      if (isGameSchedule && _schedule != null) {
+        await _initializeGameData();
+      }
+
+    } catch (e) {
+      _setError('스케줄 초기화 실패: $e');
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<void> _fetchScheduleData() async {
+    final res = await serverManager.get('schedule/$_scheduleId');
+
+    if (res.statusCode == 200) {
+      _schedule = Map<String, dynamic>.from(res.data['schedule'] ?? {});
+
+      if (_schedule == null) {
+        _handleScheduleNotFound();
+        return;
+      }
+
+      await _processScheduleMembers(res.data['members']);
+      _checkRoomRedirect();
+
+    } else {
+      throw Exception('스케줄 데이터 로드 실패');
+    }
+  }
+
+  void _handleScheduleNotFound() {
+    AppRoute.context?.pop();
+    AppRoute.context?.read<UserProvider>().fetchMySchedules(DateTime.now(), force: true, reFetch: true);
+    DialogManager.showBasicDialog(
+        title: '어라..?',
+        content: "해당 스케줄을 찾을수 없어요",
+        confirmText: "확인"
+    );
+  }
+
+  Future<void> _processScheduleMembers(List? members) async {
+    if (members == null) return;
+
+    _scheduleMembers = {
+      for (final member in members)
+        if (member['uid'] != null) member['uid']: Map<String, dynamic>.from(member)
+    };
+
+    // 복식 토너먼트인 경우 팀 데이터 구성
+    if (gameType == GameType.tourDouble) {
+      _buildTeamData();
+    }
+  }
+
+  void _buildTeamData() {
+    if (_scheduleMembers == null) return;
 
     final Map<String, List<dynamic>> teamMap = {};
 
@@ -22,72 +144,105 @@ class ScheduleProvider extends ChangeNotifier{
       final String? teamName = memberData['teamName'];
 
       if (teamName != null && teamName.isNotEmpty) {
-        // 팀이 맵에 없으면 빈 배열로 초기화
-        if (!teamMap.containsKey(teamName)) {
-          teamMap[teamName] = [];
-        }
-
-        // 멤버 데이터를 해당 팀 배열에 추가
-        teamMap[teamName]!.add(memberData);
+        teamMap.putIfAbsent(teamName, () => []).add(memberData);
       }
     });
 
-    return teamMap;
+    _teams = teamMap;
   }
 
-  Future<void> fetchSchedule(int scheduleId) async{
-     _scheduleId = scheduleId;
+  void _checkRoomRedirect() {
+    final roomId = _schedule?['roomId'];
+    final currentUid = _auth.currentUser?.uid;
 
-     if(_schedule != null){
-       _schedule = null;
-       notifyListeners();
-     }
-
-     final res = await serverManager.get('schedule/$_scheduleId');
-
-     if(res.statusCode == 200){
-       _schedule = res.data['schedule'];
-
-       if(_schedule == null){
-         AppRoute.context?.pop();
-         AppRoute.context?.read<UserProvider>().fetchMySchedules(DateTime.now(), force: true, reFetch: true);
-         DialogManager.showBasicDialog(title: '어라..?', content: "해당 스케줄을 찾을수 없어요", confirmText: "확인");
-       }
-
-       final members = List.from(res.data['members'] ?? []);
-
-       _scheduleMembers = {
-         for (final member in members)
-           member['uid']: member
-       };
-
-       if(_schedule!['roomId'] != null && //만약 룸아이디가 있고
-           !_scheduleMembers!.keys.contains(_auth.currentUser!.uid) && //참가중이 아니고
-             AppRoute.context!.read<RoomsProvider>().rooms!.keys.contains(_schedule!['roomId']!) //내가 참가중인 방이 아니라면
-           ){
-          AppRoute.context?.pushReplacement('room/preview/${_schedule!['roomId']}'); //해당 방 가입페이지로 이동
-       }
-     }
-
-     if(_schedule!['isKDK'] == 0 && _schedule!['isSingle'] == 0){ //만약 토너먼트 복식이라면
-       teams = getTeams();
-     }
-
-     notifyListeners();
+    if (roomId != null &&
+        currentUid != null &&
+        !_scheduleMembers!.containsKey(currentUid) && //현재 사용자가 스케줄에 참가중이 아니고
+        AppRoute.context!.read<RoomsProvider>().rooms?.containsKey(roomId) == false){ //방에도 없다면
+      AppRoute.context?.pushReplacement('/room/preview/$roomId');
+    }
   }
 
-  //멤버만 업데이트
-  Future<void> get updateMembers => _updateMembers();
+  Future<void> _initializeGameData() async {
+    if (_isGameInitialized) return;
 
-  Future<void> _updateMembers() async {
     try {
-      final scheduleId = schedule?['scheduleId'];
-      final useNickname = schedule?['useNickname'] ?? 1;
+      _currentStateView = _schedule?['state'] ?? 0;
 
-      if (scheduleId == null) {
-        print('스케줄 정보가 없습니다');
-        return;
+      // 소켓 연결 및 리스너 설정
+      if (currentState.index < ScheduleState.completed.index) {
+        _setupGameSocketListeners(true);
+        _socket.emit('joinGame', _scheduleId);
       }
+
+      _isGameInitialized = true;
+
+    } catch (e) {
+      _setError('게임 초기화 실패: $e');
+    }
+  }
+
+  // === Socket Management ===
+  void _setupGameSocketListeners(bool enable) {
+    if (enable) {
+      _socket.on('changedState', _handleStateChange);
+      _socket.on('refreshMember', _handleMemberRefresh);
+      _socket.on('score', _handleScoreChange);
+      _socket.on('court', _handleCourtChange);
+      _socket.on('refreshGame', _handleGameRefresh);
+    } else {
+      _socket.off('changedState', _handleStateChange);
+      _socket.off('refreshMember', _handleMemberRefresh);
+      _socket.off('score', _handleScoreChange);
+      _socket.off('court', _handleCourtChange);
+      _socket.off('refreshGame', _handleGameRefresh);
+    }
+  }
+
+  void _handleStateChange(dynamic data) {
+    if (data['state'] != null) {
+      _schedule?['state'] = data['state'];
+      _currentStateView = data['state'];
+      notifyListeners();
+    }
+  }
+
+  void _handleMemberRefresh(dynamic data) {
+    updateMembers();
+  }
+
+  void _handleScoreChange(dynamic data) {
+    final tableId = data['tableId'];
+    final score = data['score'];
+    final where = data['where'];
+
+    if (_gameTables?[tableId] != null) {
+      _gameTables![tableId]!['score$where'] = score;
+      notifyListeners();
+    }
+  }
+
+  void _handleCourtChange(dynamic data) {
+    final tableId = data['tableId'];
+    final court = data['court'];
+
+    if (_gameTables?[tableId] != null) {
+      _gameTables![tableId]!['court'] = court;
+      notifyListeners();
+    }
+  }
+
+  void _handleGameRefresh(dynamic data) {
+    fetchGameTables();
+  }
+
+  // === Schedule Operations ===
+  Future<void> updateMembers() async {
+    try {
+      final scheduleId = _schedule?['scheduleId'];
+      final useNickname = _schedule?['useNickname'] ?? 1;
+
+      if (scheduleId == null) return;
 
       final res = await serverManager.get('scheduleMember/$scheduleId?useNickname=$useNickname');
 
@@ -98,167 +253,519 @@ class ScheduleProvider extends ChangeNotifier{
             if (member['uid'] != null) member['uid']: member,
         };
 
-        if(_schedule?['isKDK'] == 0 && _schedule?['isSingle'] == 0){
-          teams = getTeams();
+        if (gameType == GameType.tourDouble) {
+          _buildTeamData();
         }
 
         notifyListeners();
-      } else {
-        print('멤버 데이터를 불러오지 못했습니다: ${res.statusCode}');
       }
 
-    } catch (e, st) {
-      print('멤버 업데이트 중 오류 발생: $e');
-      print(st);
+    } catch (e) {
+      _setError('멤버 업데이트 실패: $e');
     }
   }
 
+  Future<String> participateSchedule() async {
+    final validation = _validateParticipation();
+    if (validation != 'ok') return validation;
 
-  //참가하기
-  Future participateSchedule() async{
-    //1차 거르기
-    final check = _checkCanParticipate();
+    try {
+      AppRoute.pushLoading();
 
-    if(check.isNotEmpty){
-      return check;
-    }
-
-    AppRoute.pushLoading();
-      final Map item = {
-        'scheduleId' : schedule!['scheduleId'],
-        'gender' : AppRoute.context?.read<UserProvider>().user?['gender']
+      final data = {
+        'scheduleId': _schedule!['scheduleId'],
+        'gender': AppRoute.context?.read<UserProvider>().user?['gender']
       };
 
-      await serverManager.post('schedule/participation', data: item);
-
-      AppRoute.popLoading();
+      await serverManager.post('schedule/participation', data: data);
       return 'complete';
+
+    } catch (e) {
+      return 'error';
+    } finally {
+      AppRoute.popLoading();
+    }
   }
 
-  //참가 거르기
-  String _checkCanParticipate(){
-    String result = '';
-
+  String _validateParticipation() {
     final gender = AppRoute.context?.read<UserProvider>().user?['gender'];
 
-    if(schedule!['maleLimit'] != null && gender == 'M'){
-      final limit = schedule!['maleLimit'];
-      final maleMemberCount = scheduleMembers!.values.where((e)=> e['gender'] == 'M').length;
+    // 남성 인원 제한 확인
+    if (_schedule!['maleLimit'] != null && gender == 'M') {
+      final limit = _schedule!['maleLimit'];
+      final maleCount = _scheduleMembers!.values.where((e) => e['gender'] == 'M').length;
 
-      if(limit <= maleMemberCount){
+      if (limit <= maleCount) {
         DialogManager.errorHandler('남자 인원이 다찼어요.');
         return 'maleLimit';
       }
-    }else if(schedule!['femaleLimit'] != null && gender == 'F'){
-      final limit = schedule!['femaleLimit'];
-      final femaleMemberCount = scheduleMembers!.values.where((e)=> e['gender'] == 'F').length;
+    }
 
-      if(limit <= femaleMemberCount){
+    // 여성 인원 제한 확인
+    if (_schedule!['femaleLimit'] != null && gender == 'F') {
+      final limit = _schedule!['femaleLimit'];
+      final femaleCount = _scheduleMembers!.values.where((e) => e['gender'] == 'F').length;
+
+      if (limit <= femaleCount) {
         DialogManager.errorHandler('여자 인원이 다찼어요.');
         return 'femaleLimit';
       }
     }
 
-    //게임 최대 인원 판단
-    if(schedule!['isKDK'] == true && schedule!['isSingle'] == true){
-      final limit = scheduleMembers!.length; //최대 13명 가능
-      if(limit >= 13){
-        DialogManager.errorHandler('게임 인원이 다찼어요.');
-        return 'playerLimit';
+    // 게임 인원 제한 확인
+    if (isGameSchedule) {
+      final memberCount = _scheduleMembers!.length;
+      int maxLimit = 0;
+
+      switch (gameType) {
+        case GameType.kdkSingle:
+          maxLimit = 13;
+          break;
+        case GameType.kdkDouble:
+          maxLimit = 16;
+          break;
+        default:
+          break;
       }
-    }else if(schedule!['isKDK'] == true && schedule!['isSingle'] == false){
-      final limit = scheduleMembers!.length; //최대 16명 가능
-      if(limit >= 16){
+
+      if (maxLimit > 0 && memberCount >= maxLimit) {
         DialogManager.errorHandler('게임 인원이 다찼어요.');
         return 'playerLimit';
       }
     }
 
-    return result;
+    return 'ok';
   }
 
-  //팀 참가하기
-  Future participateTeamSchedule(int teamId) async{
-    AppRoute.pushLoading();
-    try{
-      final Map item = {
-        'scheduleId' : schedule!['scheduleId'],
-        'teamId' : teamId
+  Future<String> participateTeamSchedule(int teamId) async {
+    try {
+      AppRoute.pushLoading();
+
+      final data = {
+        'scheduleId': _schedule!['scheduleId'],
+        'teamId': teamId
       };
-      final res = await serverManager.post('schedule/participation/team', data: item);
 
-      if(res.statusCode == 204){
-        return 'exist';
-      }
+      final res = await serverManager.post('schedule/participation/team', data: data);
 
+      if (res.statusCode == 204) return 'exist';
       return 'complete';
-    }finally{
+
+    } catch (e) {
+      return 'error';
+    } finally {
       AppRoute.popLoading();
     }
   }
 
-
-  ///참가 거절
-  memberParticipation(Map user, bool approval) async{
-    final data = {
-      'uid' : user['uid'],
-      'scheduleId' : schedule?['scheduleId'],
-      'approval' : approval,
-      'gender' : user['gender']
-    };
-
-    final res =  await serverManager.put('scheduleMember/updateApproval', data: data);
-
-    if(res.statusCode == 200){
-      updateMembers;
-    }
-  }
-
-
-  //참가 취소
   Future<void> cancelParticipation() async {
-    AppRoute.pushLoading();
+    try {
+      AppRoute.pushLoading();
 
-    final res = await serverManager.delete('schedule/participationCancel/${schedule!['scheduleId']}');
+      final res = await serverManager.delete('schedule/participationCancel/${_schedule!['scheduleId']}');
 
-    AppRoute.popLoading();
-    if (res.statusCode == 200) {
-      _scheduleMembers!.remove(_auth.currentUser!.uid); // 🔑 로컬 상태에서 제거
-      AppRoute.context?.read<UserProvider>().removeScheduleById(schedule!['scheduleId']);
-      notifyListeners();
+      if (res.statusCode == 200) {
+        _scheduleMembers?.remove(_auth.currentUser!.uid);
+        AppRoute.context?.read<UserProvider>().removeScheduleById(_schedule!['scheduleId']);
+        notifyListeners();
+      }
+
+    } catch (e) {
+      _setError('참가 취소 실패: $e');
+    } finally {
+      AppRoute.popLoading();
     }
   }
 
   Future<void> cancelTeamParticipation() async {
-    AppRoute.pushLoading();
-    final res = await serverManager.delete('schedule/participationCancel/team/${schedule!['scheduleId']}');
+    try {
+      AppRoute.pushLoading();
 
-    AppRoute.popLoading();
-    if (res.statusCode == 200) {
-      updateMembers;
+      final res = await serverManager.delete('schedule/participationCancel/team/${_schedule!['scheduleId']}');
+
+      if (res.statusCode == 200) {
+        await updateMembers();
+      }
+
+    } catch (e) {
+      _setError('팀 참가 취소 실패: $e');
+    } finally {
+      AppRoute.popLoading();
+    }
+  }
+
+  Future<void> memberParticipation(Map<String, dynamic> user, bool approval) async {
+    try {
+      final data = {
+        'uid': user['uid'],
+        'scheduleId': _schedule?['scheduleId'],
+        'approval': approval,
+        'gender': user['gender']
+      };
+
+      final res = await serverManager.put('scheduleMember/updateApproval', data: data);
+
+      if (res.statusCode == 200) {
+        await updateMembers();
+      }
+
+    } catch (e) {
+      _setError('참가 승인/거절 실패: $e');
+    }
+  }
+
+  Future<void> deleteSchedule() async {
+    try {
+      AppRoute.pushLoading();
+
+      final res = await serverManager.delete('schedule/$_scheduleId');
+
+      if (res.statusCode == 200) {
+        AppRoute.context?.read<UserProvider>().removeScheduleById(_scheduleId!);
+        AppRoute.context?.pop();
+        DialogManager.showBasicDialog(
+            title: '스케줄 삭제 완료!',
+            content: "선택하신 스케줄을 깔끔하게 정리했어요.",
+            confirmText: "확인"
+        );
+      }
+
+    } catch (e) {
+      _setError('스케줄 삭제 실패: $e');
+    } finally {
+      AppRoute.popLoading();
+    }
+  }
+
+  List<String> filterInviteAbleUsers(List<String> list){
+    if(scheduleMembers == null) return [];
+    return list.where((e)=> !scheduleMembers!.keys.contains(e)).toList();
+  }
+
+  // === Game Operations ===
+  void setCurrentStateView(int state) {
+    if (_currentStateView != state) {
+      _currentStateView = state;
       notifyListeners();
     }
   }
 
-  //스케줄 삭제
-  Future<void> deleteSchedule() async{
-    AppRoute.pushLoading();
-    final res = await serverManager.delete('schedule/$_scheduleId');
+  Future<void> changeGameState(int newState) async {
+    try {
+      AppRoute.pushLoading();
 
-    AppRoute.popLoading();
+      await serverManager.put('game/state', data: {
+        "scheduleId": _scheduleId,
+        "state": newState
+      });
 
-    if(res.statusCode == 200){
-      AppRoute.context?.read<UserProvider>().removeScheduleById(_scheduleId); //삭제시 일정 제거
-      AppRoute.context?.pop();
-      DialogManager.showBasicDialog(title: '스케줄 삭제 완료!', content: "선택하신 스케줄을 깔끔하게 정리했어요.", confirmText: "확인");
+    } catch (e) {
+      _setError('게임 상태 변경 실패: $e');
+    } finally {
+      AppRoute.popLoading();
     }
   }
 
-  //게임프로바이더에서 참조할 함수
-  changeState(int state){
-    schedule!['state'] = state;
+  Future<void> startGame() async {
+    try {
+      AppRoute.pushLoading();
+
+      await serverManager.put('game/start/$_scheduleId');
+
+    } catch (e) {
+      _setError('게임 시작 실패: $e');
+    } finally {
+      AppRoute.popLoading();
+    }
+  }
+
+  Future<Response?> updateMemberIndex(List<Map<String, dynamic>> members) async {
+    try {
+      AppRoute.pushLoading();
+
+      final data = <String, dynamic>{'scheduleId': _scheduleId};
+
+      for (int i = 0; i < members.length; i++) {
+        data[members[i]['uid']] = i + 1;
+      }
+
+      return await serverManager.put('game/member/indexUpdate', data: data);
+    } catch (e) {
+      _setError('멤버 순서 업데이트 실패: $e');
+      return null;
+    } finally {
+      AppRoute.popLoading();
+    }
+  }
+
+  Future<Response?> updateTeamIndex(List<Map<String, dynamic>> teamsList) async {
+    try {
+      AppRoute.pushLoading();
+
+      final data = <String, dynamic>{'scheduleId': _scheduleId};
+
+      for (int i = 0; i < teamsList.length; i++) {
+        final team = teamsList[i];
+        if (team['walkOver'] != true && team['members'] != null) {
+          for (var member in team['members']) {
+            final uid = member['uid'];
+            if (uid != null) {
+              data[uid] = i + 1;
+            }
+          }
+        }
+      }
+
+      return await serverManager.put('game/member/indexUpdate', data: data);
+
+    } catch (e) {
+      _setError('팀 순서 업데이트 실패: $e');
+      return null;
+    } finally {
+      AppRoute.popLoading();
+    }
+  }
+
+  Future<void> createGameTable() async {
+    try {
+      AppRoute.pushLoading();
+
+      String route;
+      switch (gameType) {
+        case GameType.kdkSingle:
+          route = 'singleKDK';
+          break;
+        case GameType.kdkDouble:
+          route = 'doubleKDK';
+          break;
+        case GameType.tourSingle:
+          route = 'singleTournament';
+          break;
+        case GameType.tourDouble:
+          route = 'doubleTournament';
+          break;
+        default:
+          throw Exception('알 수 없는 게임 타입');
+      }
+
+      await serverManager.post('game/createTable/$route', data: {'scheduleId': _scheduleId});
+
+    } catch (e) {
+      _setError('게임 테이블 생성 실패: $e');
+    } finally {
+      AppRoute.popLoading();
+    }
+  }
+
+  Future<void> fetchGameTables() async {
+    if (!isGameSchedule) return;
+
+    try {
+      final res = await serverManager.get('game/table/$_scheduleId');
+
+      if (res.statusCode == 200) {
+        final tables = List<Map<String, dynamic>>.from(res.data);
+        _gameTables = {
+          for (final table in tables)
+            table['tableId'] as int: table,
+        };
+        notifyListeners();
+      }
+
+    } catch (e) {
+      _setError('게임 테이블 로드 실패: $e');
+    }
+  }
+
+  Future<void> fetchGameResult() async {
+    if (!isGameSchedule) return;
+
+    try {
+      final res = await serverManager.get('game/result/$_scheduleId');
+
+      if (res.statusCode == 200) {
+        _gameResult = List<Map<String, dynamic>>.from(res.data);
+        notifyListeners();
+      }
+
+    } catch (e) {
+      _setError('게임 결과 로드 실패: $e');
+    }
+  }
+
+  Future<void> updateScore(int tableId, int score, int where) async {
+    try {
+      final data = {
+        'scheduleId': _scheduleId,
+        'tableId': tableId,
+        'score': score,
+        'where': where
+      };
+
+      await serverManager.put('game/score', data: data);
+
+    } catch (e) {
+      _setError('점수 업데이트 실패: $e');
+    }
+  }
+
+  Future<void> updateCourt(int tableId, String court) async {
+    try {
+      final data = {
+        'scheduleId': _scheduleId,
+        'tableId': tableId,
+        'court': court
+      };
+
+      await serverManager.put('game/court', data: data);
+
+    } catch (e) {
+      _setError('코트 정보 업데이트 실패: $e');
+    }
+  }
+
+  void setCourtInput(int? tableId) {
+    _courtInputTableId = tableId;
+
+    if (tableId == null) {
+      _courtController?.dispose();
+      _courtController = null;
+    } else {
+      _courtController?.dispose();
+      _courtController = TextEditingController(
+          text: _gameTables?[tableId]?['court'] ?? ''
+      );
+    }
+
     notifyListeners();
   }
 
+  Future<void> endGame() async {
+    try {
+      AppRoute.pushLoading();
 
+      final finalScore = _schedule!['finalScore'];
+      String endpoint;
+
+      switch (gameType) {
+        case GameType.kdkSingle:
+          endpoint = 'game/end/singleKDK/$_scheduleId?finalScore=$finalScore';
+          break;
+        case GameType.kdkDouble:
+          endpoint = 'game/end/doubleKDK/$_scheduleId?finalScore=$finalScore';
+          break;
+        case GameType.tourSingle:
+          endpoint = 'game/end/singleTournament/$_scheduleId?finalScore=$finalScore';
+          break;
+        case GameType.tourDouble:
+          endpoint = 'game/end/doubleTournament/$_scheduleId?finalScore=$finalScore';
+          break;
+        default:
+          throw Exception('알 수 없는 게임 타입');
+      }
+
+      await serverManager.post(endpoint);
+
+    } catch (e) {
+      _setError('게임 종료 실패: $e');
+    } finally {
+      AppRoute.popLoading();
+    }
+  }
+
+  Future<void> nextRound(int currentRound) async {
+    try {
+      AppRoute.pushLoading();
+
+      await serverManager.put('game/nextRound', data: {
+        'scheduleId': _scheduleId,
+        'round': currentRound
+      });
+
+    } catch (e) {
+      _setError('다음 라운드 진행 실패: $e');
+    } finally {
+      AppRoute.popLoading();
+    }
+  }
+
+  // === Utility Methods ===
+  List<MapEntry<int, Map<String, dynamic>>> getMyGames() {
+    if (_gameTables == null) return [];
+
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return [];
+
+    return _gameTables!.entries.where((entry) {
+      final table = entry.value;
+      return table['player1_0'] == uid ||
+          table['player1_1'] == uid ||
+          table['player2_0'] == uid ||
+          table['player2_1'] == uid;
+    }).toList();
+  }
+
+  String calculateEstimatedTime({
+    required List<Map<String, dynamic>> members,
+    required bool isSingles,
+    int courts = 2,
+  }) {
+    int totalMatches = 0;
+    final playerCount = members.length;
+
+    if (isSingles) {
+      totalMatches = (playerCount * (playerCount - 1)) ~/ 2;
+    } else {
+      totalMatches = playerCount.clamp(5, 16);
+    }
+
+    final minTimePerMatch = isSingles ? 0.75 : 1.0;
+    final maxTimePerMatch = isSingles ? 1.25 : 1.5;
+
+    final minTotalHours = (totalMatches * minTimePerMatch) / courts;
+    final maxTotalHours = (totalMatches * maxTimePerMatch) / courts;
+
+    final roundedMinHours = ((minTotalHours * 2).round() / 2).clamp(0.5, double.infinity);
+    final ceilingMaxHours = maxTotalHours.ceil();
+
+    if (roundedMinHours == ceilingMaxHours.toDouble()) {
+      return '약 ${roundedMinHours.toStringAsFixed(roundedMinHours.truncateToDouble() == roundedMinHours ? 0 : 1)}시간';
+    }
+
+    return '약 ${roundedMinHours.toStringAsFixed(roundedMinHours.truncateToDouble() == roundedMinHours ? 0 : 1)}~${ceilingMaxHours}시간';
+  }
+
+  // === State Management ===
+  void _setLoading(bool loading) {
+    if (_isLoading != loading) {
+      _isLoading = loading;
+      notifyListeners();
+    }
+  }
+
+  void _setError(String? error) {
+    if (_errorMessage != error) {
+      _errorMessage = error;
+      if (error != null) {
+        DialogManager.errorHandler(error);
+      }
+      notifyListeners();
+    }
+  }
+
+  void _clearError() {
+    _setError(null);
+  }
+
+  // === Cleanup ===
+  @override
+  void dispose() {
+    if (isGameSchedule && _isGameInitialized) {
+      _setupGameSocketListeners(false);
+      _socket.emit('leaveGame', _scheduleId);
+    }
+
+    _courtController?.dispose();
+    super.dispose();
+  }
 }

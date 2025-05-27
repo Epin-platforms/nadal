@@ -71,11 +71,15 @@ class _RoomScheduleState extends State<RoomSchedule> {
                     if(provider.getEventsForDay(provider.selectedDay).isEmpty)
                       SizedBox(
                         height: 230,
-                        child: NadalEmptyList(title: '이 날은 아직 비어 있어요', subtitle: '일정을 하나 추가해볼까요?', onAction: (){
+                        child: NadalEmptyList(title: '이 날은 아직 비어 있어요', subtitle: '일정을 하나 추가해볼까요?', onAction: () async{
                           final date = provider.selectedDay;
                           final roomId = provider.roomId;
                           final canUseGenderLimit = context.read<RoomProvider>().room?['useNickName'] == false;
-                          context.push('/create/schedule', extra: ScheduleParams(date: date, roomId: roomId, canUseGenderLimit: canUseGenderLimit));
+                          final DateTime? res = await context.push('/create/schedule', extra: ScheduleParams(date: date, roomId: roomId, canUseGenderLimit: canUseGenderLimit));
+
+                          if(res != null){
+                            provider.fetchRoomSchedule(res);
+                          }
                         },actionText: '일정 추가하기',),
                       )
                     else

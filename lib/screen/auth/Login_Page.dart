@@ -18,9 +18,15 @@ class LoginPage extends StatelessWidget {
             children: [
               SizedBox(height: 100.h),
               // 앱 로고
-              Image.asset(MediaQuery.of(context).platformBrightness == Brightness.dark ?
-              "assets/image/app/login_logo_dark.png"
-              : "assets/image/app/login_logo.png"),
+              Builder(
+                builder: (context) {
+                  final brightness = MediaQuery.of(context).platformBrightness;
+                  final logoPath = brightness == Brightness.dark
+                      ? "assets/image/app/login_logo_dark.png"
+                      : "assets/image/app/login_logo.png";
+                  return Image.asset(logoPath);
+                }
+              ),
 
               Text(
                 '오늘부터 나달과 함께하는 스포츠 라이프!',
@@ -34,7 +40,7 @@ class LoginPage extends StatelessWidget {
               ),
 
               Spacer(),
-      
+
               // 소셜 로그인 버튼들
               Column(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,

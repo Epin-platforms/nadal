@@ -9,9 +9,9 @@ class TextFormManager{
   }
 
   static String profileText(String? nickName, String? name, int? birthYear, String? gender, {bool useNickname = true}){
+
     if(name == null){
       if(nickName == null) return '(알수없음)';
-
       return nickName;
     }
 

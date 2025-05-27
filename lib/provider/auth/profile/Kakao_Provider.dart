@@ -40,10 +40,11 @@ class KakaoProvider extends ChangeNotifier{
 
   toMap(){
     Map map = {
-      'id' : _kakaoId,
+      'verificationCode' : _kakaoId,
       'phone' : _phone,
+      'name' : _name,
       'birthYear' : _birthYear,
-      'gender' : _gender
+      'gender' : _gender,
     };
 
     final bool emailContain = _originUser?['social'] == "oidc.kakao";
@@ -56,64 +57,81 @@ class KakaoProvider extends ChangeNotifier{
   }
 
 
-  Future<void> getKakao() async{
-    String state = '';
+  Future<void> getKakao() async {
     AppRoute.pushLoading();
-    try{
+
+    try {
       final res = await KakaoManager().getKakaoToken();
-
-      if(res != null){
-        final user = await KakaoManager().kakaoUserInfo();
-
-        _kakaoId = user.id;
-        _name = user.kakaoAccount?.name;
-        _birthYear = user.kakaoAccount?.birthyear != null ? int.parse(user.kakaoAccount!.birthyear!) : null;
-        _gender = user.kakaoAccount?.gender == Gender.male ? 'M' : user.kakaoAccount?.gender == Gender.female ? 'F' : 'U';
-        _phone = AuthFormManager.phoneForm(user.kakaoAccount?.phoneNumber);
-
-        if(_originUser?['social'] == "oidc.kakao"){
-          _email = user.kakaoAccount?.email;
-        }
-
-        notifyListeners();
-
-        //달라진게 없는 경우 업데이트 방지
-        if(_originUser?['name'] == _name &&
-            _originUser?['birthYear'] == _birthYear &&
-            _originUser?['gender'] == _gender &&
-            _originUser?['phone'] == _phone){
-          state = 'same';
-          return;
-        }
-
-        //null값 체크 필수 값인데 null값인 경우
-        if(
-          _name == null ||
-          _birthYear == null ||
-          _gender == null
-        ){
-          state = "null";
-          return;
-        }
-
-        state = 'complete';
+      if (res == null) {
+        AppRoute.popLoading();
+        return _showError('카카오 토큰을 가져오지 못했어요.');
       }
-    }catch(error, stack){
-      print('error: $error');
-      print("stack: $stack");
-    }finally{
+
+      final user = await KakaoManager().kakaoUserInfo();
+
+      _kakaoId = user.id;
+      _name = user.kakaoAccount?.name;
+      _birthYear = user.kakaoAccount?.birthyear != null
+          ? int.tryParse(user.kakaoAccount!.birthyear!)
+          : null;
+      _gender = _parseGender(user.kakaoAccount?.gender);
+      _phone = AuthFormManager.phoneForm(user.kakaoAccount?.phoneNumber);
+
+      if (_originUser?['social'] == "oidc.kakao") {
+        _email = user.kakaoAccount?.email;
+      }
+
+      notifyListeners();
+
+      // ✅ null 체크
+      if (_name == null || _birthYear == null || _gender == null) {
+        AppRoute.popLoading();
+        return _showError('필요한 정보를 가져오지 못했어요\n카카오에서 본인인증을 완료해 주세요!');
+      }
+
+      // ✅ 변경된 내용이 없는 경우
+      final noChange = _originUser?['name'] == _name &&
+          _originUser?['birthYear'] == _birthYear &&
+          _originUser?['gender'] == _gender &&
+          _originUser?['phone'] == _phone;
+
+      if (noChange) {
+        return _showInfo('변경된 내용이 없네요', '저장할 변경사항이 없어요.');
+      }
+
       AppRoute.popLoading();
-      if(state == 'same'){
-        DialogManager.showBasicDialog(title: '변경된 내용이 없네요', content: '저장할 변경사항이 없어요.', confirmText: '확인');
-      }else if(state == 'complete'){
-        updateKakaoInfo();
-      }else if(state == "null"){
-        DialogManager.errorHandler('필요한 정보를 가져오지 못했어요\n카카오에서 본인인증을 완료해 주세요!');
-      }else{
-        DialogManager.errorHandler('');
-      }
+      // ✅ 업데이트 실행
+      updateKakaoInfo();
+
+    } catch (e, stack) {
+      AppRoute.popLoading();
+      _showError('오류가 발생했어요. 다시 시도해 주세요.');
+      debugPrintStack(label: 'getKakao 에러', stackTrace: stack);
     }
   }
+
+// 성별 파싱을 함수로 분리
+  String _parseGender(Gender? gender) {
+    switch (gender) {
+      case Gender.male:
+        return 'M';
+      case Gender.female:
+        return 'F';
+      default:
+        return 'M';
+    }
+  }
+
+// 메시지 보여주기 헬퍼
+  void _showInfo(String title, String content) {
+    DialogManager.showBasicDialog(title: title, content: content, confirmText: '확인');
+  }
+
+// 오류 메시지 헬퍼
+  void _showError(String message) {
+    DialogManager.errorHandler(message);
+  }
+
 
   Future<void> resetKakao() async{
     await KakaoManager().unlink();
@@ -131,7 +149,7 @@ class KakaoProvider extends ChangeNotifier{
           bool state = false;
           AppRoute.pushLoading();
           try{
-            final response = await serverManager.put('user/update', data: toMap());
+            final response = await serverManager.put('user/verification', data: toMap());
 
             if(response.statusCode == 200){
               await context?.read<UserProvider>().updateProfile();

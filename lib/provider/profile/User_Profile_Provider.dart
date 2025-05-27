@@ -15,7 +15,6 @@ class UserProfileProvider extends ChangeNotifier{
       _uid = uid;
       setIsFollow(uid);
       fetchUser(uid);
-      fetchGames();
     }
   }
 
@@ -53,9 +52,10 @@ class UserProfileProvider extends ChangeNotifier{
     try{
       _loading = true;
       notifyListeners();
-      final res = await serverManager.get('user/profile/game?uid=$uid&offset=$_offset');
+      final res = await serverManager.get('user/profile-game?uid=$uid&offset=$_offset');
 
-      _games ?? [];
+      _games ??= [];
+
       if(res.statusCode == 200){
         final list = List.from(res.data);
 

@@ -22,7 +22,7 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
 
   // 특정 날짜에 일정을 불러오는 함수
   List<Map> _getEventsForDay(DateTime day, List<Map> schedules) {
-    return schedules.where((schedule) => isSameDay(DateTime.parse(schedule['startDate']).toLocal(), day)).toList();
+    return schedules.where((schedule) => isSameDay(DateTime.parse(schedule['startDate']), day)).toList();
   }
 
   @override

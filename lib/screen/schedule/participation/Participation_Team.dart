@@ -22,7 +22,7 @@ class _ParticipationTeamState extends State<ParticipationTeam> {
       final res = await widget.provider.participateTeamSchedule(team);
 
       if (res == 'complete') {
-        await widget.provider.updateMembers;
+        await widget.provider.updateMembers();
         userProvider.fetchMySchedules(DateTime.parse(widget.provider.schedule!['startDate']).toLocal(), force: true);
       }else if(res == 'exist'){
         DialogManager.showBasicDialog(
@@ -70,7 +70,7 @@ class _ParticipationTeamState extends State<ParticipationTeam> {
         body: SafeArea(
             child: teams != null && teams.isNotEmpty
                 ? RefreshIndicator(
-              onRefresh: () => widget.provider.updateMembers,
+              onRefresh: () => widget.provider.updateMembers(),
               child: ListView.builder(
                 itemCount: teams.keys.length,
                 itemBuilder: (context, index) {

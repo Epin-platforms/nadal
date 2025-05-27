@@ -39,7 +39,7 @@ class RoomCalendar extends StatelessWidget {
             final text = TextFormManager.returnWeek(date: day);
             return Center(
               child: FittedBox(
-                child: Text(text , style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: day.weekday == 6 ? Colors.blueAccent : day.weekday == 7 ? Colors.redAccent :
+                child: Text(text , style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w600, color: day.weekday == 6 ? Colors.blueAccent : day.weekday == 7 ? Colors.redAccent :
                 Theme.of(context).colorScheme.onSurface)),
               ),
             );
@@ -59,7 +59,7 @@ class RoomCalendar extends StatelessWidget {
                     width: 1.3
                 ),
               ),
-              padding: EdgeInsets.symmetric(horizontal: 3),
+              padding: EdgeInsets.symmetric(horizontal: 3.w),
               child: Center(
                 child: IntrinsicWidth(
                   child: Column(

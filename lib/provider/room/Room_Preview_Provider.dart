@@ -28,6 +28,11 @@ class RoomPreviewProvider extends ChangeNotifier{
   registerStart(String enterCode) async{
     AppRoute.pushLoading();
     //첫 신청은 패스워드 없이
+    if(room!['useNickname'] == 0 && AppRoute.context?.read<UserProvider>().user?['verificationCode'] == null){
+        DialogManager.showBasicDialog(title: '앗! 이런', content: "해당 방은 본명기반 운영을 하고있어요!\n프로필 내에 카카오 인증 후 시도해주세요", confirmText: "알겠어요");
+        return;
+    }
+
     final res = await serverManager.post('room/register/${room!['roomId']}', data: {'enterCode' : enterCode});
     AppRoute.popLoading();
 

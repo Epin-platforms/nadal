@@ -18,6 +18,7 @@ class _UserProfileState extends State<UserProfile> with SingleTickerProviderStat
   void initState() {
     _scrollController = ScrollController();
     WidgetsBinding.instance.addPostFrameCallback((_){
+      provider.fetchGames();
       _scrollController.addListener((){
         if(_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 100){
           provider.fetchGames();
@@ -116,12 +117,15 @@ class _UserProfileState extends State<UserProfile> with SingleTickerProviderStat
             // 프로필 이미지
             FadeInDown(
               duration: Duration(milliseconds: 500),
-              child: Hero(
-                tag: 'profile-${provider.user!['uid']}',
-                child: NadalProfileFrame(
-                  size: 80.r,
-                  imageUrl: provider.user!['profileImage'],
-                )
+              child: GestureDetector(
+                onTap: ()=> context.push('/image?url=${provider.user!['profileImage']}'),
+                child: Hero(
+                  tag: 'profile-${provider.user!['uid']}',
+                  child: NadalProfileFrame(
+                    size: 80.r,
+                    imageUrl: provider.user!['profileImage'],
+                  )
+                ),
               ),
             ),
 
@@ -246,9 +250,7 @@ class _UserProfileState extends State<UserProfile> with SingleTickerProviderStat
         height: 300.h,
         child: Center(child: NadalCircular()),
       );
-    }
-
-    if(provider.games!.isEmpty){
+    }else if(provider.games!.isEmpty){
       return SizedBox(
         height: 300.h,
         child: NadalEmptyList(
@@ -256,6 +258,7 @@ class _UserProfileState extends State<UserProfile> with SingleTickerProviderStat
         ),
       );
     }
+
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
 
@@ -289,15 +292,16 @@ class _UserProfileState extends State<UserProfile> with SingleTickerProviderStat
                   match['opponentNames'],
                   style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8.h),
                 Text(
                   '${match['score1']} : ${match['score2']}',
                   style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 8),
+                 SizedBox(height: 8.h),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
                   decoration: BoxDecoration(
                     color: isWin
                         ? Colors.green

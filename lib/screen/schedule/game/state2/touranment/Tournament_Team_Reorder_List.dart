@@ -1,11 +1,9 @@
 import 'package:flutter/services.dart';
-import 'package:my_sports_calendar/provider/game/Game_Provider.dart';
 
 import '../../../../../manager/project/Import_Manager.dart';
 
 class TournamentTeamReorderList extends StatefulWidget {
-  const TournamentTeamReorderList({super.key, required this.gameProvider, required this.scheduleProvider});
-  final GameProvider gameProvider;
+  const TournamentTeamReorderList({super.key,required this.scheduleProvider});
   final ScheduleProvider scheduleProvider;
   @override
   State<TournamentTeamReorderList> createState() => _TournamentTeamReorderListState();
@@ -308,12 +306,12 @@ class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> w
                     HapticFeedback.mediumImpact();
                     if (_isChanged) {
                       final sm = ScaffoldMessenger.of(context);
-                      final res = await widget.gameProvider.updateTeamIndex(teamsList);
+                      final res = await widget.scheduleProvider.updateTeamIndex(teamsList);
                       Future.delayed(const Duration(milliseconds: 300), () {
                         initializeTeams();
                       });
 
-                      if (res.statusCode == 200) {
+                      if (res?.statusCode == 200) {
                         setState(() {
                           _isChanged = false;
                         });
@@ -342,7 +340,7 @@ class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> w
                           confirmText: '네! 진행해주세요',
                           cancelText: '음.. 잠시만요',
                           onConfirm: (){
-                            widget.gameProvider.createGameTable();
+                            widget.scheduleProvider.createGameTable();
                           }
                       );
                     }
