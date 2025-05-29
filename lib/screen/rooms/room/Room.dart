@@ -95,8 +95,10 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
       }
 
       // 읽은 메시지 업데이트
-      await chatProvider.updateMyLastReadInServer(widget.roomId, null);
-      await chatProvider.enterRoomUpdateLastRead(widget.roomId);
+      final res = await chatProvider.updateMyLastReadInServer(widget.roomId, null);
+      if(res){
+        await chatProvider.enterRoomUpdateLastRead(widget.roomId);
+      }
     } catch (e) {
       print('방 설정 오류: $e');
     }
@@ -151,7 +153,7 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
                   ),
                   if(provider.lastAnnounce.isNotEmpty)
                     Positioned(
-                        top: 0, right: 16.w, left: 16.w,
+                        top: 0, right: 0, left: 0,
                         child: RoomAnnouncedWidget(announce: provider.lastAnnounce)
                     )
                 ],

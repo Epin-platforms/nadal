@@ -105,14 +105,12 @@ class UserProvider extends ChangeNotifier {
     if (response.statusCode == 201) {
       // 신규 사용자 - 가입 페이지로 이동
       _navigateToRegister();
-
-    } else if (response.statusCode != null && (response.statusCode! ~/ 100) == 2) {
-      // 기존 사용자 - 로그인 성공
-      await _handleSuccessfulLogin(response);
-
-    } else if (response.statusCode == 409) {
+    }else if (response.statusCode == 205) {
       // 디바이스 충돌 - 다른 기기에서 로그인 중
       await _handleDeviceConflict(response);
+    }else if (response.statusCode != null && (response.statusCode! ~/ 100) == 2) {
+      // 기존 사용자 - 로그인 성공
+      await _handleSuccessfulLogin(response);
     }
   }
 
@@ -179,7 +177,7 @@ class UserProvider extends ChangeNotifier {
   }
 
   Future<void> _handleDeviceConflict(dynamic response) async {
-    final deviceName = response.data['deviceName'];
+    final deviceName = response.data?['deviceName'] ?? '다른';
 
     await DialogManager.showBasicDialog(
         icon: const Icon(CupertinoIcons.device_phone_portrait, size: 30),

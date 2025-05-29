@@ -588,7 +588,6 @@ void _handleNotificationTap(Map<String, dynamic> data) {
           router.go('/my');
           router.push(routing);
         }
-
       } catch (e) {
         print('알림 라우팅 오류: $e');
       }

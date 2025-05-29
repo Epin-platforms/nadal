@@ -67,10 +67,76 @@ class ChatProvider extends ChangeNotifier{
   int? getLastReadChatId(int roomId) => _lastReadChatId[roomId];
 
   void setSocketListeners(){
+    socket.on('newLogined', _newLoginedHandler);
     socket.on("error", (data)=> DialogManager.errorHandler(data['error']));
     socket.on("chat", _chatHandler);
     socket.on("removeChat", _removeChatHandler);
     socket.on("kicked", _kickedHandler);
+  }
+
+  void _newLoginedHandler(dynamic data) async{
+    try {
+      // 1. 먼저 다이얼로그로 사용자에게 알림
+      await DialogManager.showBasicDialog(
+        title: '다른 기기에서 로그인됨',
+        content: '다른 기기에서 로그인하여 현재 세션이 종료됩니다.\n잠시 후 로그인 화면으로 이동합니다.',
+        confirmText: '확인',
+        // 다이얼로그가 닫히지 않도록 설정 (선택사항)
+        barrierDismissible: false,
+      );
+
+      // 2. 사용자가 확인을 누른 후 로그아웃 처리
+      await _handleForcedLogout();
+
+    } catch (e) {
+      print('새 로그인 핸들러 오류: $e');
+      // 에러가 발생해도 강제 로그아웃 실행
+      await _handleForcedLogout();
+    }
+  }
+
+  Future<void> _handleForcedLogout() async {
+    try {
+      // 1. 로딩 표시 (선택사항)
+      if (AppRoute.context != null) {
+        AppRoute.pushLoading();
+      }
+
+      // 2. 소켓 연결 해제
+      final chatProvider = AppRoute.context?.read<ChatProvider>();
+      if (chatProvider != null) {
+        chatProvider.onDisconnect();
+      }
+
+      // 3. Firebase 로그아웃
+      await FirebaseAuth.instance.signOut();
+
+      // 4. 로컬 데이터 정리 (필요시)
+      // await _clearLocalData();
+
+      // 5. 로딩 제거
+      if (AppRoute.context != null) {
+        AppRoute.popLoading();
+      }
+
+      // 6. 로그인 페이지로 이동 (모든 스택 제거)
+      if (AppRoute.context != null) {
+        AppRoute.context!.go('/login?reset=true&reason=newDevice');
+      }
+
+    } catch (e) {
+      print('강제 로그아웃 처리 오류: $e');
+
+      // 에러가 발생해도 최소한 로그인 페이지로는 이동
+      try {
+        if (AppRoute.context != null) {
+          AppRoute.popLoading(); // 로딩이 있다면 제거
+          AppRoute.context!.go('/login?reset=true&error=logout_failed');
+        }
+      } catch (fallbackError) {
+        print('fallback 로그아웃 오류: $fallbackError');
+      }
+    }
   }
 
   void _kickedHandler(dynamic data){
@@ -132,12 +198,17 @@ class ChatProvider extends ChangeNotifier{
     notifyListeners();
   }
 
-  Future<void> updateMyLastReadInServer(int roomId, int? lastRead) async{
+  Future<bool> updateMyLastReadInServer(int roomId, int? lastRead) async{
     try {
-      final lr = lastRead ?? chat[roomId]?.lastOrNull?.chatId ?? 0;
-      await serverManager.put('roomMember/lastread/$roomId?lastRead=$lr');
+      final lr = lastRead ?? chat[roomId]?.lastOrNull?.chatId;
+      if(lr != null){
+        await serverManager.put('roomMember/lastread/$roomId?lastRead=$lr');
+        return true;
+      }
+      return false;
     } catch (e) {
       print('lastRead 업데이트 오류: $e');
+      return false;
     }
   }
 

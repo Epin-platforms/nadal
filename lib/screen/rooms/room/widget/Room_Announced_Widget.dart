@@ -44,72 +44,67 @@ class _RoomAnnouncedWidgetState extends State<RoomAnnouncedWidget> {
       useNickname: announce['gender'] == null,
     );
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: theme.cardColor,
-        boxShadow: [
-          BoxShadow(
-            color: theme.shadowColor,
-            blurRadius: 8,
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          /// 상단 Row (작성자 + 날짜 + optional toggle)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(displayText, style: theme.textTheme.labelMedium),
-              Row(
-                children: [
-                  Text(
-                    DateFormat('yyyy년 MM월 dd일', 'ko_KR')
-                        .format(DateTime.parse(announce['createAt']).toLocal()),
-                    style: theme.textTheme.labelMedium?.copyWith(color: theme.hintColor),
-                  ),
-                  if (showToggle)
-                    IconButton(
-                      icon: Icon(isExpanded
-                          ? Icons.expand_less
-                          : Icons.expand_more),
-                      onPressed: () {
-                        setState(() {
-                          isExpanded = !isExpanded;
-                        });
-                      },
-                      splashRadius: 20,
-                      padding: EdgeInsets.zero,
+    return GestureDetector(
+      onTap: ()=> context.push('/schedule/${announce['scheduleId']}'),
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.cardColor,
+        ),
+        padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 16.w),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            /// 상단 Row (작성자 + 날짜 + optional toggle)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(displayText, style: theme.textTheme.labelMedium),
+                Row(
+                  children: [
+                    Text(
+                      DateFormat('yyyy년 MM월 dd일', 'ko_KR')
+                          .format(DateTime.parse(announce['createAt']).toLocal()),
+                      style: theme.textTheme.labelMedium?.copyWith(color: theme.hintColor),
                     ),
-                ],
+                    if (showToggle)
+                      IconButton(
+                        icon: Icon(isExpanded
+                            ? Icons.expand_less
+                            : Icons.expand_more),
+                        onPressed: () {
+                          setState(() {
+                            isExpanded = !isExpanded;
+                          });
+                        },
+                        splashRadius: 20,
+                        padding: EdgeInsets.zero,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+      
+            const SizedBox(height: 4),
+      
+            /// 공지 텍스트 (줄임 여부)
+            AnimatedCrossFade(
+              crossFadeState: isExpanded || !showToggle
+                  ? CrossFadeState.showFirst
+                  : CrossFadeState.showSecond,
+              duration: const Duration(milliseconds: 200),
+              firstChild: Text(
+                description,
+                style: theme.textTheme.bodySmall,
               ),
-            ],
-          ),
-
-          const SizedBox(height: 4),
-
-          /// 공지 텍스트 (줄임 여부)
-          AnimatedCrossFade(
-            crossFadeState: isExpanded || !showToggle
-                ? CrossFadeState.showFirst
-                : CrossFadeState.showSecond,
-            duration: const Duration(milliseconds: 200),
-            firstChild: Text(
-              description,
-              style: theme.textTheme.bodySmall,
+              secondChild: Text(
+                description,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall,
+              ),
             ),
-            secondChild: Text(
-              description,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

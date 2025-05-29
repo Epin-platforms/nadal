@@ -8,11 +8,13 @@ import '../project/Import_Manager.dart';
 
 class DialogManager{
 
-  static Future showBasicDialog({required String title, required String content, required String confirmText, Widget? icon, String? cancelText, VoidCallback? onConfirm, VoidCallback? onCancel}) async{
+  static Future showBasicDialog({required String title, required String content, required String confirmText, Widget? icon, String? cancelText, VoidCallback? onConfirm, VoidCallback? onCancel, bool? barrierDismissible}) async{
     final context = AppRoute.navigatorKey.currentState?.overlay?.context;
     var res;
     if(context != null){
-      res = await showDialog(context: context, builder: (_)=> BasicDialog(title: title, content: content, confirmText: confirmText, icon: icon, onConfirm: onConfirm, onCancel: onCancel, cancelText: cancelText,));
+      res = await showDialog(
+          barrierDismissible: barrierDismissible ?? false,
+          context: context, builder: (_)=> BasicDialog(title: title, content: content, confirmText: confirmText, icon: icon, onConfirm: onConfirm, onCancel: onCancel, cancelText: cancelText,));
     }
     return res;
   }
