@@ -293,18 +293,95 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 현재 페이지가 알림과 관련된 페이지인지 확인
+  // 개선된 알림 표시 여부 판단 로직
   bool _shouldShowNotification(Map<String, dynamic> data) {
     if (AppRoute.context == null) return true;
 
-    final router = GoRouter.of(AppRoute.context!);
-    final currentRoute = router.state.path;
-    final routing = data['routing'];
+    try {
+      final router = GoRouter.of(AppRoute.context!);
+      final state = router.state;
 
-    if (routing == null || currentRoute == null) return true;
+      // 현재 라우트의 실제 URI 가져오기
+      final currentUri = state.uri.toString();
+      final routing = data['routing'] as String?;
 
-    // 현재 해당 페이지에 있으면 알림을 표시하지 않음
-    return !currentRoute.contains(routing);
+      if (routing == null || currentUri.isEmpty) return true;
+
+      // 채팅방 알림인 경우 상세 확인
+      if (routing.contains('/room/')) {
+        return _shouldShowRoomNotification(currentUri, routing, data);
+      }
+
+      // 스케줄 알림인 경우 상세 확인
+      if (routing.contains('/schedule/')) {
+        return _shouldShowScheduleNotification(currentUri, routing, data);
+      }
+
+      // 기타 알림의 경우 정확히 같은 페이지인지 확인
+      return !currentUri.contains(routing);
+
+    } catch (e) {
+      print('알림 표시 여부 판단 오류: $e');
+      return true; // 에러 시에는 알림을 표시
+    }
+  }
+
+  // 채팅방 알림 표시 여부 판단
+  bool _shouldShowRoomNotification(String currentUri, String routing, Map<String, dynamic> data) {
+    try {
+      // 현재 채팅방 페이지에 있지 않으면 알림 표시
+      if (!currentUri.contains('/room/')) return true;
+
+      // 라우팅에서 roomId 추출
+      final routingRoomIdMatch = RegExp(r'/room/(\d+)').firstMatch(routing);
+      final currentRoomIdMatch = RegExp(r'/room/(\d+)').firstMatch(currentUri);
+
+      if (routingRoomIdMatch == null || currentRoomIdMatch == null) return true;
+
+      final routingRoomId = routingRoomIdMatch.group(1);
+      final currentRoomId = currentRoomIdMatch.group(1);
+
+      // 같은 채팅방이면 알림을 표시하지 않음
+      if (routingRoomId == currentRoomId) {
+        print('현재 채팅방($currentRoomId)과 알림 채팅방($routingRoomId)이 같아서 알림 숨김');
+        return false;
+      }
+
+      return true;
+
+    } catch (e) {
+      print('채팅방 알림 판단 오류: $e');
+      return true;
+    }
+  }
+
+  // 스케줄 알림 표시 여부 판단
+  bool _shouldShowScheduleNotification(String currentUri, String routing, Map<String, dynamic> data) {
+    try {
+      // 현재 스케줄 페이지에 있지 않으면 알림 표시
+      if (!currentUri.contains('/schedule/')) return true;
+
+      // 라우팅에서 scheduleId 추출
+      final routingScheduleIdMatch = RegExp(r'/schedule/(\d+)').firstMatch(routing);
+      final currentScheduleIdMatch = RegExp(r'/schedule/(\d+)').firstMatch(currentUri);
+
+      if (routingScheduleIdMatch == null || currentScheduleIdMatch == null) return true;
+
+      final routingScheduleId = routingScheduleIdMatch.group(1);
+      final currentScheduleId = currentScheduleIdMatch.group(1);
+
+      // 같은 스케줄이면 알림을 표시하지 않음
+      if (routingScheduleId == currentScheduleId) {
+        print('현재 스케줄($currentScheduleId)과 알림 스케줄($routingScheduleId)이 같아서 알림 숨김');
+        return false;
+      }
+
+      return true;
+
+    } catch (e) {
+      print('스케줄 알림 판단 오류: $e');
+      return true;
+    }
   }
 
   Future<void> _initializeLocalNotifications() async {
@@ -424,7 +501,7 @@ class NotificationProvider extends ChangeNotifier {
             final roomIdMatch = RegExp(r'/room/(\d+)').firstMatch(routing);
             if (roomIdMatch != null) {
               final roomId = int.parse(roomIdMatch.group(1)!);
-              await _refreshRoomData(roomId);
+              await _refreshRoomDataSafely(roomId);
             }
           }
           // 스케줄 알림인 경우
@@ -432,14 +509,12 @@ class NotificationProvider extends ChangeNotifier {
             final scheduleIdMatch = RegExp(r'/schedule/(\d+)').firstMatch(routing);
             if (scheduleIdMatch != null) {
               final scheduleId = int.parse(scheduleIdMatch.group(1)!);
-              await _refreshScheduleData(scheduleId);
+              await _refreshScheduleDataSafely(scheduleId);
             }
           }
 
-          final router = GoRouter.of(AppRoute.context!);
-          router.go('/my');
-          await Future.delayed(const Duration(milliseconds: 100));
-          router.push(routing);
+          await _navigateToRoute(routing);
+
         } catch (e) {
           print('알림 라우팅 오류: $e');
         }
@@ -447,8 +522,26 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 방 데이터 새로고침
-  Future<void> _refreshRoomData(int roomId) async {
+  // 안전한 라우팅 처리
+  Future<void> _navigateToRoute(String routing) async {
+    try {
+      final router = GoRouter.of(AppRoute.context!);
+
+      // 현재 라우트와 다른 경우에만 네비게이션
+      final currentUri = router.state.uri.toString();
+      if (currentUri != routing) {
+        router.go('/my');
+        await Future.delayed(const Duration(milliseconds: 100));
+        router.push(routing);
+      }
+
+    } catch (e) {
+      print('라우팅 처리 오류: $e');
+    }
+  }
+
+  // 안전한 방 데이터 새로고침
+  Future<void> _refreshRoomDataSafely(int roomId) async {
     try {
       final chatProvider = AppRoute.context?.read<ChatProvider>();
       final roomsProvider = AppRoute.context?.read<RoomsProvider>();
@@ -466,16 +559,17 @@ class NotificationProvider extends ChangeNotifier {
         }
       }
     } catch (e) {
-      print('방 데이터 새로고침 오류: $e');
+      print('방 데이터 새로고침 오류 (roomId: $roomId): $e');
     }
   }
 
-  // 스케줄 데이터 새로고침
-  Future<void> _refreshScheduleData(int scheduleId) async {
+  // 안전한 스케줄 데이터 새로고침
+  Future<void> _refreshScheduleDataSafely(int scheduleId) async {
     try {
       // 필요시 스케줄 관련 프로바이더 새로고침 로직 추가
+      print('스케줄 데이터 새로고침 (scheduleId: $scheduleId)');
     } catch (e) {
-      print('스케줄 데이터 새로고침 오류: $e');
+      print('스케줄 데이터 새로고침 오류 (scheduleId: $scheduleId): $e');
     }
   }
 }
@@ -486,8 +580,15 @@ void _handleNotificationTap(Map<String, dynamic> data) {
     if (data['routing'] != null) {
       try {
         final router = GoRouter.of(AppRoute.context!);
-        router.go('/my');
-        router.push(data['routing']);
+        final routing = data['routing'] as String;
+
+        // 현재 라우트와 다른 경우에만 네비게이션
+        final currentUri = router.state.uri.toString();
+        if (currentUri != routing) {
+          router.go('/my');
+          router.push(routing);
+        }
+
       } catch (e) {
         print('알림 라우팅 오류: $e');
       }
