@@ -72,14 +72,14 @@ class ChatProvider extends ChangeNotifier{
 
 
   //초기 리스너 등록
-  setSocketListeners(){
+  void setSocketListeners(){
     socket.on("error", (data)=> DialogManager.errorHandler(data['error']));
     socket.on("chat", _chatHandler); //채팅이 옴
     socket.on("removeChat", _removeChatHandler);
     socket.on("kicked", _kickedHandler);
   }
 
-  _kickedHandler(dynamic data){
+  void _kickedHandler(dynamic data){
     final roomId = data['roomId'];
     final room = data['room'];
     //방에서 정보 삭제
@@ -111,8 +111,7 @@ class ChatProvider extends ChangeNotifier{
     notifyListeners();
   }
 
-  _chatHandler(data){
-     print(data);
+  void _chatHandler(dynamic data){
      final Chat chat = Chat.fromJson(json: data);
      final int roomId = chat.roomId;
 
@@ -134,7 +133,7 @@ class ChatProvider extends ChangeNotifier{
        final roomId = int.tryParse(state.pathParameters['roomId'] ?? '');
 
        if(roomId != null){
-         updateMyLastReadInServer(roomId);
+         updateMyLastReadInServer(roomId, chat.chatId);
        }
      }else{ //안들어와있다면 안읽은 메시지 업데이트
        _my[roomId]?['unreadCount']++;
@@ -144,8 +143,9 @@ class ChatProvider extends ChangeNotifier{
   }
 
 
-  updateMyLastReadInServer(int roomId) async{
-    await serverManager.put('roomMember/lastread/$roomId');
+  Future<void> updateMyLastReadInServer(int roomId, int? lastRead) async{
+    final lr = lastRead ?? chat[roomId]!.firstOrNull?.chatId ?? 0;
+    await serverManager.put('roomMember/lastread/$roomId?lastRead=$lr');
   }
 
   Future<bool> setChats(int roomId) async{
@@ -197,8 +197,8 @@ class ChatProvider extends ChangeNotifier{
   }
 
 
-  enterRoomUpdateLastRead(int roomId){
-    _my[roomId]?['lastRead'] = DateTime.now().toLocal().toIso8601String();
+  Future<void> enterRoomUpdateLastRead(int roomId) async {
+    _my[roomId]?['lastRead'] = chat[roomId]?.firstOrNull?.chatId ?? 0;
     _my[roomId]?['unreadCount'] = 0;
     notifyListeners();
   }

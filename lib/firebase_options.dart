@@ -63,7 +63,9 @@ class DefaultFirebaseOptions {
     messagingSenderId: '60824383146',
     projectId: 'my-sports-calendar',
     storageBucket: 'my-sports-calendar.firebasestorage.app',
+    androidClientId: '60824383146-3s4av4sabglb1tqp49nqgu26soqqqngb.apps.googleusercontent.com',
     iosClientId: '60824383146-g6h9as6s1tspd3646cl9q0lnfblk5qqv.apps.googleusercontent.com',
     iosBundleId: 'com.epin.mySportsCalendar',
   );
+
 }

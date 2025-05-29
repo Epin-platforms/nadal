@@ -122,8 +122,7 @@ class _ChatListState extends State<ChatList> {
           
                   // 읽음 표시 계산
                   int read = (widget.roomProvider.roomMembers.keys.length -
-                      widget.roomProvider.roomMembers.values.where((e) =>
-                          DateTime.parse(e['lastRead']).toLocal().isAfter(chat.createAt)).length);
+                      widget.roomProvider.roomMembers.values.where((e) => e['lastRead'] > chat.chatId).length);
 
                   return Column(
                     children: [

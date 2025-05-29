@@ -1,11 +1,29 @@
 import 'package:my_sports_calendar/screen/auth/login/Apple_Button.dart';
 import 'package:my_sports_calendar/screen/auth/login/Google_Button.dart';
 import 'package:my_sports_calendar/screen/auth/login/Kakao_Button.dart';
+import '../../main.dart';
 import '../../manager/auth/social/Kakao_Manager.dart';
 import '../../manager/project/Import_Manager.dart';
 
-class LoginPage extends StatelessWidget {
-  const LoginPage({super.key});
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key, required this.reset});
+  final bool reset;
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+
+  @override
+  void initState() {
+    if(widget.reset){
+      final root = context.findAncestorStateOfType<RootAppState>();
+      root?.resetApp();
+    }
+    super.initState();
+  }
+
 
   @override
   Widget build(BuildContext context) {

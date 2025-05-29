@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/cupertino.dart';
 import 'package:my_sports_calendar/widget/Nadal_Empty_List.dart';
 import 'package:my_sports_calendar/widget/Nadal_Icon_Button.dart';
@@ -16,11 +18,11 @@ class MyRooms extends StatelessWidget {
     final chatProvider = Provider.of<ChatProvider>(context);
 
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 24),
+      padding: EdgeInsets.symmetric(vertical: 24.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(padding: EdgeInsets.only(left: 16, bottom: 16, right: 16),
+          Padding(padding: EdgeInsets.only(left: 16.w, bottom: 16.h, right: 16.w),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -52,8 +54,8 @@ class MyRooms extends StatelessWidget {
                 itemBuilder: (context, index){
                   return ListTile(
                     leading: NadalProfileFrame(isPlaceHolder: true),
-                    title: NadalPlaceholderContainer(height: 18,),
-                    subtitle: NadalPlaceholderContainer(height: 15, width: 100,),
+                    title: NadalPlaceholderContainer(height: 18.h,),
+                    subtitle: NadalPlaceholderContainer(height: 15.h, width: 100.w,),
                   );
                 },
                 separatorBuilder: (context,index)=> Divider(),
@@ -67,8 +69,9 @@ class MyRooms extends StatelessWidget {
                 itemBuilder: (context, index){
                   final roomEntry = roomsProvider.getRoomsList(context)[index];
                   final roomData = roomEntry.value;
-                  final chatForm = chatProvider.chat[roomData['roomId']]?.firstOrNull;
-                  final chatText = chatForm == null ? '' : chatForm.type == ChatType.text ? chatForm.contents : chatForm.type == ChatType.image ? '사진' : chatForm.type == ChatType.schedule ? '일정' : '삭제된 메시지 입니다';
+                  final chats = chatProvider.chat[roomData['roomId']];
+                  final latestChat = chats?.reduce((a, b) => a.chatId > b.chatId ? a : b);
+                  final chatText = latestChat == null ? '' : latestChat.type == ChatType.text ? latestChat.contents : latestChat.type == ChatType.image ? '사진' : latestChat.type == ChatType.schedule ? '일정' : '삭제된 메시지 입니다';
                   final unread = chatProvider.my[roomData['roomId']]?['unreadCount'];
                   return ListTile(
                     onTap: ()=> context.push('/room/${roomData['roomId']}'),
@@ -97,7 +100,7 @@ class MyRooms extends StatelessWidget {
                     ),
                     subtitle: ConstrainedBox(
                         constraints: BoxConstraints(
-                          maxHeight: 24
+                          maxHeight: 24.h
                         ),
                         child: Text(chatText ?? '', style: Theme.of(context).textTheme.labelMedium,)),
                     trailing: unread != null && unread != 0 ? NadalRoomNotReadTag(number: unread) : null,

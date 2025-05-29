@@ -488,8 +488,8 @@ class ScheduleProvider extends ChangeNotifier {
       for (int i = 0; i < members.length; i++) {
         data[members[i]['uid']] = i + 1;
       }
-
-      return await serverManager.put('game/member/indexUpdate', data: data);
+      final response = await serverManager.put('game/member/indexUpdate', data: data);
+      return response;
     } catch (e) {
       _setError('멤버 순서 업데이트 실패: $e');
       return null;

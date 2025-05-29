@@ -14,7 +14,7 @@ class _ParticipationTeamState extends State<ParticipationTeam> {
   late UserProvider userProvider;
   bool _editMode = false;
 
-  _onParticipation() async{
+  Future<void> _onParticipation() async{
     final team = await Navigator.of(context).push(MaterialPageRoute(builder: (context)=> TeamSelect(roomId: widget.provider.schedule?['roomId'], scheduleId: widget.provider.schedule?['scheduleId'])));
 
     if(team != null){
@@ -59,7 +59,7 @@ class _ParticipationTeamState extends State<ParticipationTeam> {
             else if(_editMode)
               TextButton(
                   style: ButtonStyle(
-                      padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 3, horizontal: 3)),
+                      padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 3.h, horizontal: 3.w)),
                       alignment: AlignmentDirectional.centerEnd
                   ),
                   onPressed: () => setState(() => _editMode = false),
@@ -79,12 +79,12 @@ class _ParticipationTeamState extends State<ParticipationTeam> {
 
                   // 팀의 승인 상태 (모든 멤버가 승인되어야 팀이 승인됨)
                   final allApproved = teamMembers.every((member) => member['approval'] == 1);
-
+                  print(teamMembers);
                   // 내 팀인지 확인
                   final isMyTeam = teamMembers.any((member) => member['uid'] == userProvider.user!['uid']);
 
                   return Card(
-                    margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                       side: BorderSide(
@@ -98,88 +98,91 @@ class _ParticipationTeamState extends State<ParticipationTeam> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // 팀 헤더
-                        ListTile(
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          title: Row(
-                            children: [
-                              Text(
-                                teamName,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(width: 8),
-                              // 팀 승인 상태
-                              Container(
-                                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: allApproved
-                                      ? theme.colorScheme.primary.withValues(alpha: 0.1)
-                                      : theme.colorScheme.error.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  allApproved ? '승인됨' : '승인 대기',
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: allApproved
-                                        ? theme.colorScheme.primary
-                                        : theme.colorScheme.error,
+                        IgnorePointer(
+                          ignoring: teamMembers.where((e)=> e['uid'] == FirebaseAuth.instance.currentUser?.uid).isNotEmpty,
+                          child: ListTile(
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                            title: Row(
+                              children: [
+                                Text(
+                                  teamName,
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                              ),
-                              if (isMyTeam)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 8),
-                                  child: NadalMeTag(),
+                                SizedBox(width: 8.w),
+                                // 팀 승인 상태
+                                Container(
+                                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                                  decoration: BoxDecoration(
+                                    color: allApproved
+                                        ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                                        : theme.colorScheme.error.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    allApproved ? '승인됨' : '승인 대기',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: allApproved
+                                          ? theme.colorScheme.primary
+                                          : theme.colorScheme.error,
+                                    ),
+                                  ),
                                 ),
-                            ],
-                          ),
-                          trailing: _editMode
-                              ? Container(
-                            decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(3),
-                                color: allApproved ? theme.colorScheme.error : theme.colorScheme.secondary
+                                if (isMyTeam)
+                                  Padding(
+                                    padding: EdgeInsets.only(left: 8.w),
+                                    child: NadalMeTag(),
+                                  ),
+                              ],
                             ),
-                            padding: EdgeInsets.symmetric(vertical: 3, horizontal: 8),
-                            child: Text(
-                              allApproved ? '거절' : '승인',
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600
+                            trailing: _editMode && (widget.provider.isOwner && teamMembers.where((e)=> e['uid'] == FirebaseAuth.instance.currentUser?.uid).isEmpty)
+                                ? Container(
+                              decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(3),
+                                  color: allApproved ? theme.colorScheme.error : theme.colorScheme.secondary
                               ),
-                            ),
-                          )
-                              : null,
-                          onTap: _editMode ? () {
-                            // 팀 승인/거절 다이얼로그
-                            if (allApproved) {
-                              DialogManager.showBasicDialog(
-                                  title: '팀 참가를 거절할까요?',
-                                  content: '거절 시 팀 전체가 일정 시작 시 자동으로 리스트에서 제외됩니다',
-                                  confirmText: '확인',
-                                  cancelText: '취소',
-                                  onConfirm: () {
-                                    // 팀 전체 거절 처리
-                                    for (var member in teamMembers) {
-                                      widget.provider.memberParticipation(member, false);
+                              padding: EdgeInsets.symmetric(vertical: 3, horizontal: 8),
+                              child: Text(
+                                allApproved ? '거절' : '승인',
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600
+                                ),
+                              ),
+                            )
+                                : null,
+                            onTap: _editMode ? () {
+                              // 팀 승인/거절 다이얼로그
+                              if (allApproved) {
+                                DialogManager.showBasicDialog(
+                                    title: '팀 참가를 거절할까요?',
+                                    content: '거절 시 팀 전체가 일정 시작 시 자동으로 리스트에서 제외됩니다',
+                                    confirmText: '확인',
+                                    cancelText: '취소',
+                                    onConfirm: () {
+                                      // 팀 전체 거절 처리
+                                      for (var member in teamMembers) {
+                                        widget.provider.memberParticipation(member, false);
+                                      }
                                     }
-                                  }
-                              );
-                            } else {
-                              DialogManager.showBasicDialog(
-                                  title: '팀 참가를 승인할까요?',
-                                  content: '승인하면 팀 전체에게 안내 메시지가 발송됩니다.',
-                                  confirmText: '확인',
-                                  cancelText: '취소',
-                                  onConfirm: () {
-                                    // 팀 전체 승인 처리
-                                    for (var member in teamMembers) {
-                                      widget.provider.memberParticipation(member, true);
+                                );
+                              } else {
+                                DialogManager.showBasicDialog(
+                                    title: '팀 참가를 승인할까요?',
+                                    content: '승인하면 팀 전체에게 안내 메시지가 발송됩니다.',
+                                    confirmText: '확인',
+                                    cancelText: '취소',
+                                    onConfirm: () {
+                                      // 팀 전체 승인 처리
+                                      for (var member in teamMembers) {
+                                        widget.provider.memberParticipation(member, true);
+                                      }
                                     }
-                                  }
-                              );
-                            }
-                          } : null,
+                                );
+                              }
+                            } : null,
+                          ),
                         ),
 
                         // 팀원 목록
@@ -190,11 +193,12 @@ class _ParticipationTeamState extends State<ParticipationTeam> {
                           itemBuilder: (context, idx) {
                             final member = teamMembers[idx];
                             return ListTile(
-                              contentPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 2),
+                              onTap: ()=> context.push('/user/${member['uid']}'),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 2.h),
                               dense: true,
                               leading: NadalProfileFrame(
                                 imageUrl: member['profileImage'],
-                                size: 36,
+                                size: 36.h,
                               ),
                               title: Text(
                                 TextFormManager.profileText(

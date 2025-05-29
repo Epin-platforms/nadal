@@ -25,10 +25,10 @@ class NadalIconButton extends StatelessWidget {
 }
 
 class NadalReportIcon extends StatelessWidget {
-  const NadalReportIcon({super.key, this.onTap, this.size});
+  const NadalReportIcon({super.key, this.onTap, this.size, this.color});
   final VoidCallback? onTap;
   final double? size;
-
+  final Color? color;
   @override
   Widget build(BuildContext context) {
     return  InkWell(
@@ -36,9 +36,9 @@ class NadalReportIcon extends StatelessWidget {
       customBorder: CircleBorder(),
       overlayColor: WidgetStatePropertyAll(Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)),
       child: Padding(
-          padding: EdgeInsets.all(4.r),
+          padding: EdgeInsets.all(8.r),
           child: Image.asset('assets/image/icon/siren.png', height: size ?? 24.r, width: size ?? 24.r,
-            color: Theme.of(context).colorScheme.onSurface,
+            color: color ?? Theme.of(context).colorScheme.onSurface,
             colorBlendMode: BlendMode.srcIn,)
       ),
     );

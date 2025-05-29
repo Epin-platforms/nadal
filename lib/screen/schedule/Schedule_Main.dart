@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:my_sports_calendar/manager/game/Game_Manager.dart';
 import 'package:my_sports_calendar/widget/Nadal_Dot.dart';
@@ -492,7 +491,10 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
   Widget _buildParticipantsCard(ThemeData theme, String myParticipationStatus, Color participationColor) {
     final approvedCount = widget.provider.scheduleMembers?.values
         .where((member) => member['approval'] == 1).length ?? 0;
-    final teamCount = widget.provider.teams?.length ?? 0;
+    final teamCount = widget.provider.teams?.entries.where((entry) {
+      // 팀에서 승인된 멤버가 있는지 확인
+      return entry.value.any((member) => member['approval'] == 1);
+    }).length ?? 0;
     final isTeamGame = widget.provider.isTeamGame;
 
     return _buildInfoCard(
@@ -569,9 +571,9 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
                         Icon(
                           Icons.people_alt_rounded,
                           color: Theme.of(context).colorScheme.onPrimary,
-                          size: 18,
+                          size: 18.r,
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8.w),
                         Text(
                           isTeamGame
                               ? '참가팀($teamCount) 보기'
@@ -619,7 +621,7 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
                             color: Theme.of(context).colorScheme.onPrimary,
                             size: 18.r,
                           ),
-                          const SizedBox(width: 6),
+                          SizedBox(width: 6.w),
                           Text(
                             '모집 종료',
                             style: theme.textTheme.bodyMedium?.copyWith(
@@ -650,8 +652,11 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
       onConfirm: () async{
         await widget.provider.updateMembers();
         final gameType = widget.provider.gameType;
-        final memberCount = widget.provider.scheduleMembers?.length ?? 0;
-        final teamCount = widget.provider.teams?.length ?? 0;
+        final memberCount = widget.provider.scheduleMembers?.entries.where((e)=> e.value['approval'] == 1).length ?? 0;
+        final teamCount = widget.provider.teams?.entries.where((entry) {
+          // 팀에서 승인된 멤버가 있는지 확인
+          return entry.value.any((member) => member['approval'] == 1);
+        }).length ?? 0;
 
         // 게임 타입에 따른 인원 검증
         String? errorMessage;

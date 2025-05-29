@@ -32,7 +32,7 @@ class _RegisterPageState extends State<RegisterPage> {
     return IosPopGesture(
       onPop: () async{
          await DialogManager.showBasicDialog(title: "로그인 페이지로 돌아갈까요?", content: "안전한 연결 해제를 위해\n로그인 화면으로 잠시 이동할게요.",
-            confirmText: "돌아가기", onConfirm: ()=> userProvider.logout(true), cancelText: "취소");
+            confirmText: "돌아가기", onConfirm: ()=> userProvider.logout(true, false), cancelText: "취소");
 
          return false;
       },
@@ -42,7 +42,7 @@ class _RegisterPageState extends State<RegisterPage> {
               appBar: NadalAppbar(
                 onLeading: () async{
                   await DialogManager.showBasicDialog(title: "로그인 페이지로 돌아갈까요?", content: "안전한 연결 해제를 위해\n로그인 화면으로 잠시 이동할게요.",
-                    confirmText: "돌아가기", onConfirm: ()=> userProvider.logout(true), cancelText: "취소",);
+                    confirmText: "돌아가기", onConfirm: ()=> userProvider.logout(true, false), cancelText: "취소",);
                 },),
               body: SafeArea(
                 child: Column(

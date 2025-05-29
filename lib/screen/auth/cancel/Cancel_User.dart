@@ -305,7 +305,7 @@ class CancelUser extends StatelessWidget {
                 Navigator.of(context).pop();
                 final result = await provider.withdrawMembership();
                 if(result == true){
-                  context.go('/');
+                  context.go('/login?reset=true');
                 }
               },
               style: ElevatedButton.styleFrom(

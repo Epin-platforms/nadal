@@ -244,18 +244,18 @@ class _GameState1State extends State<GameState1> {
                     ),
                   ),
                   trailing: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 12.w,
+                      vertical: 6.h,
                     ),
                     decoration: BoxDecoration(
                       color: colorScheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      '준비 완료',
+                      member['approval'] == 1 ? '준비 완료' : '참가 불가',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.primary,
+                        color: member['approval'] == 1 ? colorScheme.primary : colorScheme.error,
                         fontWeight: FontWeight.bold,
                       ),
                     ),

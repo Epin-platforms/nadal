@@ -16,7 +16,7 @@ class MyProfileMenu extends StatelessWidget {
         children: [
           InkWell(
             onTap: (){
-              context.push('/myProfile/profileEdit');
+              context.push('/profileEdit');
             },
             borderRadius: BorderRadius.circular(12),
             child: SizedBox(
@@ -35,7 +35,7 @@ class MyProfileMenu extends StatelessWidget {
           SizedBox(width: 16.w,),
           InkWell(
             onTap: (){
-              context.push('/myProfile/affiliationEdit');
+              context.push('/affiliationEdit');
             },
             borderRadius: BorderRadius.circular(12),
             child: SizedBox(
@@ -54,7 +54,7 @@ class MyProfileMenu extends StatelessWidget {
           SizedBox(width: 16.w,),
           InkWell(
             onTap: (){
-              context.push('/myProfile/kakaoConnect');
+              context.push('/kakaoConnect');
             },
             borderRadius: BorderRadius.circular(12),
             child: SizedBox(

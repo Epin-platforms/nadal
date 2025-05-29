@@ -234,7 +234,7 @@ class RegisterProvider extends ChangeNotifier {
       await DialogManager.showBasicDialog(title: "같은 계정이 존재해요", content: "$social로\n$email계정이 존재해요", confirmText: '로그인 페이지로', onConfirm: (){
         final provider = AppRoute.context?.read<UserProvider>();
         if(provider != null){
-          provider.logout(true);
+          provider.logout(true, false);
         }});
     }
 

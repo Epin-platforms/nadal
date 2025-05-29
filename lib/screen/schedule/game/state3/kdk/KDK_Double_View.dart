@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:my_sports_calendar/manager/game/Game_Manager.dart';
-import 'package:my_sports_calendar/widget/Nadal_Coat_Input.dart';
+import 'package:my_sports_calendar/widget/Nadal_Court_Input.dart';
 
 import '../../../../../manager/project/Import_Manager.dart';
 
@@ -12,47 +12,13 @@ class KdkDoubleView extends StatefulWidget {
 }
 
 class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _scaleAnimation;
-
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeInOut,
-      ),
-    );
-
-    // 애니메이션 시작 (게임 종료 버튼에 주목하게 하는 효과)
-    WidgetsBinding.instance.addPostFrameCallback((_){
-      if(widget.scheduleProvider.schedule?['state'] == 3){
-        _startButtonAnimation();
-      }
-    });
-  }
-
-  void _startButtonAnimation() {
-    _animationController.forward().then((_) {
-      _animationController.reverse().then((_) {
-        if (mounted) {
-          Future.delayed(const Duration(seconds: 2), () {
-            _startButtonAnimation();
-          });
-        }
-      });
-    });
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
     super.dispose();
   }
 
@@ -74,8 +40,8 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
         // 상단 정보 영역
         if (isProgress)
           Container(
-            margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            margin: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 8.h),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
             decoration: BoxDecoration(
               color: isEnd
                   ? theme.colorScheme.secondary.withValues(alpha: 0.12)
@@ -97,9 +63,9 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                   color: isEnd
                       ? theme.colorScheme.secondary
                       : theme.colorScheme.primary,
-                  size: 20,
+                  size: 20.sp,
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12.w),
                 Expanded(
                   child: Text(
                     isEnd
@@ -118,17 +84,15 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                 if(!isEnd)
                 ElevatedButton.icon(
                   onPressed: () {
-                    // 실시간 진행 보기 페이지로 이동
-                    HapticFeedback.mediumImpact();
-                    context.push('/schedule/live-match-view'); // 적절한 라우트로 변경
+                    context.push('/live-match-view'); // 적절한 라우트로 변경
                   },
-                  icon: const Icon(Icons.live_tv_rounded, size: 16),
+                  icon: Icon(Icons.live_tv_rounded, size: 16.r),
                   label: const Text('실시간 결과'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.colorScheme.primary,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    minimumSize: const Size(0, 36),
+                    padding:  EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+                    minimumSize:  Size(0, 36.w),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -141,14 +105,14 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
         // 게임 목록
         Expanded(
           child: ListView.separated(
-            padding: const EdgeInsets.only(top: 8, bottom: 50),
+            padding: EdgeInsets.only(top: 8.h, bottom: 50.h),
             itemCount: widget.scheduleProvider.gameTables!.entries.length,
             separatorBuilder: (BuildContext context, int index) =>
                 Divider(
                   height: 1,
                   thickness: 1,
-                  indent: 16,
-                  endIndent: 16,
+                  indent: 16.w,
+                  endIndent: 16.w,
                   color: theme.dividerColor.withValues(alpha: 0.4),
                 ),
             itemBuilder: (context, index) {
@@ -169,7 +133,7 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
               return IgnorePointer(
                 ignoring: !isProgress,
                 child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
                   decoration: BoxDecoration(
                     color: theme.cardColor,
                     borderRadius: BorderRadius.circular(16),
@@ -187,12 +151,12 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                     children: [
                       // 세트 & 코트 정보
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+                        padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 10.h),
                         child: Row(
                           children: [
                             // 세트 정보
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
                               decoration: BoxDecoration(
                                 color: theme.colorScheme.secondary.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(8),
@@ -206,29 +170,29 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                               ),
                             ),
 
-                            const SizedBox(width: 10),
+                            SizedBox(width: 10.w),
 
                             // 코트 정보
                             Expanded(
                               child: Row(
                                 children: [
-                                  const Icon(
+                                  Icon(
                                     Icons.place_outlined,
-                                    size: 16,
+                                    size: 16.r,
                                     color: Colors.grey,
                                   ),
-                                  const SizedBox(width: 4),
+                                  SizedBox(width: 4.w),
 
                                   if (widget.scheduleProvider.courtInputTableId == item.value['tableId'])
                                     Expanded(
-                                      child: NadalCoatInput(
+                                      child: NadalCourtInput(
                                         controller: widget.scheduleProvider.courtController!,
                                       ),
                                     )
                                   else
                                     Expanded(
                                       child: Text(
-                                        item.value['coat'] == null ? '코트 미지정' : '${item.value['coat']} 코트',
+                                        item.value['court'] == null ? '코트 미지정' : '${item.value['court']} 코트',
                                         style: theme.textTheme.bodySmall?.copyWith(
                                           color: theme.hintColor,
                                           fontWeight: FontWeight.w500,
@@ -248,12 +212,12 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                                   widget.scheduleProvider.setCourtInput(item.value['tableId']);
                                   HapticFeedback.lightImpact();
                                 },
-                                icon: const Icon(Icons.edit_rounded, size: 18),
+                                icon: Icon(Icons.edit_rounded, size: 18.r),
                                 color: theme.colorScheme.primary,
                                 padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(
-                                  minWidth: 36,
-                                  minHeight: 36,
+                                constraints:  BoxConstraints(
+                                  minWidth: 36.r,
+                                  minHeight: 36.r,
                                 ),
                                 style: IconButton.styleFrom(
                                   backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
@@ -277,7 +241,7 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
                                 ),
                                 child: Text(
                                   '저장',
@@ -294,8 +258,8 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                       // 게임 결과 표시 (완료된 경우)
                       if (isMatchComplete)
                         Container(
-                          margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                          margin: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
+                          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 5.h),
                           decoration: BoxDecoration(
                             color: isPlayer1Win || isPlayer2Win
                                 ? theme.colorScheme.primary.withValues(alpha: 0.1)
@@ -314,7 +278,7 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                                     ? theme.colorScheme.primary
                                     : theme.colorScheme.secondary,
                               ),
-                              const SizedBox(width: 6),
+                              SizedBox(width: 6.w),
                               Text(
                                 isPlayer1Win
                                     ? '${player1['nickName'] ?? player1['name']} 승리'
@@ -334,7 +298,7 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
 
                       // VS 대결 구조
                       Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        padding: EdgeInsets.symmetric(horizontal: 16.w),
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
@@ -355,7 +319,7 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                                   isTop: true,
                                 ),
 
-                                const SizedBox(height: 10),
+                                SizedBox(height: 10.h),
 
                                 // 2번 선수
                                 _buildPlayerScoreCard(
@@ -375,8 +339,8 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
 
                             // VS 표시
                             Container(
-                              width: 50,
-                              height: 50,
+                              width: 50.r,
+                              height: 50.r,
                               decoration: BoxDecoration(
                                 color: theme.cardColor,
                                 shape: BoxShape.circle,
@@ -408,7 +372,7 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                         ),
                       ),
 
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14.h),
                     ],
                   ),
                 ),
@@ -420,51 +384,48 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
         // 게임 종료 버튼
         if (uid == widget.scheduleProvider.schedule!['uid'] && isProgress)
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: ScaleTransition(
-              scale: isEnd ? _scaleAnimation : const AlwaysStoppedAnimation(1.0),
-              child: SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: isEnd
-                      ? () {
-                    HapticFeedback.mediumImpact();
-                    DialogManager.showBasicDialog(title: '이대로 게임을 끝낼까요?', content: '끝내면 수정은 어렵고 기록만 남아요!', confirmText: '게임종료!', onConfirm: ()=> widget.scheduleProvider.endGame(), cancelText: '앗! 잠시만요');
-                  }
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isEnd
-                        ? theme.colorScheme.secondary
-                        : theme.hintColor.withValues(alpha: 0.3),
-                    foregroundColor: Colors.white,
-                    elevation: isEnd ? 4 : 0,
-                    shadowColor: theme.colorScheme.secondary.withValues(alpha: 0.4),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+            padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 16.h),
+            child: SizedBox(
+              width: double.infinity,
+              height: 52.h,
+              child: ElevatedButton(
+                onPressed: isEnd
+                    ? () {
+                  HapticFeedback.mediumImpact();
+                  DialogManager.showBasicDialog(title: '이대로 게임을 끝낼까요?', content: '끝내면 수정은 어렵고 기록만 남아요!', confirmText: '게임종료!', onConfirm: ()=> widget.scheduleProvider.endGame(), cancelText: '앗! 잠시만요');
+                }
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isEnd
+                      ? theme.colorScheme.secondary
+                      : theme.hintColor.withValues(alpha: 0.3),
+                  foregroundColor: Colors.white,
+                  elevation: isEnd ? 4 : 0,
+                  shadowColor: theme.colorScheme.secondary.withValues(alpha: 0.4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  disabledBackgroundColor: theme.disabledColor.withValues(alpha: 0.1),
+                  disabledForegroundColor: theme.disabledColor,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      isEnd
+                          ? Icons.sports_score_rounded
+                          : Icons.hourglass_empty_rounded,
+                      size: 20.r,
                     ),
-                    disabledBackgroundColor: theme.disabledColor.withValues(alpha: 0.1),
-                    disabledForegroundColor: theme.disabledColor,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        isEnd
-                            ? Icons.sports_score_rounded
-                            : Icons.hourglass_empty_rounded,
-                        size: 20,
+                    SizedBox(width: 8.w),
+                    Text(
+                      isEnd ? '게임 종료하기' : '게임 진행 중',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: isEnd ? Colors.white : theme.disabledColor,
+                        fontWeight: FontWeight.w600,
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        isEnd ? '게임 종료하기' : '게임 진행 중',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: isEnd ? Colors.white : theme.disabledColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -515,8 +476,8 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                       children: [
                         // 선수 번호
                         Container(
-                          height: 30,
-                          width: 30,
+                          height: 30.r,
+                          width: 30.r,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: isWinner
@@ -545,7 +506,7 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                           ),
                         ),
 
-                        const SizedBox(width: 10),
+                        SizedBox(width: 10.w),
 
                         // 선수 이름
                         Expanded(
@@ -589,14 +550,14 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                         ),
                       ],
                     ),
-                    SizedBox(height: 8,),
+                    SizedBox(height: 8.h,),
                     //플레이어2
                     Row(
                       children: [
                         // 선수 번호
                         Container(
-                          height: 30,
-                          width: 30,
+                          height: 30.r,
+                          width: 30.r,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: isWinner
@@ -625,7 +586,7 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                           ),
                         ),
 
-                        const SizedBox(width: 10),
+                        SizedBox(width: 10.w),
 
                         // 선수 이름
                         Expanded(
@@ -658,7 +619,7 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                                     player2['teamName'],
                                     style: theme.textTheme.labelSmall?.copyWith(
                                       color: theme.hintColor,
-                                      fontSize: 12,
+                                      fontSize: 12.sp,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -691,7 +652,7 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                 }
               },
               child: Container(
-                width: 50,
+                width: 50.w,
                 decoration: BoxDecoration(
                   color: isWinner
                       ? theme.colorScheme.primary
@@ -705,7 +666,7 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                     bottomLeft: Radius.circular(0),
                   ),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 14.h),
                 alignment: Alignment.center,
                 child: Text(
                   '$score',

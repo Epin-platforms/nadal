@@ -20,7 +20,7 @@ class MyProfile extends StatelessWidget {
               actions: [
                 NadalIconButton(
                     onTap: (){
-                      context.push('/myProfile/profileMore');
+                      context.push('/profileMore');
                     },
                     icon: BootstrapIcons.gear,
                 )

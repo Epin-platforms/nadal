@@ -184,32 +184,38 @@ class _ParticipationSoloState extends State<ParticipationSolo> {
                       itemBuilder: (context,index){
                         final item = members[index].value;
                         if(_editMode){
-                          return ListTile(
-                            onTap: (){
-                              if(item['approval'] == 0){
-                                DialogManager.showBasicDialog(title: '참가 요청을 승인할까요?', content: '	승인하면 참가자에게 안내 메시지가 발송됩니다.', confirmText: '확인', cancelText: '취소',
-                                    onConfirm: (){
-                                      widget.provider.memberParticipation(item, true);
-                                    }
-                                );
-                              }else{
-                                DialogManager.showBasicDialog(title: '참가 요청을 거절할까요?', content: '거절 시 참가자는 일정 시작 시 자동으로 리스트에서 제외됩니다', confirmText: '확인', cancelText: '취소',
-                                    onConfirm: (){
-                                      widget.provider.memberParticipation(item, false);
-                                    });
-                              }
-                            },
-                            contentPadding: EdgeInsets.symmetric(vertical: 3, horizontal: 16),
-                            leading: NadalProfileFrame(imageUrl: item['profileImage'], size: 45,),
-                            trailing: Container(
-                              decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(3),
-                                  color: item['approval'] == 0 ? Theme.of(context).colorScheme.secondary : Theme.of(context).colorScheme.error
+                          return IgnorePointer(
+                            ignoring: widget.provider.isOwner &&  item['uid'] == FirebaseAuth.instance.currentUser!.uid,
+                            child: ListTile(
+                              onTap: (){
+                                if(item['approval'] == 0){
+                                  DialogManager.showBasicDialog(title: '참가 요청을 승인할까요?', content: '	승인하면 참가자에게 안내 메시지가 발송됩니다.', confirmText: '확인', cancelText: '취소',
+                                      onConfirm: (){
+                                        widget.provider.memberParticipation(item, true);
+                                      }
+                                  );
+                                }else{
+                                  DialogManager.showBasicDialog(title: '참가 요청을 거절할까요?', content: '거절 시 참가자는 일정 시작 시 자동으로 리스트에서 제외됩니다', confirmText: '확인', cancelText: '취소',
+                                      onConfirm: (){
+                                        widget.provider.memberParticipation(item, false);
+                                      });
+                                }
+                              },
+                              contentPadding: EdgeInsets.symmetric(vertical: 3, horizontal: 16),
+                              leading: NadalProfileFrame(imageUrl: item['profileImage'], size: 45,),
+                              trailing:
+                              widget.provider.isOwner && item['uid'] == FirebaseAuth.instance.currentUser!.uid ?
+                               NadalMeTag()
+                                  : Container(
+                                decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(3),
+                                    color: item['approval'] == 0 ? Theme.of(context).colorScheme.secondary : Theme.of(context).colorScheme.error
+                                ),
+                                padding: EdgeInsets.symmetric(vertical: 3, horizontal: 4),
+                                child: Text(item['approval'] == 0 ? '승인' : '거절', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: const Color(0xffffffff), fontWeight: FontWeight.w600),),
                               ),
-                              padding: EdgeInsets.symmetric(vertical: 3, horizontal: 4),
-                              child: Text(item['approval'] == 0 ? '승인' : '거절', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: const Color(0xffffffff), fontWeight: FontWeight.w600),),
+                              title: Text(TextFormManager.profileText(item['nickName'], item['name'], item['birthYear'], item['gender'], useNickname: widget.provider.schedule?['useNickname'] == 1), style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1, fontWeight: FontWeight.w500),),
                             ),
-                            title: Text(TextFormManager.profileText(item['nickName'], item['name'], item['birthYear'], item['gender'], useNickname: widget.provider.schedule?['useNickname'] == 1), style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1, fontWeight: FontWeight.w500),),
                           );
                         }else{
                           return ListTile(

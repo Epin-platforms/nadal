@@ -105,7 +105,7 @@ class _ProfileMoreState extends State<ProfileMore> {
                   confirmText: '아니요, 계속 쓸래요',
                   cancelText: '네, 로그아웃할게요',
                   onCancel: (){
-                      provider.logout(false);
+                      provider.logout(false, true);
                   });
             },
             leading: Icon(Icons.logout , size: 24,),

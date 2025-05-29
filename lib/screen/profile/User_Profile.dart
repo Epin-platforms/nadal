@@ -82,6 +82,7 @@ class _UserProfileState extends State<UserProfile> with SingleTickerProviderStat
                     actions: [
                       if(!isMe)...[
                         NadalReportIcon(
+                          color: const Color(0xfff1f1f1),
                           onTap: (){
                             context.push('/report?targetId=${provider.user!['uid']}&type=user');
                           },

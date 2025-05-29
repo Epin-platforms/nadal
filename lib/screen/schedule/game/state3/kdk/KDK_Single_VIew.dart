@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:my_sports_calendar/manager/game/Game_Manager.dart';
-import 'package:my_sports_calendar/widget/Nadal_Coat_Input.dart';
+import 'package:my_sports_calendar/widget/Nadal_Court_Input.dart';
 
 import '../../../../../manager/project/Import_Manager.dart';
 
@@ -12,49 +12,6 @@ class KdkSingleView extends StatefulWidget {
 }
 
 class _KdkSingleViewViewState extends State<KdkSingleView> with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeInOut,
-      ),
-    );
-
-    // 애니메이션 시작 (게임 종료 버튼에 주목하게 하는 효과)
-    WidgetsBinding.instance.addPostFrameCallback((_){
-      if(widget.scheduleProvider.schedule?['state'] == 3){
-        _startButtonAnimation();
-      }
-    });
-  }
-
-  void _startButtonAnimation() {
-    _animationController.forward().then((_) {
-      _animationController.reverse().then((_) {
-        if (mounted) {
-          Future.delayed(const Duration(seconds: 2), () {
-            _startButtonAnimation();
-          });
-        }
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -118,7 +75,7 @@ class _KdkSingleViewViewState extends State<KdkSingleView> with SingleTickerProv
                   onPressed: () {
                     // 실시간 진행 보기 페이지로 이동
                     HapticFeedback.mediumImpact();
-                    context.push('/schedule/live-match-view'); // 적절한 라우트로 변경
+                    context.push('/live-match-view'); // 적절한 라우트로 변경
                   },
                   icon: Icon(Icons.live_tv_rounded, size: 16.r),
                   label: const Text('실시간 보기'),
@@ -216,14 +173,14 @@ class _KdkSingleViewViewState extends State<KdkSingleView> with SingleTickerProv
 
                                   if (widget.scheduleProvider.courtInputTableId == item.value['tableId'])
                                     Expanded(
-                                      child: NadalCoatInput(
+                                      child: NadalCourtInput(
                                         controller: widget.scheduleProvider.courtController!,
                                       ),
                                     )
                                   else
                                     Expanded(
                                       child: Text(
-                                        item.value['coat'] == null ? '코트 미지정' : '${item.value['coat']} 코트',
+                                        item.value['court'] == null ? '코트 미지정' : '${item.value['court']} 코트',
                                         style: theme.textTheme.bodySmall?.copyWith(
                                           color: theme.hintColor,
                                           fontWeight: FontWeight.w500,
@@ -414,50 +371,47 @@ class _KdkSingleViewViewState extends State<KdkSingleView> with SingleTickerProv
         if (uid == widget.scheduleProvider.schedule!['uid'] && isProgress)
           Padding(
             padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 16.h),
-            child: ScaleTransition(
-              scale: isEnd ? _scaleAnimation : const AlwaysStoppedAnimation(1.0),
-              child: SizedBox(
-                width: double.infinity,
-                height: 52.h,
-                child: ElevatedButton(
-                  onPressed: isEnd
-                      ? () {
-                    HapticFeedback.mediumImpact();
-                    DialogManager.showBasicDialog(title: '이대로 게임을 끝낼까요?', content: '끝내면 수정은 어렵고 기록만 남아요!', confirmText: '게임종료!', onConfirm: ()=> widget.scheduleProvider.endGame(), cancelText: '앗! 잠시만요');
-                  }
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isEnd
-                        ? theme.colorScheme.secondary
-                        : theme.hintColor.withValues(alpha: 0.3),
-                    foregroundColor: Colors.white,
-                    elevation: isEnd ? 4 : 0,
-                    shadowColor: theme.colorScheme.secondary.withValues(alpha: 0.4),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+            child: SizedBox(
+              width: double.infinity,
+              height: 52.h,
+              child: ElevatedButton(
+                onPressed: isEnd
+                    ? () {
+                  HapticFeedback.mediumImpact();
+                  DialogManager.showBasicDialog(title: '이대로 게임을 끝낼까요?', content: '끝내면 수정은 어렵고 기록만 남아요!', confirmText: '게임종료!', onConfirm: ()=> widget.scheduleProvider.endGame(), cancelText: '앗! 잠시만요');
+                }
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isEnd
+                      ? theme.colorScheme.secondary
+                      : theme.hintColor.withValues(alpha: 0.3),
+                  foregroundColor: Colors.white,
+                  elevation: isEnd ? 4 : 0,
+                  shadowColor: theme.colorScheme.secondary.withValues(alpha: 0.4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  disabledBackgroundColor: theme.disabledColor.withValues(alpha: 0.1),
+                  disabledForegroundColor: theme.disabledColor,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      isEnd
+                          ? Icons.sports_score_rounded
+                          : Icons.hourglass_empty_rounded,
+                      size: 20,
                     ),
-                    disabledBackgroundColor: theme.disabledColor.withValues(alpha: 0.1),
-                    disabledForegroundColor: theme.disabledColor,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        isEnd
-                            ? Icons.sports_score_rounded
-                            : Icons.hourglass_empty_rounded,
-                        size: 20,
+                    const SizedBox(width: 8),
+                    Text(
+                      isEnd ? '게임 종료하기' : '게임 진행 중',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: isEnd ? Colors.white : theme.disabledColor,
+                        fontWeight: FontWeight.w600,
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        isEnd ? '게임 종료하기' : '게임 진행 중',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: isEnd ? Colors.white : theme.disabledColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),

@@ -41,7 +41,7 @@ class _ChatFieldState extends State<ChatField> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, Platform.isAndroid ? 15.h : 0),
+      padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 15.h),
       child: Column(
         children: [
           if(widget.roomProvider.reply != null)...[

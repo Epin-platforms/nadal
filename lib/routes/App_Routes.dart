@@ -10,6 +10,7 @@ import 'package:my_sports_calendar/screen/qna/Qna_List.dart';
 import 'package:my_sports_calendar/screen/qna/Qna_Write.dart';
 import 'package:my_sports_calendar/screen/report/Report_Page.dart';
 import 'package:my_sports_calendar/screen/schedule/Schedule.dart';
+import 'package:my_sports_calendar/screen/schedule/game/state3/kdk/KDK_Real_Time_Result.dart';
 import 'package:my_sports_calendar/screen/web/Nadal_WebView.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -107,40 +108,38 @@ class AppRoute{
         GoRoute(
             path: '/myProfile',
             builder: (context, state) => const MyProfile(),
-            routes: [
-              GoRoute(
-                  path: '/profileEdit',
-                  pageBuilder: (context, state) => NadalTransitionPage(
-                      child: ProfileEdit(),
-                      key: state.pageKey,
-                      transitionType: PageTransitionType.slideFromBottom
-                  )
-              ),
-              GoRoute(
-                  path: '/affiliationEdit',
-                  pageBuilder: (context, state) => NadalTransitionPage(
-                      child: AffiliationEdit(),
-                      key: state.pageKey,
-                      transitionType: PageTransitionType.slideFromBottom
-                  )
-              ),
-              GoRoute(
-                  path: '/kakaoConnect',
-                  pageBuilder: (context, state) => NadalTransitionPage(
-                      child: KakaoConnect(),
-                      key: state.pageKey,
-                      transitionType: PageTransitionType.slideFromBottom
-                  )
-              ),
-              GoRoute(
-                  path: '/profileMore',
-                  pageBuilder: (context, state) => NadalTransitionPage(
-                      child: ProfileMore(),
-                      key: state.pageKey,
-                      transitionType: PageTransitionType.slideFromBottom
-                  )
-              ),
-            ]
+        ),
+        GoRoute(
+            path: '/profileEdit',
+            pageBuilder: (context, state) => NadalTransitionPage(
+                child: ProfileEdit(),
+                key: state.pageKey,
+                transitionType: PageTransitionType.slideFromBottom
+            )
+        ),
+        GoRoute(
+            path: '/affiliationEdit',
+            pageBuilder: (context, state) => NadalTransitionPage(
+                child: AffiliationEdit(),
+                key: state.pageKey,
+                transitionType: PageTransitionType.slideFromBottom
+            )
+        ),
+        GoRoute(
+            path: '/kakaoConnect',
+            pageBuilder: (context, state) => NadalTransitionPage(
+                child: KakaoConnect(),
+                key: state.pageKey,
+                transitionType: PageTransitionType.slideFromBottom
+            )
+        ),
+        GoRoute(
+            path: '/profileMore',
+            pageBuilder: (context, state) => NadalTransitionPage(
+                child: ProfileMore(),
+                key: state.pageKey,
+                transitionType: PageTransitionType.slideFromBottom
+            )
         ),
         GoRoute(
             path: '/createRoom',
@@ -309,9 +308,9 @@ class AppRoute{
                 )
             ),
             GoRoute(
-                path: '/schedule/live-match-view',
+                path: '/live-match-view',
                 pageBuilder: (context, state) => NadalTransitionPage(
-                    child: ScheduleEditPage(),
+                    child: KdkRealTimeResult(),
                     key: state.pageKey,
                     transitionType: PageTransitionType.slideFromBottom
                 )
@@ -397,10 +396,13 @@ class AppRoute{
         //로그인 페이지
         GoRoute(
           path: '/login',
-            pageBuilder: (context, state) => NadalTransitionPage(
-                child: LoginPage(),
+            pageBuilder: (context, state){
+              final reset = state.uri.queryParameters['reset'] == 'true' ? true : false;
+              return NadalTransitionPage(
+                child: LoginPage(reset: reset),
                 key: state.pageKey,
-            )
+              );
+            }
         ),
         GoRoute(
           path: '/register',

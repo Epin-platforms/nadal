@@ -264,12 +264,12 @@ class PermissionBottomSheet extends StatefulWidget {
   final List<PermissionInfo> permissions;
 
   const PermissionBottomSheet({
-    Key? key,
+    super.key,
     required this.permissions,
-  }) : super(key: key);
+  });
 
   @override
-  _PermissionBottomSheetState createState() => _PermissionBottomSheetState();
+  State<PermissionBottomSheet> createState() => _PermissionBottomSheetState();
 }
 
 class _PermissionBottomSheetState extends State<PermissionBottomSheet> {
@@ -314,7 +314,7 @@ class _PermissionBottomSheetState extends State<PermissionBottomSheet> {
                 ),
                 SizedBox(height: 8.h),
                 Text(
-                  "모든 권한은 선택사항이며, 거부하셔도\n기본 기능은 이용 가능합니다",
+                  "알림 외 모든 권한은 선택사항이며\n거부하셔도 기본 기능은 이용 가능합니다",
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
                   ),

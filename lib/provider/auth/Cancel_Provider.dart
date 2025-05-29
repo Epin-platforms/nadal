@@ -140,9 +140,9 @@ class CancelProvider extends ChangeNotifier{
     final _auth = FirebaseAuth.instance;
     try {
       // 예민한 작업을 위해 로그인부터 재진행
-      SnackBarManager.showCleanSnackBar(AppRoute.context!, '회원탈퇴를 위해 사용자 재인증이 필요합니다');
+      SnackBarManager.showCleanSnackBar(AppRoute.context!, '3초 후\n회원탈퇴를 위해 사용자 재인증을 시도 합니다');
 
-      await Future.delayed(const Duration(milliseconds: 600));
+      await Future.delayed(const Duration(seconds: 3));
       try{
         await AppRoute.context!.read<UserProvider>().reCertification(_auth.currentUser!.providerData[0].providerId);
       }catch(error){

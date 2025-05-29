@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:my_sports_calendar/main.dart';
 import 'package:my_sports_calendar/manager/auth/social/Apple_Manager.dart';
 import 'package:my_sports_calendar/manager/auth/social/Google_Manager.dart';
 import 'package:my_sports_calendar/manager/auth/social/Kakao_Manager.dart';
@@ -245,7 +246,7 @@ class UserProvider extends ChangeNotifier {
   // ============================================
   // 로그아웃 및 회원탈퇴
   // ============================================
-  Future<void> logout(bool removeUser) async {
+  Future<void> logout(bool removeUser, bool reset) async {
     try {
       AppRoute.pushLoading();
 
@@ -279,8 +280,7 @@ class UserProvider extends ChangeNotifier {
         await _sessionLogout();
       }
 
-      _navigateToLogin();
-
+      _navigateToLogin(reset);
     } catch (error) {
       print("로그아웃 실패: $error");
       DialogManager.errorHandler('로그아웃 중 오류가 발생했습니다');
@@ -295,7 +295,7 @@ class UserProvider extends ChangeNotifier {
     if (res.statusCode == 200) {
       await _auth.signOut();
     }
-    _navigateToLogin();
+    _navigateToLogin(false);
   }
 
   Future<void> _unlinkSocialAccount(String social) async {
@@ -336,10 +336,11 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  void _navigateToLogin() {
+  void _navigateToLogin(bool reset) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (AppRoute.navigatorKey.currentContext != null) {
-        AppRoute.navigatorKey.currentContext!.go('/login');
+        final query = '/login?reset=$reset';
+        AppRoute.navigatorKey.currentContext!.go(query);
       }
     });
   }

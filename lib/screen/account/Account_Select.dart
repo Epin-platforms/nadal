@@ -37,8 +37,22 @@ class _AccountSelectState extends State<AccountSelect> {
           ]);
         }
     );
+  }
 
 
+  void _routeCreate(){
+    if((provider.accounts?.length ?? 0) >= 5){
+      DialogManager.showBasicDialog(title: '보유 계좌 갯수가 너무 많습니다', content: '1인당 최대 5개의 계좌를 생성할 수 있습니다', confirmText: '알겠어요');
+    }else if(context.read<UserProvider>().user?['verificationCode'] == null){
+      DialogManager.showBasicDialog(title: '앗! 이런', content: "계좌는 본인 인증을 한 사용자만 가능해요",
+          cancelText: '괜찮아요',
+          onConfirm: (){
+            context.push('/kakaoConnect');
+          },
+          confirmText: '본인인증 하기');
+    }else{
+      context.push('/create/account');
+    }
   }
 
   @override
@@ -48,10 +62,12 @@ class _AccountSelectState extends State<AccountSelect> {
     return IosPopGesture(
         child: Scaffold(
           appBar: NadalAppbar(
-            title: '계좌선택',
+            title: widget.selectable ? '계좌선택' : '마이계좌',
             actions: [
               NadalIconButton(
-                  onTap: ()=> context.push('/create/account'),
+                  onTap: (){
+                    _routeCreate();
+                  },
                   icon: Icons.add_box_outlined,
               )
             ],
@@ -65,11 +81,7 @@ class _AccountSelectState extends State<AccountSelect> {
                       subtitle: '지금 계좌를 등록할까요?',
                       actionText: '계좌 등록하기',
                       onAction: (){
-                        if((provider.accounts?.length ?? 0) >= 5){
-                          DialogManager.showBasicDialog(title: '보유 계좌 갯수가 너무 많습니다', content: '1인당 최대 5개의 계좌를 생성할 수 있습니다', confirmText: '알겠어요');
-                        }else{
-                          context.push('/create/account');
-                        }
+                        _routeCreate();
                       },
                   ) :
                   SingleChildScrollView(

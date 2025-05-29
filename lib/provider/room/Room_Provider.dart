@@ -286,7 +286,7 @@ class RoomProvider extends ChangeNotifier{
     return result;
   }
 
-  _updateLastRead(dynamic data){
+  void _updateLastRead(dynamic data){
     final uid = data['uid'];
     final auth = FirebaseAuth.instance;
     if(uid != auth.currentUser!.uid){
@@ -298,7 +298,7 @@ class RoomProvider extends ChangeNotifier{
 
 
   //방제거
-  deleteRoom(BuildContext context) async{
+  Future<void> deleteRoom(BuildContext context) async{
     AppRoute.pushLoading();
     try{
       final chatProvider = context.read<ChatProvider>();
@@ -317,7 +317,7 @@ class RoomProvider extends ChangeNotifier{
   }
 
   //방나가기
-  exitRoom(BuildContext context) async{
+  Future<void> exitRoom(BuildContext context) async{
     AppRoute.pushLoading();
     try{
       final chatProvider = context.read<ChatProvider>();
@@ -336,7 +336,7 @@ class RoomProvider extends ChangeNotifier{
   }
 
   //사용자 권한 수정
-  onChangedMemberGrade(uid, grade) async{
+  Future<void> onChangedMemberGrade(uid, grade) async{
     AppRoute.pushLoading();
     final roomId = _room!['roomId']!;
     final data = {

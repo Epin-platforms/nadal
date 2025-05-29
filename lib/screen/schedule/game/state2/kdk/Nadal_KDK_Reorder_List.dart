@@ -40,7 +40,7 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> with SingleTi
       setState(() {});
 
       // 주기적으로 버튼 애니메이션 실행 (중요한 버튼임을 강조)
-      if (isOwner) {
+      if (isOwner && widget.scheduleProvider.schedule?['state'] == 2) {
         Future.delayed(const Duration(seconds: 1), () {
           _startButtonPulse();
         });
@@ -121,9 +121,9 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> with SingleTi
         // 상태 표시
         if (isOwner)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding:  EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
               decoration: BoxDecoration(
                 color: _isChanged
                     ? theme.colorScheme.secondary.withValues(alpha: 0.1)
@@ -145,9 +145,9 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> with SingleTi
                     color: _isChanged
                         ? theme.colorScheme.secondary
                         : theme.colorScheme.primary,
-                    size: 20,
+                    size: 20.r,
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10.w),
                   Expanded(
                     child: Text(
                       _isChanged
@@ -166,7 +166,7 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> with SingleTi
             ),
           ),
 
-        const SizedBox(height: 8),
+        SizedBox(height: 8.h),
 
         // 멤버 목록
         Expanded(
@@ -180,12 +180,12 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> with SingleTi
               borderRadius: BorderRadius.circular(16),
               child: ListView.separated(
                 controller: _scrollController,
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding:  EdgeInsets.symmetric(vertical: 8.h),
                 itemCount: members.length,
-                separatorBuilder: (context, index) => SizedBox(height: 2,),
+                separatorBuilder: (context, index) => SizedBox(height: 2.h,),
                 itemBuilder: (context, index) {
                   return IgnorePointer(
-                    ignoring: !isOwner && widget.scheduleProvider.schedule!['state'] != 2,
+                    ignoring: !isOwner || widget.scheduleProvider.schedule!['state'] != 2,
                     child: DragTarget<int>(
                       onWillAcceptWithDetails: (details) => details.data != index,
                       onAcceptWithDetails: (details) {
@@ -240,7 +240,7 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> with SingleTi
                               ),
                             ),
                             childWhenDragging: Container(
-                              height: 70,
+                              height: 70.h,
                               decoration: BoxDecoration(
                                 color: theme.colorScheme.primary.withValues(alpha: 0.05),
                                 borderRadius: BorderRadius.circular(8),
@@ -250,12 +250,12 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> with SingleTi
                                   style: BorderStyle.solid,
                                 ),
                               ),
-                              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              margin: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
                               child: Center(
                                 child: Icon(
                                   Icons.swap_vert_rounded,
                                   color: theme.colorScheme.primary.withValues(alpha: 0.4),
-                                  size: 24,
+                                  size: 24.r,
                                 ),
                               ),
                             ),
@@ -268,14 +268,14 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> with SingleTi
                                   index: index,
                                 ),
                                 Positioned(
-                                  right: 20,
+                                  right: 20.w,
                                   top: 0,
                                   bottom: 0,
                                   child: Center(
                                     child: Icon(
                                       Icons.drag_handle_rounded,
                                       color: theme.hintColor.withValues(alpha: 0.5),
-                                      size: 20,
+                                      size: 20.r,
                                     ),
                                   ),
                                 ),
@@ -297,17 +297,17 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> with SingleTi
           ),
         ),
 
-        const SizedBox(height: 16),
+        SizedBox(height: 16.h),
 
         // 하단 버튼
-        if (isOwner)
+        if (isOwner && widget.scheduleProvider.schedule?['state'] == 2)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
             child: ScaleTransition(
               scale: _buttonScaleAnimation,
               child: SizedBox(
                 width: double.infinity,
-                height: 52,
+                height: 52.h,
                 child: ElevatedButton(
                   onPressed: () async{
                     HapticFeedback.mediumImpact();
@@ -346,7 +346,7 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> with SingleTi
                         _isChanged
                             ? Icons.published_with_changes_rounded
                             : Icons.check_circle_rounded,
-                        size: 20,
+                        size: 20.r,
                       ),
                       const SizedBox(width: 8),
                       Text(

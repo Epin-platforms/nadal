@@ -62,7 +62,7 @@ class _RoomState extends State<Room> {
     }
 
     //읽은 메시지 업데이트
-    chatProvider.updateMyLastReadInServer(widget.roomId);
+    chatProvider.updateMyLastReadInServer(widget.roomId, null);
     chatProvider.enterRoomUpdateLastRead(widget.roomId);
   }
 
