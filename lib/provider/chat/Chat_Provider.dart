@@ -8,6 +8,7 @@ class ChatProvider extends ChangeNotifier{
   final Set<int> _joinedRooms = {};
   final Map<int, List<Chat>> _chat = {};
   final Map<int, Map<String, dynamic>> _my = {};
+  final Map<int, int?> _lastReadChatId = {}; // 각 방의 lastRead 저장
 
   Map<int, List<Chat>> get chat => _chat;
   Map<int, Map<String, dynamic>> get my => _my;
@@ -62,6 +63,9 @@ class ChatProvider extends ChangeNotifier{
 
   Chat? latestChatTime(int roomId) => _chat[roomId]?.reduce((a, b) => a.createAt.isAfter(b.createAt) ? a : b);
 
+  // lastRead 채팅 ID 반환
+  int? getLastReadChatId(int roomId) => _lastReadChatId[roomId];
+
   void setSocketListeners(){
     socket.on("error", (data)=> DialogManager.errorHandler(data['error']));
     socket.on("chat", _chatHandler);
@@ -75,6 +79,7 @@ class ChatProvider extends ChangeNotifier{
 
     _chat.remove(roomId);
     _my.remove(roomId);
+    _lastReadChatId.remove(roomId);
 
     final state = GoRouter.of(AppRoute.context!).state;
 
@@ -118,7 +123,7 @@ class ChatProvider extends ChangeNotifier{
 
     final state = AppRoute.context != null ? GoRouter.of(AppRoute.context!).state : null;
 
-    if(state?.path != null && state!.path!.contains('/room/${roomId}')){
+    if(state?.path != null && state!.uri.toString().contains('/room/$roomId')){
       updateMyLastReadInServer(roomId, chat.chatId);
     }else{
       _my[roomId]?['unreadCount']++;
@@ -136,6 +141,7 @@ class ChatProvider extends ChangeNotifier{
     }
   }
 
+  // 초기 채팅 로드 (읽은/안읽은 채팅 포함)
   Future<bool> setChats(int roomId) async{
     if(!_socketLoading){
       _socketLoading = true;
@@ -143,31 +149,25 @@ class ChatProvider extends ChangeNotifier{
     }
 
     try {
-      final lastChatId = chat[roomId]?.firstOrNull?.chatId;
+      final response = await serverManager.get('chat/chat?roomId=$roomId');
 
-      final query = lastChatId != null
-          ? 'chat/chat?roomId=$roomId&lastChatId=$lastChatId'
-          : 'chat/chat?roomId=$roomId';
+      if (response.statusCode == 200) {
+        final chatsData = response.data['chats'] as List;
+        final lastReadChatId = response.data['lastReadChatId'] as int?;
 
-      final chatsData = await serverManager.get(query);
+        _lastReadChatId[roomId] = lastReadChatId;
 
-      if (chatsData.statusCode == 200) {
         final newChats = List<Chat>.from(
-            chatsData.data.map((e) => Chat.fromJson(json: e)).toList()
+            chatsData.map((e) => Chat.fromJson(json: e)).toList()
         );
 
-        if (newChats.isNotEmpty) {
-          _chat[roomId] ??= [];
+        _chat[roomId] = newChats;
+        notifyListeners();
 
-          for (var chat in newChats.reversed) {
-            if (_chat[roomId]!.every((e) => e.chatId != chat.chatId)) {
-              _chat[roomId]!.insert(0, chat);
-            }
-          }
-
-          notifyListeners();
-          return newChats.length >= 20;
-        }
+        // 더 안전한 로직:
+        // 1. 채팅이 하나도 없으면 더 로드할 것 없음
+        // 2. 채팅이 있으면 일단 더 로드 시도해볼 수 있음 (실제 요청 시 빈 배열이 오면 그때 false로 처리)
+        return newChats.isNotEmpty;
       }
     } catch (e) {
       print('채팅 로드 오류: $e');
@@ -176,6 +176,80 @@ class ChatProvider extends ChangeNotifier{
         _socketLoading = false;
         notifyListeners();
       }
+    }
+
+    return false;
+  }
+
+  // 이전 채팅 로드 (위로 스크롤)
+  Future<bool> loadChatsBefore(int roomId) async {
+    if (_socketLoading) return false;
+
+    final currentChats = _chat[roomId];
+    if (currentChats == null || currentChats.isEmpty) return false;
+
+    final oldestChatId = currentChats.first.chatId;
+
+    try {
+      _socketLoading = true;
+      notifyListeners();
+
+      final response = await serverManager.get('chat/chatsBefore?roomId=$roomId&lastChatId=$oldestChatId');
+
+      if (response.statusCode == 200) {
+        final newChats = List<Chat>.from(
+            response.data.map((e) => Chat.fromJson(json: e)).toList()
+        );
+
+        if (newChats.isNotEmpty) {
+          // 기존 채팅 앞에 추가
+          _chat[roomId]!.insertAll(0, newChats);
+          notifyListeners();
+          return newChats.length >= 20;
+        }
+      }
+    } catch (e) {
+      print('이전 채팅 로드 오류: $e');
+    } finally {
+      _socketLoading = false;
+      notifyListeners();
+    }
+
+    return false;
+  }
+
+  // 이후 채팅 로드 (아래로 스크롤)
+  Future<bool> loadChatsAfter(int roomId) async {
+    if (_socketLoading) return false;
+
+    final currentChats = _chat[roomId];
+    if (currentChats == null || currentChats.isEmpty) return false;
+
+    final newestChatId = currentChats.last.chatId;
+
+    try {
+      _socketLoading = true;
+      notifyListeners();
+
+      final response = await serverManager.get('chat/chatsAfter?roomId=$roomId&lastChatId=$newestChatId');
+
+      if (response.statusCode == 200) {
+        final newChats = List<Chat>.from(
+            response.data.map((e) => Chat.fromJson(json: e)).toList()
+        );
+
+        if (newChats.isNotEmpty) {
+          // 기존 채팅 뒤에 추가
+          _chat[roomId]!.addAll(newChats);
+          notifyListeners();
+          return newChats.length >= 20;
+        }
+      }
+    } catch (e) {
+      print('이후 채팅 로드 오류: $e');
+    } finally {
+      _socketLoading = false;
+      notifyListeners();
     }
 
     return false;
@@ -252,6 +326,7 @@ class ChatProvider extends ChangeNotifier{
     leaveRoom(roomId);
     _chat.remove(roomId);
     _my.remove(roomId);
+    _lastReadChatId.remove(roomId);
 
     try {
       await AppRoute.context!.read<RoomsProvider>().roomInitialize();
