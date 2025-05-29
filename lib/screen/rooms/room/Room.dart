@@ -14,7 +14,7 @@ class Room extends StatefulWidget {
   State<Room> createState() => _RoomState();
 }
 
-class _RoomState extends State<Room> {
+class _RoomState extends State<Room> with WidgetsBindingObserver {
   final GlobalKey _globalKey = GlobalKey();
   late RoomsProvider roomsProvider;
   late ChatProvider chatProvider;
@@ -22,6 +22,9 @@ class _RoomState extends State<Room> {
 
   @override
   void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
     WidgetsBinding.instance.addPostFrameCallback((_){
       if(widget.roomId == -1){
         context.pop();
@@ -31,41 +34,73 @@ class _RoomState extends State<Room> {
 
       _roomSetting();
     });
-    super.initState();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     provider.socketListener(isOn: false);
     super.dispose();
   }
 
-  void _roomSetting() async{
-    //방정보 업데이트
-    await roomsProvider.updateRoom(widget.roomId);
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
 
-    //만약 업데이트가 조인이 안되어있다면 조인 및 기타 내용 설정
-    if(!chatProvider.isJoined(widget.roomId)){
-      await chatProvider.joinRoom(widget.roomId);
+    // 백그라운드에서 포그라운드로 복귀할 때 데이터 새로고침
+    if (state == AppLifecycleState.resumed) {
+      _refreshFromBackground();
     }
-
-    //그래도 없다면 조인 삭제 및 플레이스 변경
-    if(chatProvider.my[widget.roomId] == null){
-      await chatProvider.removeRoom(widget.roomId);
-      context.pushReplacement('/room/preview/${widget.roomId}');
-    }
-
-    //룸데이터 룸 프로바이더에 세팅하기
-    if(provider.room == null){
-      final initRoom = roomsProvider.rooms![widget.roomId];
-      await provider.setRoom(initRoom);
-    }
-
-    //읽은 메시지 업데이트
-    chatProvider.updateMyLastReadInServer(widget.roomId, null);
-    chatProvider.enterRoomUpdateLastRead(widget.roomId);
   }
 
+  void _refreshFromBackground() async {
+    try {
+      // 채팅 데이터 새로고침
+      await chatProvider.refreshRoomFromBackground(widget.roomId);
+
+      // 방 데이터 새로고침
+      await provider.refreshRoomFromBackground();
+
+      // 읽음 상태 업데이트
+      await chatProvider.updateMyLastReadInServer(widget.roomId, null);
+      await chatProvider.enterRoomUpdateLastRead(widget.roomId);
+    } catch (e) {
+      print('백그라운드 복귀 새로고침 오류: $e');
+    }
+  }
+
+  void _roomSetting() async{
+    try {
+      // 방정보 업데이트
+      await roomsProvider.updateRoom(widget.roomId);
+
+      // 조인이 안되어있다면 조인 및 기타 내용 설정
+      if(!chatProvider.isJoined(widget.roomId)){
+        await chatProvider.joinRoom(widget.roomId);
+      }
+
+      // 방 데이터가 없다면 프리뷰로 이동
+      if(chatProvider.my[widget.roomId] == null){
+        await chatProvider.removeRoom(widget.roomId);
+        if (mounted) {
+          context.pushReplacement('/previewRoom/${widget.roomId}');
+        }
+        return;
+      }
+
+      // 룸데이터 룸 프로바이더에 세팅하기
+      if(provider.room == null){
+        final initRoom = roomsProvider.rooms![widget.roomId];
+        await provider.setRoom(initRoom);
+      }
+
+      // 읽은 메시지 업데이트
+      await chatProvider.updateMyLastReadInServer(widget.roomId, null);
+      await chatProvider.enterRoomUpdateLastRead(widget.roomId);
+    } catch (e) {
+      print('방 설정 오류: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,13 +108,13 @@ class _RoomState extends State<Room> {
     chatProvider = Provider.of<ChatProvider>(context);
     provider = Provider.of<RoomProvider>(context);
 
-
     if(provider.room == null){
-      return Center(
-        child: NadalCircular(),
+      return Scaffold(
+        body: Center(
+          child: NadalCircular(),
+        ),
       );
     }
-
 
     return IosPopGesture(
       child: Scaffold(
@@ -89,22 +124,19 @@ class _RoomState extends State<Room> {
             title: provider.room?['roomName'] ?? '',
             actions: [
               NadalIconButton(
-                  onTap: ()=> context.push('/room/${widget.roomId}/schedule'),
-                  icon: BootstrapIcons.calendar2,
-                  size: 22,
+                onTap: ()=> context.push('/room/${widget.roomId}/schedule'),
+                icon: BootstrapIcons.calendar2,
+                size: 22,
               ),
               SizedBox(width: 8,),
               NadalIconButton(
-                  onTap: ()=> context.push('/room/${widget.roomId}/information'),
+                onTap: ()=> context.push('/room/${widget.roomId}/information'),
                 icon: BootstrapIcons.list,
               )
             ],
           ),
           body: SafeArea(
-              child:
-              provider.room == null ?
-              Container() :
-              Stack(
+              child: Stack(
                 children: [
                   Column(
                     children: [
@@ -118,10 +150,10 @@ class _RoomState extends State<Room> {
                     ],
                   ),
                   if(provider.lastAnnounce.isNotEmpty)
-                  Positioned(
-                      top: 0, right: 16.w, left: 16.w,
-                      child: RoomAnnouncedWidget(announce: provider.lastAnnounce)
-                  )
+                    Positioned(
+                        top: 0, right: 16.w, left: 16.w,
+                        child: RoomAnnouncedWidget(announce: provider.lastAnnounce)
+                    )
                 ],
               )
           )

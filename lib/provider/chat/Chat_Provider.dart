@@ -1,13 +1,10 @@
-
 import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
 import '../../manager/project/Import_Manager.dart';
 import '../../manager/server/Socket_Manager.dart';
 
-
 class ChatProvider extends ChangeNotifier{
   final SocketManager socket = SocketManager();
 
-  //방 소켓 관리
   final Set<int> _joinedRooms = {};
   final Map<int, List<Chat>> _chat = {};
   final Map<int, Map<String, dynamic>> _my = {};
@@ -20,12 +17,10 @@ class ChatProvider extends ChangeNotifier{
     notifyListeners();
   }
 
-  //소켓 연결
   void initializeSocket() async{
     await socket.connect();
   }
 
-  //채팅 프로바이더로 사용자 채팅방 내 채팅정보 + 내 정보 다시불러오기
   bool _socketLoading = false;
   bool get socketLoading => _socketLoading;
 
@@ -38,17 +33,15 @@ class ChatProvider extends ChangeNotifier{
     final rooms = AppRoute.context?.read<RoomsProvider>().rooms;
 
     if (rooms == null) return;
-      for (final roomId in rooms.keys) {
-        // roomId 그대로 보내거나, toString() 해도 무방
-        await joinRoom(roomId);
-      }
+    for (final roomId in rooms.keys) {
+      await joinRoom(roomId);
+    }
   }
 
   Future<void> joinRoom(int roomId) async{
     if (_joinedRooms.contains(roomId)) return;
     await setChats(roomId);
     await setMyRoom(roomId);
-    //조인하기
     socket.emit('join', roomId);
     _joinedRooms.add(roomId);
     notifyListeners();
@@ -61,7 +54,6 @@ class ChatProvider extends ChangeNotifier{
     }
   }
 
-
   bool isJoined(int roomId) => _joinedRooms.contains(roomId);
 
   Set<int> get joinedRooms => _joinedRooms;
@@ -70,11 +62,9 @@ class ChatProvider extends ChangeNotifier{
 
   Chat? latestChatTime(int roomId) => _chat[roomId]?.reduce((a, b) => a.createAt.isAfter(b.createAt) ? a : b);
 
-
-  //초기 리스너 등록
   void setSocketListeners(){
     socket.on("error", (data)=> DialogManager.errorHandler(data['error']));
-    socket.on("chat", _chatHandler); //채팅이 옴
+    socket.on("chat", _chatHandler);
     socket.on("removeChat", _removeChatHandler);
     socket.on("kicked", _kickedHandler);
   }
@@ -82,14 +72,13 @@ class ChatProvider extends ChangeNotifier{
   void _kickedHandler(dynamic data){
     final roomId = data['roomId'];
     final room = data['room'];
-    //방에서 정보 삭제
+
     _chat.remove(roomId);
     _my.remove(roomId);
 
-    //만약 페이지에있다면 내보내기
-    final  state = GoRouter.of(AppRoute.context!).state;
+    final state = GoRouter.of(AppRoute.context!).state;
 
-    if(state.path == '/room/:roomId' && state.pathParameters['roomId'] == roomId){
+    if(state.path == '/room/:roomId' && state.pathParameters['roomId'] == roomId.toString()){
       AppRoute.context!.go('/my');
     }
 
@@ -107,45 +96,44 @@ class ChatProvider extends ChangeNotifier{
     final roomId = data['roomId'];
     final chatId = data['chatId'];
     final index = _chat[roomId]!.indexWhere((e)=> e.chatId == chatId);
-    _chat[roomId]![index].type = ChatType.removed;
-    notifyListeners();
+    if (index != -1) {
+      _chat[roomId]![index].type = ChatType.removed;
+      notifyListeners();
+    }
   }
 
   void _chatHandler(dynamic data){
-     final Chat chat = Chat.fromJson(json: data);
-     final int roomId = chat.roomId;
+    final Chat chat = Chat.fromJson(json: data);
+    final int roomId = chat.roomId;
 
-     if(_chat.containsKey(roomId)){ //이미 존재하는거라면
-       final chats = _chat[roomId]!;
+    if(_chat.containsKey(roomId)){
+      final chats = _chat[roomId]!;
 
-       if(chats.where((e)=>e.chatId == chat.chatId).isNotEmpty){ //이미 챗아이디가 존재한다면
-         return;
-       }
-     }
+      if(chats.where((e)=>e.chatId == chat.chatId).isNotEmpty){
+        return;
+      }
+    }
 
-     //없다면 업데이트
-      _chat.putIfAbsent(roomId, () => <Chat>[]).add(chat);
+    _chat.putIfAbsent(roomId, () => <Chat>[]).add(chat);
 
-     final state = AppRoute.context != null ? GoRouter.of(AppRoute.context!).state : null;
+    final state = AppRoute.context != null ? GoRouter.of(AppRoute.context!).state : null;
 
-     //방에 들어와있다면 lastRead를 업데이트
-     if(state?.path != null && state!.path!.contains('room/:roomId')){
-       final roomId = int.tryParse(state.pathParameters['roomId'] ?? '');
+    if(state?.path != null && state!.path!.contains('/room/${roomId}')){
+      updateMyLastReadInServer(roomId, chat.chatId);
+    }else{
+      _my[roomId]?['unreadCount']++;
+    }
 
-       if(roomId != null){
-         updateMyLastReadInServer(roomId, chat.chatId);
-       }
-     }else{ //안들어와있다면 안읽은 메시지 업데이트
-       _my[roomId]?['unreadCount']++;
-     }
-
-     notifyListeners();
+    notifyListeners();
   }
 
-
   Future<void> updateMyLastReadInServer(int roomId, int? lastRead) async{
-    final lr = lastRead ?? chat[roomId]!.firstOrNull?.chatId ?? 0;
-    await serverManager.put('roomMember/lastread/$roomId?lastRead=$lr');
+    try {
+      final lr = lastRead ?? chat[roomId]?.lastOrNull?.chatId ?? 0;
+      await serverManager.put('roomMember/lastread/$roomId?lastRead=$lr');
+    } catch (e) {
+      print('lastRead 업데이트 오류: $e');
+    }
   }
 
   Future<bool> setChats(int roomId) async{
@@ -154,100 +142,143 @@ class ChatProvider extends ChangeNotifier{
       notifyListeners();
     }
 
-    final lastChatId = chat[roomId]?.firstOrNull?.chatId;
+    try {
+      final lastChatId = chat[roomId]?.firstOrNull?.chatId;
 
-    final query = lastChatId != null
-        ? 'chat/chat?roomId=$roomId&lastChatId=$lastChatId'
-        : 'chat/chat?roomId=$roomId';
+      final query = lastChatId != null
+          ? 'chat/chat?roomId=$roomId&lastChatId=$lastChatId'
+          : 'chat/chat?roomId=$roomId';
 
-    final chatsData = await serverManager.get(query);
+      final chatsData = await serverManager.get(query);
 
-    if (chatsData.statusCode == 200) {
-      final newChats = List<Chat>.from(
-          chatsData.data.map((e) => Chat.fromJson(json: e)).toList()
-      );
+      if (chatsData.statusCode == 200) {
+        final newChats = List<Chat>.from(
+            chatsData.data.map((e) => Chat.fromJson(json: e)).toList()
+        );
 
-      if (newChats.isNotEmpty) {
-        _chat[roomId] ??= [];
+        if (newChats.isNotEmpty) {
+          _chat[roomId] ??= [];
 
-        // 최신순 정렬된 데이터를 뒤집어서 과거순으로 추가
-        for (var chat in newChats.reversed) {
-          if (_chat[roomId]!.every((e) => e.chatId != chat.chatId)) {
-            _chat[roomId]!.insert(0, chat); // prepend
+          for (var chat in newChats.reversed) {
+            if (_chat[roomId]!.every((e) => e.chatId != chat.chatId)) {
+              _chat[roomId]!.insert(0, chat);
+            }
           }
-        }
 
-        return newChats.length >= 20; // 또는 서버에서 쿼리의 LIMIT 값
+          notifyListeners();
+          return newChats.length >= 20;
+        }
+      }
+    } catch (e) {
+      print('채팅 로드 오류: $e');
+    } finally {
+      if(_socketLoading) {
+        _socketLoading = false;
+        notifyListeners();
       }
     }
-
-    if(_socketLoading) _socketLoading = false;
-    notifyListeners();
 
     return false;
   }
 
   Future<void> setMyRoom(int roomId) async{
-    final myData = await serverManager.get('roomMember/my/$roomId');
+    try {
+      final myData = await serverManager.get('roomMember/my/$roomId');
 
-    if(myData.statusCode == 200) {
-      _my[roomId] = myData.data;
-      notifyListeners();
+      if(myData.statusCode == 200) {
+        _my[roomId] = myData.data;
+        notifyListeners();
+      }
+    } catch (e) {
+      print('내 방 정보 로드 오류: $e');
     }
   }
 
-
   Future<void> enterRoomUpdateLastRead(int roomId) async {
-    _my[roomId]?['lastRead'] = chat[roomId]?.firstOrNull?.chatId ?? 0;
-    _my[roomId]?['unreadCount'] = 0;
-    notifyListeners();
+    if (_my[roomId] != null) {
+      _my[roomId]!['lastRead'] = chat[roomId]?.lastOrNull?.chatId ?? 0;
+      _my[roomId]!['unreadCount'] = 0;
+      notifyListeners();
+    }
   }
 
   void onReconnect() async{
     final rooms = AppRoute.context?.read<RoomsProvider>().rooms;
 
     if (rooms == null) return;
+
     for (final roomId in rooms.keys) {
-        if (_joinedRooms.contains(roomId)) return;
+      if (_joinedRooms.contains(roomId)) continue;
+
+      try {
         await onReconnectChat(roomId);
         await setMyRoom(roomId);
-        //조인하기
         socket.emit('join', roomId);
         _joinedRooms.add(roomId);
-        notifyListeners();
+      } catch (e) {
+        print('방 재연결 오류 (roomId: $roomId): $e');
+      }
     }
+    notifyListeners();
   }
 
   Future<void> onReconnectChat(int roomId) async{
-    final lastChatId = _chat[roomId]?.last.chatId;
-    final response = await serverManager.get('chat/reconnect?roomId=$roomId&lastChatId=$lastChatId');
-    if (response.statusCode == 200) {
-      final newChats = List<Chat>.from(response.data.map((e) => Chat.fromJson(json: e)));
+    try {
+      final lastChatId = _chat[roomId]?.lastOrNull?.chatId;
+      final response = await serverManager.get('chat/reconnect?roomId=$roomId&lastChatId=$lastChatId');
 
-      // ✅ 이미 존재하는 chatId를 Set으로 추출 (O(1) lookup)
-      final existingIds = _chat[roomId]?.map((e) => e.chatId).toSet() ?? <int>{};
+      if (response.statusCode == 200) {
+        final newChats = List<Chat>.from(response.data.map((e) => Chat.fromJson(json: e)));
 
-      for (Chat chat in newChats) {
-        if (!existingIds.contains(chat.chatId)) {
-          _chat[roomId]?.add(chat);
+        final existingIds = _chat[roomId]?.map((e) => e.chatId).toSet() ?? <int>{};
+
+        _chat[roomId] ??= [];
+
+        for (Chat chat in newChats) {
+          if (!existingIds.contains(chat.chatId)) {
+            _chat[roomId]!.add(chat);
+          }
         }
-      }
 
-      notifyListeners();
+        notifyListeners();
+      }
+    } catch (e) {
+      print('채팅 재연결 오류 (roomId: $roomId): $e');
     }
   }
 
-  //방 정보 제거 (나가기, 추방, 방삭제)
   Future<void> removeRoom(int roomId) async{
     _joinedRooms.remove(roomId);
     leaveRoom(roomId);
     _chat.remove(roomId);
     _my.remove(roomId);
-    await AppRoute.context!.read<RoomsProvider>().roomInitialize();
+
+    try {
+      await AppRoute.context!.read<RoomsProvider>().roomInitialize();
+    } catch (e) {
+      print('방 목록 초기화 오류: $e');
+    }
   }
 
-  changedMyGrade(int roomId, int grade){
-    _my[roomId]!['grade'] = grade;
-    notifyListeners();
+  void changedMyGrade(int roomId, int grade){
+    if (_my[roomId] != null) {
+      _my[roomId]!['grade'] = grade;
+      notifyListeners();
+    }
+  }
+
+  // 백그라운드에서 복귀 시 데이터 새로고침을 위한 메서드
+  Future<void> refreshRoomFromBackground(int roomId) async {
+    try {
+      // 이미 조인되어 있으면 재연결만, 아니면 새로 조인
+      if (_joinedRooms.contains(roomId)) {
+        await onReconnectChat(roomId);
+        await setMyRoom(roomId);
+      } else {
+        await joinRoom(roomId);
+      }
+    } catch (e) {
+      print('백그라운드 복귀 새로고침 오류 (roomId: $roomId): $e');
+    }
   }
 }

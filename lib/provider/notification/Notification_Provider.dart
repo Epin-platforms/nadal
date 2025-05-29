@@ -17,7 +17,6 @@ FlutterLocalNotificationsPlugin();
 // 백그라운드 메시지 핸들러
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // 백그라운드에서 필요한 초기화 작업이 있다면 여기서 수행
   print('백그라운드 메시지 수신: ${message.messageId}');
 }
 
@@ -34,31 +33,19 @@ void notificationTapBackgroundHandler(NotificationResponse response) {
   }
 }
 
-// 특정 채팅방 알림 제거
-void removeNotificationForRoom(String roomId) async {
-  try {
-    int notificationId = roomId.hashCode;
-    await flutterLocalNotificationsPlugin.cancel(notificationId);
-  } catch (e) {
-    print('알림 제거 오류: $e');
-  }
-}
-
 class NotificationProvider extends ChangeNotifier {
   List<NotificationModel>? _notifications;
   List<NotificationModel>? get notifications => _notifications;
 
   int _offset = 0;
-  bool _hasMore = true; // 초기값은 true로 설정 (더 불러올 데이터가 있다고 가정)
+  bool _hasMore = true;
   bool get hasMore => _hasMore;
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
-  // 생성자는 간단하게 유지
   NotificationProvider();
 
-  // 초기화 메서드 - 외부에서 명시적으로 호출해야 함
   Future<void> initialize() async {
     await initNotification();
   }
@@ -79,37 +66,31 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 알림 목록 가져오기
   Future<void> fetchNotifications() async {
     if (_isLoading || !_hasMore) return;
 
     try {
       _isLoading = true;
 
-      // 첫 로드가 아닌 경우에만 상태 업데이트
       if (_notifications != null) notifyListeners();
 
       final res = await serverManager.get('notification?offset=$_offset');
 
-      // 첫 로드인 경우 목록 초기화
       _notifications ??= [];
 
       if (res.statusCode == 200) {
         final List<dynamic> newNotifications = List.from(res.data);
-        // 새 알림을 목록에 추가
         _notifications!.addAll(
             newNotifications.map((e) => NotificationModel.fromJson(json: e))
         );
 
-        // 페이지네이션 처리
         if (newNotifications.length < 20) {
-          _hasMore = false; // 더 이상 불러올 데이터가 없음
+          _hasMore = false;
         } else {
-          _offset++; // 다음 페이지를 위해 오프셋 증가
+          _offset++;
         }
         notifyListeners();
       } else {
-        // 오류 처리
         print('알림 데이터 가져오기 실패: ${res.statusCode}');
       }
     } catch (e) {
@@ -120,7 +101,6 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 알림 보내기
   Future<List<String>> sendNotification({
     required List<String> receivers,
     required String title,
@@ -162,7 +142,6 @@ class NotificationProvider extends ChangeNotifier {
     return failed;
   }
 
-  // 알림 삭제
   Future<bool> deleteNotification(int notificationId) async {
     try {
       final res = await serverManager.delete('notification/remove/$notificationId');
@@ -179,9 +158,7 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 알림 읽음 처리
   Future<bool> readNotification(int notificationId) async {
-    // 이미 읽은 알림이면 API 호출 안함
     final notificationIndex = _notifications?.indexWhere(
             (e) => e.notificationId == notificationId
     );
@@ -191,7 +168,7 @@ class NotificationProvider extends ChangeNotifier {
     }
 
     if (_notifications![notificationIndex].isRead) {
-      return true; // 이미 읽은 알림
+      return true;
     }
 
     try {
@@ -212,14 +189,12 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 모든 알림을 읽음으로 표시
   Future<bool> markAllAsRead() async {
     if (_notifications == null || _notifications!.isEmpty) {
       return true;
     }
 
     try {
-      // 읽지 않은 알림만 필터링
       final unreadNotifications = _notifications!
           .where((notification) => !notification.isRead)
           .toList();
@@ -228,14 +203,12 @@ class NotificationProvider extends ChangeNotifier {
         return true;
       }
 
-      // 서버에 일괄 읽음 처리 요청 (API가 있다고 가정)
       final res = await serverManager.put(
           'notification/read-all',
           data: {}
       );
 
       if (res.statusCode == 200) {
-        // 모든 알림을 읽음으로 표시
         for (var notification in _notifications!) {
           notification.isRead = true;
         }
@@ -255,85 +228,85 @@ class NotificationProvider extends ChangeNotifier {
 
   Future<void> initializeFCM() async {
     try {
-      // 로컬 알림 초기화
       await _initializeLocalNotifications();
 
-      // FCM 권한 요청
       NotificationSettings settings = await _firebaseMessaging.requestPermission(
         alert: true,
         badge: true,
         sound: true,
       );
 
-      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        print('알림 권한 승인됨');
-      } else if (settings.authorizationStatus == AuthorizationStatus.provisional) {
-        print('알림 권한 임시 승인됨');
+      if (settings.authorizationStatus == AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional) {
+        String? token = await _firebaseMessaging.getToken();
+        if (token != null && token != _currentFcmToken) {
+          _currentFcmToken = token;
+          await _saveTokenToServer(token);
+        }
+
+        _firebaseMessaging.onTokenRefresh.listen((newToken) async {
+          if (newToken != _currentFcmToken) {
+            _currentFcmToken = newToken;
+            await _saveTokenToServer(newToken);
+          }
+        });
+
+        FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+          print('포그라운드 메시지 수신: ${message.messageId}');
+
+          // 현재 페이지가 알림 관련된 페이지인지 확인
+          if (_shouldShowNotification(message.data)) {
+            if (message.notification != null) {
+              _showLocalNotification({
+                'title': message.notification!.title,
+                'body': message.notification!.body,
+                'roomId': message.data['roomId'],
+                'scheduleId': message.data['scheduleId'],
+                'badge': message.data['badge'] ?? '0',
+                'alarm': message.data['alarm'] ?? '1',
+                'type': message.data['type'] ?? 'default',
+                'routing': message.data['routing'],
+              });
+            } else if (message.data.isNotEmpty) {
+              _showLocalNotification(message.data);
+            }
+          }
+        });
+
+        FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+          print('백그라운드 메시지 클릭: ${message.messageId}');
+          _handleNotificationTapWithRefresh(message.data);
+        });
+
+        FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+        RemoteMessage? initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+        if (initialMessage != null) {
+          print('종료 상태 메시지 처리: ${initialMessage.messageId}');
+          _handleNotificationTapWithRefresh(initialMessage.data);
+        }
       } else {
         print('알림 권한 거부됨');
-        return; // 권한이 없으면 더 이상 진행하지 않음
-      }
-
-      // FCM 토큰 가져오기
-      String? token = await _firebaseMessaging.getToken();
-      if (token != null && token != _currentFcmToken) {
-        _currentFcmToken = token;
-        await _saveTokenToServer(token);
-      }
-
-      // 토큰 갱신 리스너
-      _firebaseMessaging.onTokenRefresh.listen((newToken) async {
-        if (newToken != _currentFcmToken) {
-          _currentFcmToken = newToken;
-          await _saveTokenToServer(newToken);
-        }
-      });
-
-      // 포그라운드 메시지 핸들러
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        print('포그라운드 메시지 수신: ${message.messageId}');
-        if (message.notification != null) {
-          // Firebase에서 제공하는 notification 객체 사용
-          _showLocalNotification({
-            'title': message.notification!.title,
-            'body': message.notification!.body,
-            'roomId': message.data['roomId'],
-            'badge': message.data['badge'] ?? '0',
-            'alarm': message.data['alarm'] ?? '1',
-            'type': message.data['type'] ?? 'default',
-            'routing': message.data['routing'],
-          });
-        } else if (message.data.isNotEmpty) {
-          // 데이터 메시지만 있는 경우
-          _showLocalNotification(message.data);
-        }
-      });
-
-      // 백그라운드 메시지 클릭 리스너
-      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        print('백그라운드 메시지 클릭: ${message.messageId}');
-        Future.microtask(() {
-          _handleNotificationTap(message.data);
-        });
-      });
-
-      // 백그라운드 메시지 핸들러 등록
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-      // 종료 상태에서 앱이 시작된 경우 (앱이 완전히 종료된 상태에서 알림 클릭으로 열린 경우)
-      RemoteMessage? initialMessage = await FirebaseMessaging.instance.getInitialMessage();
-      if (initialMessage != null) {
-        print('종료 상태 메시지 처리: ${initialMessage.messageId}');
-        Future.microtask(() {
-          _handleNotificationTap(initialMessage.data);
-        });
       }
     } catch (e) {
       print('FCM 초기화 오류: $e');
     }
   }
 
-  // 로컬 알림 초기화
+  // 현재 페이지가 알림과 관련된 페이지인지 확인
+  bool _shouldShowNotification(Map<String, dynamic> data) {
+    if (AppRoute.context == null) return true;
+
+    final router = GoRouter.of(AppRoute.context!);
+    final currentRoute = router.state.path;
+    final routing = data['routing'];
+
+    if (routing == null || currentRoute == null) return true;
+
+    // 현재 해당 페이지에 있으면 알림을 표시하지 않음
+    return !currentRoute.contains(routing);
+  }
+
   Future<void> _initializeLocalNotifications() async {
     try {
       const AndroidInitializationSettings androidInitializationSettings =
@@ -366,14 +339,12 @@ class NotificationProvider extends ChangeNotifier {
         onDidReceiveBackgroundNotificationResponse: notificationTapBackgroundHandler,
       );
 
-      // iOS 권한 요청 (필요한 경우)
       await _requestIOSPermissions();
     } catch (e) {
       print('로컬 알림 초기화 오류: $e');
     }
   }
 
-  // iOS 권한 요청 (Flutter Local Notifications)
   Future<void> _requestIOSPermissions() async {
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
@@ -384,7 +355,6 @@ class NotificationProvider extends ChangeNotifier {
     );
   }
 
-  // 서버에 FCM 토큰 저장
   Future<void> _saveTokenToServer(String token) async {
     try {
       await serverManager.post('notification/fcmToken', data: {'fcmToken': token});
@@ -394,7 +364,6 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 로컬 알림 표시
   Future<void> _showLocalNotification(Map<String, dynamic> data) async {
     try {
       final String title = data['title'] ?? '알림';
@@ -403,7 +372,6 @@ class NotificationProvider extends ChangeNotifier {
       final int badge = int.tryParse(data['badge'] ?? '0') ?? 0;
       final bool alarm = data['alarm'] == '0' ? false : true;
 
-      // Android 알림 세부 설정
       final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
         _channelId,
         _channelName,
@@ -416,18 +384,14 @@ class NotificationProvider extends ChangeNotifier {
         number: badge,
         playSound: alarm,
         enableVibration: alarm,
-        // 추가 사용자 정의
         icon: _androidNotiIcon,
-        color: const Color(0xFF00C4B4), // primaryColor
+        color: const Color(0xFF00C4B4),
       );
 
-      // iOS 알림 세부 설정
       final DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
         presentSound: alarm,
         presentAlert: alarm,
-        presentBadge: true,
         badgeNumber: badge,
-        // 추가 사용자 정의
         interruptionLevel: InterruptionLevel.active,
       );
 
@@ -437,7 +401,7 @@ class NotificationProvider extends ChangeNotifier {
       );
 
       await flutterLocalNotificationsPlugin.show(
-        groupKey.hashCode, // 고유 ID
+        groupKey.hashCode,
         title,
         body,
         notificationDetails,
@@ -447,16 +411,83 @@ class NotificationProvider extends ChangeNotifier {
       print('로컬 알림 표시 오류: $e');
     }
   }
+
+  // 백그라운드에서 알림 클릭 시 데이터 새로고침
+  void _handleNotificationTapWithRefresh(Map<String, dynamic> data) async {
+    if (AppRoute.context != null) {
+      if (data['routing'] != null) {
+        try {
+          final routing = data['routing'] as String;
+
+          // 채팅방 알림인 경우
+          if (routing.contains('/room/')) {
+            final roomIdMatch = RegExp(r'/room/(\d+)').firstMatch(routing);
+            if (roomIdMatch != null) {
+              final roomId = int.parse(roomIdMatch.group(1)!);
+              await _refreshRoomData(roomId);
+            }
+          }
+          // 스케줄 알림인 경우
+          else if (routing.contains('/schedule/')) {
+            final scheduleIdMatch = RegExp(r'/schedule/(\d+)').firstMatch(routing);
+            if (scheduleIdMatch != null) {
+              final scheduleId = int.parse(scheduleIdMatch.group(1)!);
+              await _refreshScheduleData(scheduleId);
+            }
+          }
+
+          final router = GoRouter.of(AppRoute.context!);
+          router.go('/my');
+          await Future.delayed(const Duration(milliseconds: 100));
+          router.push(routing);
+        } catch (e) {
+          print('알림 라우팅 오류: $e');
+        }
+      }
+    }
+  }
+
+  // 방 데이터 새로고침
+  Future<void> _refreshRoomData(int roomId) async {
+    try {
+      final chatProvider = AppRoute.context?.read<ChatProvider>();
+      final roomsProvider = AppRoute.context?.read<RoomsProvider>();
+
+      if (chatProvider != null && roomsProvider != null) {
+        // 방 정보 업데이트
+        await roomsProvider.updateRoom(roomId);
+
+        // 채팅 데이터 새로고침
+        if (!chatProvider.isJoined(roomId)) {
+          await chatProvider.joinRoom(roomId);
+        } else {
+          await chatProvider.onReconnectChat(roomId);
+          await chatProvider.setMyRoom(roomId);
+        }
+      }
+    } catch (e) {
+      print('방 데이터 새로고침 오류: $e');
+    }
+  }
+
+  // 스케줄 데이터 새로고침
+  Future<void> _refreshScheduleData(int scheduleId) async {
+    try {
+      // 필요시 스케줄 관련 프로바이더 새로고침 로직 추가
+    } catch (e) {
+      print('스케줄 데이터 새로고침 오류: $e');
+    }
+  }
 }
 
-// 알림 클릭 핸들러
+// 일반 알림 클릭 핸들러
 void _handleNotificationTap(Map<String, dynamic> data) {
   if (AppRoute.context != null) {
     if (data['routing'] != null) {
       try {
         final router = GoRouter.of(AppRoute.context!);
-        router.go('/my'); // 홈으로 먼저 이동
-        router.push(data['routing']); // 그 다음 지정된 라우트로 이동
+        router.go('/my');
+        router.push(data['routing']);
       } catch (e) {
         print('알림 라우팅 오류: $e');
       }
