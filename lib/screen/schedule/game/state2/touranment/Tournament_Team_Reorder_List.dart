@@ -20,7 +20,7 @@ class _TournamentTeamReorderListState
     extends State<TournamentTeamReorderList> {
   bool isOwner = false;
   final ScrollController _scrollController = ScrollController();
-  List<Map<String, dynamic>> teamsList = [];
+  List<Map<String, dynamic>> teamSlots = []; // 전체 팀 슬롯 (팀 + 부전승)
   bool _isChanged = false;
   bool _showTournamentView = false;
 
@@ -39,36 +39,90 @@ class _TournamentTeamReorderListState
   void _initializeData() {
     isOwner = widget.scheduleProvider.schedule?['uid'] ==
         FirebaseAuth.instance.currentUser!.uid;
-    _loadTeams();
+    _loadTeamSlots();
   }
 
-  void _loadTeams() {
+  void _loadTeamSlots() {
     final teamsData = widget.scheduleProvider.teams;
     if (teamsData == null || teamsData.isEmpty) return;
 
-    final byeSet = widget.scheduleProvider.byePlayers.toSet();
+    // 실제 팀 수에 맞는 2의 제곱수 계산
+    final teamCount = teamsData.length;
+    final totalSlots = _getNextPowerOfTwo(teamCount);
 
-    teamsList = teamsData.entries.map((entry) {
-      final teamName = entry.key;
-      final members = entry.value;
-      // 팀의 시드 → 첫 번째 멤버 인덱스로 결정
-      final memberIndex = members.first['memberIndex'] as int? ?? 0;
-      // 팀 내 누구라도 byePlayers 에 속하면 팀 부전승
-      final walkOver = members.any((m) => byeSet.contains(m['uid']));
-      final profileImage = members.first['profileImage'] ?? '';
-      return {
-        'teamName': teamName,
-        'members': members,
-        'memberIndex': memberIndex,
-        'profileImage': profileImage,
-        'walkOver': walkOver,
-      };
-    }).toList();
+    // 팀 인덱스별로 매핑 (첫 번째 멤버의 인덱스 사용)
+    final Map<int, Map<String, dynamic>> indexToTeam = {};
 
-    teamsList.sort((a, b) =>
-        (a['memberIndex'] as int).compareTo(b['memberIndex'] as int));
+    teamsData.forEach((teamName, members) {
+      if (members.isNotEmpty) {
+        final memberIndex = members.first['memberIndex'] as int? ?? 0;
+        if (memberIndex > 0) {
+          indexToTeam[memberIndex] = {
+            'teamName': teamName,
+            'members': members,
+            'memberIndex': memberIndex,
+            'profileImage': members.first['profileImage'] ?? '',
+          };
+        }
+      }
+    });
+
+    // 전체 슬롯 생성 (1부터 totalSlots까지)
+    teamSlots = List.generate(totalSlots, (i) {
+      final index = i + 1;
+      if (indexToTeam.containsKey(index)) {
+        // 실제 팀이 있는 슬롯
+        return indexToTeam[index]!;
+      } else {
+        // 빈 슬롯 (부전승)
+        return {
+          'memberIndex': index,
+          'isBye': true,
+          'byeOpponent': _getByeOpponentTeam(index, indexToTeam),
+        };
+      }
+    });
 
     if (mounted) setState(() {});
+  }
+
+  int _getNextPowerOfTwo(int number) {
+    int power = 1;
+    while (power < number) power <<= 1;
+    return power;
+  }
+
+  // 부전승 상대 팀 계산 (1vs2, 3vs4, 5vs6...)
+  Map<String, dynamic>? _getByeOpponentTeam(int index, Map<int, Map<String, dynamic>> indexToTeam) {
+    int opponentIndex;
+    if (index % 2 == 1) {
+      // 홀수 인덱스의 상대는 +1
+      opponentIndex = index + 1;
+    } else {
+      // 짝수 인덱스의 상대는 -1
+      opponentIndex = index - 1;
+    }
+
+    return indexToTeam[opponentIndex];
+  }
+
+  void _updateByeOpponents() {
+    // 현재 슬롯 상태로 부전승 상대 업데이트
+    final Map<int, Map<String, dynamic>> indexToTeam = {};
+
+    for (final slot in teamSlots) {
+      final index = slot['memberIndex'] as int;
+      if (slot['isBye'] != true) {
+        indexToTeam[index] = slot;
+      }
+    }
+
+    for (int i = 0; i < teamSlots.length; i++) {
+      if (teamSlots[i]['isBye'] == true) {
+        final index = teamSlots[i]['memberIndex'] as int;
+        teamSlots[i]['byeOpponent'] = _getByeOpponentTeam(index, indexToTeam);
+      }
+    }
   }
 
   void _pointListener(PointerMoveEvent event) {
@@ -94,8 +148,8 @@ class _TournamentTeamReorderListState
 
   void _checkChanges() {
     var changed = false;
-    for (var i = 0; i < teamsList.length; i++) {
-      if (teamsList[i]['memberIndex'] != i + 1) {
+    for (var i = 0; i < teamSlots.length; i++) {
+      if (teamSlots[i]['memberIndex'] != i + 1) {
         changed = true;
         break;
       }
@@ -109,21 +163,23 @@ class _TournamentTeamReorderListState
 
   List<List<int>> calculateTournamentMatchups() {
     final matchups = <List<int>>[];
-    for (var i = 0; i < teamsList.length; i += 2) {
-      matchups.add([i, i + 1 < teamsList.length ? i + 1 : -1]);
+    for (var i = 0; i < teamSlots.length; i += 2) {
+      if (i + 1 < teamSlots.length) {
+        matchups.add([i, i + 1]);
+      }
     }
     return matchups;
   }
 
   bool isAutoWin(int t1, int t2) {
-    if (t2 == -1) return true;
-    final bye = widget.scheduleProvider.byePlayers.toSet();
-    final t1Bye = (teamsList[t1]['members'] as List)
-        .any((m) => bye.contains(m['uid']));
-    final t2Bye = (teamsList[t2]['members'] as List)
-        .any((m) => bye.contains(m['uid']));
-    if (t1Bye && !t2Bye) return false;
-    if (!t1Bye && t2Bye) return true;
+    final team1 = teamSlots[t1];
+    final team2 = teamSlots[t2];
+
+    final t1IsBye = team1['isBye'] == true;
+    final t2IsBye = team2['isBye'] == true;
+
+    if (t1IsBye && !t2IsBye) return false; // 1팀이 부전승이면 2팀 승리
+    if (!t1IsBye && t2IsBye) return true;  // 2팀이 부전승이면 1팀 승리
     return false;
   }
 
@@ -132,31 +188,14 @@ class _TournamentTeamReorderListState
     HapticFeedback.mediumImpact();
 
     if (_isChanged) {
-      final sm = ScaffoldMessenger.of(context);
-      final res =
-      await widget.scheduleProvider.updateTeamIndex(teamsList);
-
-      // 새로고침
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted) _loadTeams();
-      });
+      final res = await widget.scheduleProvider.updateTeamIndex(teamSlots);
 
       if (res?.statusCode == 200) {
         _isChanged = false;
         if (mounted) setState(() {});
-        sm.showSnackBar(const SnackBar(
-          content: Text('성공적으로 팀 순서가 공개되었어요'),
-          behavior: SnackBarBehavior.floating,
-        ));
+        SnackBarManager.showCleanSnackBar(context, '성공적으로 팀 순서가 공개되었어요');
       } else {
-        sm.showSnackBar(SnackBar(
-          content: const Text('팀 순서 공개에 실패했어요'),
-          behavior: SnackBarBehavior.floating,
-          action: SnackBarAction(
-            label: '다시 시도',
-            onPressed: _handleButtonPress,
-          ),
-        ));
+        SnackBarManager.showCleanSnackBar(context, '팀 순서 공개에 실패했어요', icon: Icons.warning_amber);
       }
     } else {
       DialogManager.showBasicDialog(
@@ -173,8 +212,18 @@ class _TournamentTeamReorderListState
 
   void _onDragAccept(int from, int to) {
     if (from == to || !mounted) return;
-    final item = teamsList.removeAt(from);
-    teamsList.insert(to, item);
+
+    final item = teamSlots.removeAt(from);
+    teamSlots.insert(to, item);
+
+    // 모든 슬롯의 memberIndex를 새 위치에 맞게 업데이트
+    for (int i = 0; i < teamSlots.length; i++) {
+      teamSlots[i]['memberIndex'] = i + 1;
+    }
+
+    // 부전승 상대 업데이트
+    _updateByeOpponents();
+
     _checkChanges();
     HapticFeedback.lightImpact();
     setState(() {});
@@ -184,29 +233,30 @@ class _TournamentTeamReorderListState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    if (teamsList.isEmpty) {
-      _loadTeams();
-      if (teamsList.isEmpty) {
+    if (teamSlots.isEmpty) {
+      _loadTeamSlots();
+      if (teamSlots.isEmpty) {
         return const Center(child: NadalCircular());
       }
     }
 
     return Column(
       children: [
+        // 상태 안내
         if (isOwner && widget.scheduleProvider.schedule!['state'] == 2)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(12.r),
               decoration: BoxDecoration(
                 color: _isChanged
-                    ? theme.colorScheme.secondary.withValues(alpha:0.1)
-                    : theme.colorScheme.primary.withValues(alpha:0.1),
-                borderRadius: BorderRadius.circular(12),
+                    ? theme.colorScheme.secondary.withValues(alpha: 0.1)
+                    : theme.colorScheme.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12.r),
                 border: Border.all(
                   color: _isChanged
-                      ? theme.colorScheme.secondary.withValues(alpha:0.3)
-                      : theme.colorScheme.primary.withValues(alpha:0.3),
+                      ? theme.colorScheme.secondary.withValues(alpha: 0.3)
+                      : theme.colorScheme.primary.withValues(alpha: 0.3),
                 ),
               ),
               child: Row(
@@ -218,8 +268,9 @@ class _TournamentTeamReorderListState
                     color: _isChanged
                         ? theme.colorScheme.secondary
                         : theme.colorScheme.primary,
+                    size: 20.r,
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10.w),
                   Expanded(
                     child: Text(
                       _isChanged
@@ -238,33 +289,38 @@ class _TournamentTeamReorderListState
             ),
           ),
 
-        const SizedBox(height: 8),
+        SizedBox(height: 8.h),
 
-        // 토글
+        // 토글 버튼
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: ElevatedButton.icon(
-            onPressed: () {
-              _showTournamentView = !_showTournamentView;
-              HapticFeedback.lightImpact();
-              setState(() {});
-            },
-            icon: Icon(
-              _showTournamentView ? Icons.list : Icons.account_tree_rounded,
-            ),
-            label: Text(
-              _showTournamentView ? '리스트 보기' : '토너먼트 대진표',
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor:
-              theme.colorScheme.primary.withValues(alpha:0.1),
-              foregroundColor: theme.colorScheme.primary,
-              elevation: 0,
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                _showTournamentView = !_showTournamentView;
+                HapticFeedback.lightImpact();
+                setState(() {});
+              },
+              icon: Icon(
+                _showTournamentView ? Icons.list : Icons.account_tree_rounded,
+                size: 18.r,
+              ),
+              label: Text(
+                _showTournamentView ? '리스트 보기' : '토너먼트 대진표',
+                style: theme.textTheme.bodyMedium,
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+                foregroundColor: theme.colorScheme.primary,
+                elevation: 0,
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+              ),
             ),
           ),
         ),
 
-        const SizedBox(height: 8),
+        SizedBox(height: 8.h),
 
         Expanded(
           child: _showTournamentView
@@ -272,19 +328,27 @@ class _TournamentTeamReorderListState
               : _buildListView(theme),
         ),
 
+        // 하단 버튼
         if (isOwner && widget.scheduleProvider.schedule!['state'] == 2)
           Padding(
-            padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 16.h),
             child: SizedBox(
               width: double.infinity,
-              height: 52,
+              height: 52.h,
               child: ElevatedButton(
                 onPressed: _handleButtonPress,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _isChanged
                       ? theme.colorScheme.secondary
                       : theme.colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 4,
+                  shadowColor: (_isChanged
+                      ? theme.colorScheme.secondary
+                      : theme.colorScheme.primary).withValues(alpha: 0.4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14.r),
+                  ),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -293,11 +357,15 @@ class _TournamentTeamReorderListState
                       _isChanged
                           ? Icons.published_with_changes_rounded
                           : Icons.check_circle_rounded,
+                      size: 20.r,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8.w),
                     Text(
                       _isChanged ? '팀 순서 공개하기' : '게임 진행',
-                      style: const TextStyle(color: Colors.white),
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
@@ -313,16 +381,15 @@ class _TournamentTeamReorderListState
       onPointerMove: _pointListener,
       child: ListView.separated(
         controller: _scrollController,
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: teamsList.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 4),
+        padding: EdgeInsets.symmetric(vertical: 8.h),
+        itemCount: teamSlots.length,
+        separatorBuilder: (_, __) => SizedBox(height: 4.h),
         itemBuilder: (context, idx) {
-          final team = teamsList[idx];
-          final isBye = team['walkOver'] == true;
+          final teamSlot = teamSlots[idx];
+          final isBye = teamSlot['isBye'] == true;
 
           return IgnorePointer(
-            ignoring: !isOwner ||
-                widget.scheduleProvider.schedule!['state'] != 2,
+            ignoring: !isOwner || widget.scheduleProvider.schedule!['state'] != 2,
             child: DragTarget<int>(
               onWillAcceptWithDetails: (d) => d.data != idx,
               onAcceptWithDetails: (d) => _onDragAccept(d.data, idx),
@@ -330,7 +397,7 @@ class _TournamentTeamReorderListState
                 final highlight = candidate.isNotEmpty;
                 return Container(
                   color: highlight
-                      ? theme.colorScheme.primary.withValues(alpha:0.08)
+                      ? theme.colorScheme.primary.withValues(alpha: 0.08)
                       : null,
                   child: LongPressDraggable<int>(
                     data: idx,
@@ -339,16 +406,21 @@ class _TournamentTeamReorderListState
                       elevation: 8,
                       color: Colors.transparent,
                       child: Container(
-                        width: MediaQuery.of(context).size.width - 60,
-                        child: _buildTeamCard(theme, team,
-                            isDragging: true),
+                        width: MediaQuery.of(context).size.width - 60.w,
+                        child: isBye
+                            ? _buildByeTeamCard(theme, teamSlot, isDragging: true)
+                            : _buildTeamCard(theme, teamSlot, isDragging: true),
                       ),
                     ),
                     childWhenDragging: Opacity(
                       opacity: 0.4,
-                      child: _buildTeamCard(theme, team),
+                      child: isBye
+                          ? _buildByeTeamCard(theme, teamSlot)
+                          : _buildTeamCard(theme, teamSlot),
                     ),
-                    child: _buildTeamCard(theme, team),
+                    child: isBye
+                        ? _buildByeTeamCard(theme, teamSlot)
+                        : _buildTeamCard(theme, teamSlot),
                   ),
                 );
               },
@@ -359,87 +431,71 @@ class _TournamentTeamReorderListState
     );
   }
 
-  Widget _buildTeamCard(
-      ThemeData theme, Map<String, dynamic> team,
-      {bool isDragging = false}) {
-    final isBye = team['walkOver'] == true;
+  Widget _buildTeamCard(ThemeData theme, Map<String, dynamic> team, {bool isDragging = false}) {
     final members = team['members'] as List<dynamic>;
     final memberNames = <String>[
-      for (var m in members)
-        m['nickName'] ?? m['name'] ?? ''
+      for (var m in members) m['nickName'] ?? m['name'] ?? ''
     ];
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      margin: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
       decoration: BoxDecoration(
-        color: isBye
-            ? theme.colorScheme.error.withValues(alpha:0.1)
-            : theme.cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: isBye
-            ? Border.all(
-          color: theme.colorScheme.error.withValues(alpha:0.3),
-        )
-            : null,
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(12.r),
         boxShadow: isDragging
             ? [
           BoxShadow(
-            color: theme.shadowColor.withValues(alpha:0.2),
+            color: theme.shadowColor.withValues(alpha: 0.2),
             blurRadius: 8,
           )
         ]
             : [
           BoxShadow(
-            color: theme.shadowColor.withValues(alpha:0.1),
+            color: theme.shadowColor.withValues(alpha: 0.1),
             blurRadius: 4,
-            offset: const Offset(0, 2),
+            offset: Offset(0, 2),
           )
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(12.r),
         child: Row(
           children: [
-            // 시드 번호 or 부전승
+            // 시드 번호
             Container(
-              width: 32,
-              height: 32,
+              width: 32.r,
+              height: 32.r,
               decoration: BoxDecoration(
-                color: isBye
-                    ? theme.colorScheme.error.withValues(alpha:0.2)
-                    : theme.colorScheme.primary.withValues(alpha:0.1),
+                color: theme.colorScheme.primary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
               child: Text(
-                isBye ? '부' : '${team['memberIndex']}',
+                '${team['memberIndex']}',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color:
-                  isBye ? theme.colorScheme.error : theme.colorScheme.primary,
+                  color: theme.colorScheme.primary,
                 ),
               ),
             ),
 
-            const SizedBox(width: 12),
+            SizedBox(width: 12.w),
 
-            // 프로필 or 아이콘
-            if (!isBye && team['profileImage'] != null && team['profileImage'] != '')
-              NadalProfileFrame(imageUrl: team['profileImage'])
+            // 프로필
+            if (team['profileImage'] != null && team['profileImage'] != '')
+              NadalProfileFrame(imageUrl: team['profileImage'], size: 44.r)
             else
               CircleAvatar(
-                radius: 22,
-                backgroundColor: isBye
-                    ? theme.colorScheme.error.withValues(alpha:0.1)
-                    : theme.colorScheme.primary.withValues(alpha:0.1),
+                radius: 22.r,
+                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
                 child: Icon(
-                  isBye ? Icons.person_off_rounded : Icons.groups_rounded,
-                  color:
-                  isBye ? theme.colorScheme.error : theme.colorScheme.primary,
+                  Icons.groups_rounded,
+                  color: theme.colorScheme.primary,
+                  size: 24.r,
                 ),
               ),
 
-            const SizedBox(width: 12),
+            SizedBox(width: 12.w),
 
             // 팀 이름 & 멤버
             Expanded(
@@ -447,21 +503,116 @@ class _TournamentTeamReorderListState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isBye ? '부전승' : team['teamName'],
+                    team['teamName'] ?? '알 수 없는 팀',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
-                      color: isBye ? theme.colorScheme.error : null,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (!isBye)
-                    Text(
-                      memberNames.join(', '),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.hintColor,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                  SizedBox(height: 2.h),
+                  Text(
+                    memberNames.join(', '),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.hintColor,
                     ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildByeTeamCard(ThemeData theme, Map<String, dynamic> teamSlot, {bool isDragging = false}) {
+    final opponent = teamSlot['byeOpponent'];
+
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.error.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: theme.colorScheme.error.withValues(alpha: 0.3),
+        ),
+        boxShadow: isDragging
+            ? [
+          BoxShadow(
+            color: theme.shadowColor.withValues(alpha: 0.2),
+            blurRadius: 8,
+          )
+        ]
+            : [
+          BoxShadow(
+            color: theme.shadowColor.withValues(alpha: 0.1),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          )
+        ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(12.r),
+        child: Row(
+          children: [
+            // 시드 번호
+            Container(
+              width: 32.r,
+              height: 32.r,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.error.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '${teamSlot['memberIndex']}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ),
+
+            SizedBox(width: 12.w),
+
+            // 부전승 아이콘
+            CircleAvatar(
+              radius: 22.r,
+              backgroundColor: theme.colorScheme.error.withValues(alpha: 0.1),
+              child: Icon(
+                Icons.person_off_rounded,
+                color: theme.colorScheme.error,
+                size: 24.r,
+              ),
+            ),
+
+            SizedBox(width: 12.w),
+
+            // 부전승 정보
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    opponent != null
+                        ? '${opponent['teamName'] ?? '알 수 없는 팀'} 부전승'
+                        : '부전승',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.error,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (opponent != null) ...[
+                    SizedBox(height: 2.h),
+                    Text(
+                      '상대 없음으로 자동 승리',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.error.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -474,21 +625,21 @@ class _TournamentTeamReorderListState
   Widget _buildTournamentView(ThemeData theme) {
     final matchups = calculateTournamentMatchups();
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
       child: Column(
         children: matchups.map((pair) {
           final t1 = pair[0], t2 = pair[1];
-          final both = t2 != -1;
-          final win1 = both && isAutoWin(t1, t2);
-          final win2 = both && isAutoWin(t2, t1);
+          final win1 = isAutoWin(t1, t2);
+          final win2 = isAutoWin(t2, t1);
+
           return Container(
-            margin: const EdgeInsets.only(bottom: 16),
+            margin: EdgeInsets.only(bottom: 16.h),
             decoration: BoxDecoration(
               color: theme.cardColor,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(16.r),
               boxShadow: [
                 BoxShadow(
-                  color: theme.shadowColor.withValues(alpha:0.1),
+                  color: theme.shadowColor.withValues(alpha: 0.1),
                   blurRadius: 8,
                 ),
               ],
@@ -498,21 +649,17 @@ class _TournamentTeamReorderListState
               children: [
                 _buildTournamentTeamCard(
                   theme,
-                  teamsList[t1],
+                  teamSlots[t1],
                   isWinner: win1,
                   isTop: true,
-                  showMatchBorders: both,
                 ),
-                if (both)
-                  Divider(color: theme.dividerColor.withValues(alpha:0.5)),
-                if (both)
-                  _buildTournamentTeamCard(
-                    theme,
-                    teamsList[t2],
-                    isWinner: win2,
-                    isTop: false,
-                    showMatchBorders: true,
-                  ),
+                Divider(color: theme.dividerColor.withValues(alpha: 0.5), height: 1),
+                _buildTournamentTeamCard(
+                  theme,
+                  teamSlots[t2],
+                  isWinner: win2,
+                  isTop: false,
+                ),
               ],
             ),
           );
@@ -526,85 +673,94 @@ class _TournamentTeamReorderListState
       Map<String, dynamic> team, {
         required bool isWinner,
         required bool isTop,
-        required bool showMatchBorders,
       }) {
-    final isBye = team['walkOver'] == true;
-    final members = team['members'] as List<dynamic>;
-    final names = members
-        .map((m) => m['nickName'] ?? m['name'] ?? '')
-        .toList();
+    final isBye = team['isBye'] == true;
+    final opponent = team['byeOpponent'];
 
     return Container(
-      height: 72,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      height: 72.h,
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
       decoration: BoxDecoration(
         color: isWinner
-            ? theme.colorScheme.primary.withValues(alpha:0.05)
+            ? theme.colorScheme.primary.withValues(alpha: 0.05)
             : isBye
-            ? theme.colorScheme.error.withValues(alpha:0.05)
+            ? theme.colorScheme.error.withValues(alpha: 0.05)
             : null,
-        borderRadius: !showMatchBorders
-            ? BorderRadius.circular(16)
-            : BorderRadius.vertical(
-          top: isTop ? const Radius.circular(16) : Radius.zero,
-          bottom: isTop ? Radius.zero : const Radius.circular(16),
+        borderRadius: BorderRadius.vertical(
+          top: isTop ? Radius.circular(16.r) : Radius.zero,
+          bottom: isTop ? Radius.zero : Radius.circular(16.r),
         ),
       ),
       child: Row(
         children: [
-          // 부전승 or seed
+          // 시드 번호
           Container(
-            width: 30,
-            height: 30,
+            width: 30.r,
+            height: 30.r,
             decoration: BoxDecoration(
               color: isBye
-                  ? theme.colorScheme.error.withValues(alpha:0.1)
-                  : theme.colorScheme.primary.withValues(alpha:0.1),
+                  ? theme.colorScheme.error.withValues(alpha: 0.1)
+                  : theme.colorScheme.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
             child: Text(
-              isBye ? '부' : '${team['memberIndex']}',
+              '${team['memberIndex']}',
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                color:
-                isBye ? theme.colorScheme.error : theme.colorScheme.primary,
+                color: isBye ? theme.colorScheme.error : theme.colorScheme.primary,
               ),
             ),
           ),
 
-          const SizedBox(width: 12),
+          SizedBox(width: 12.w),
 
-          // 팀 이름 & 멤버
+          // 팀 정보
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  isBye ? '부전승' : team['teamName'],
+                  isBye
+                      ? (opponent != null
+                      ? '${opponent['teamName'] ?? '알 수 없는 팀'} 부전승'
+                      : '부전승')
+                      : (team['teamName'] ?? '알 수 없는 팀'),
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: isBye ? theme.colorScheme.error : null,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (!isBye)
+                if (isBye && opponent != null) ...[
+                  SizedBox(height: 2.h),
                   Text(
-                    names.join(', '),
+                    '상대 없음으로 자동 승리',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.error.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ] else if (!isBye && team['members'] != null) ...[
+                  SizedBox(height: 2.h),
+                  Text(
+                    (team['members'] as List)
+                        .map((m) => m['nickName'] ?? m['name'] ?? '')
+                        .join(', '),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.hintColor,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
+                ],
               ],
             ),
           ),
 
           if (isWinner)
-            Icon(Icons.emoji_events_rounded,
-                color: theme.colorScheme.primary),
-          if (!isWinner && isBye)
-            Icon(Icons.person_off_rounded, color: theme.colorScheme.error),
+            Icon(Icons.emoji_events_rounded, color: theme.colorScheme.primary, size: 20.r),
+          if (isBye)
+            Icon(Icons.person_off_rounded, color: theme.colorScheme.error, size: 20.r),
         ],
       ),
     );

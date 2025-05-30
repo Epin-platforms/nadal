@@ -133,6 +133,24 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
     }
   }
 
+  bool _isPlayerBye(String? playerId) {
+    if (playerId == null || playerId.isEmpty) return false;
+    return widget.scheduleProvider.byePlayers.contains(playerId);
+  }
+
+  bool _isWalkOver(Map gameData) {
+    final player1Id = gameData['player1_0'];
+    final player2Id = gameData['player2_0'];
+
+    // 한 쪽이 null이거나 빈 문자열인 경우
+    if (player1Id == null || player1Id == '' || player2Id == null || player2Id == '') {
+      return true;
+    }
+
+    // 부전승 플레이어가 포함된 경우
+    return _isPlayerBye(player1Id) || _isPlayerBye(player2Id);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -149,7 +167,7 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
     if (_roundList.isEmpty) {
       return SafeArea(
         child: Center(
-          child: Text('게임 데이터가 없습니다.'),
+          child: Text('게임 데이터가 없습니다.', style: theme.textTheme.bodyMedium),
         ),
       );
     }
@@ -162,7 +180,7 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                   constrained: false,
                   minScale: 0.1,
                   maxScale: 2.5,
-                  boundaryMargin: const EdgeInsets.all(100),
+                  boundaryMargin: EdgeInsets.all(100.r),
                   child: IntrinsicHeight(
                     child: Row(
                       children: List.generate(_roundList.length, (round) {
@@ -170,17 +188,17 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                         return AbsorbPointer(
                           absorbing: !isProgress,
                           child: SizedBox(
-                            width: 240,
+                            width: 240.w,
                             child: Column(
                               children: [
                                 SizedBox(
-                                  height: 40,
+                                  height: 40.h,
                                   child: Center(
                                     child: ChoiceChip(
                                       label: Text(
                                         _getRoundName(round + 1),
                                         style: TextStyle(
-                                          fontSize: 13,
+                                          fontSize: 13.sp,
                                           fontWeight: FontWeight.w700,
                                           color: _currentRound == round + 1 ? Colors.white : theme.colorScheme.primary,
                                         ),
@@ -190,33 +208,33 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                       backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
                                       avatarBorder: CircleBorder(),
                                       avatar: _currentRound == round + 1
-                                          ? Icon(Icons.check_circle, color: theme.colorScheme.onPrimary, size: 16)
+                                          ? Icon(Icons.check_circle, color: theme.colorScheme.onPrimary, size: 16.r)
                                           : null,
                                       onSelected: (_) {},
                                     ),
                                   ),
                                 ),
                                 ...List.generate(rounds == round ? 1 : roundTables.length, (index) {
-                                  final itemHeight = 120 * pow(2, round);
+                                  final itemHeight = 120.0 * pow(2, round);
 
                                   if (rounds <= round) {
                                     final lastId = (_lastRound * 1000) + 1;
                                     final finalGame = widget.scheduleProvider.gameTables?[lastId];
 
                                     if (finalGame == null) {
-                                      return SizedBox(height: (120 * pow(2, round)).toDouble());
+                                      return SizedBox(height: itemHeight);
                                     }
 
                                     return SizedBox(
-                                      height: (120 * pow(2, round)).toDouble(),
+                                      height: itemHeight,
                                       child: Align(
                                         alignment: Alignment.centerLeft,
                                         child: Container(
-                                            height: 90,
-                                            width: 200,
+                                            height: 90.h,
+                                            width: 200.w,
                                             decoration: BoxDecoration(
                                                 color: finalGame['score1'] == finalScore || finalGame['score2'] == finalScore ? theme.scaffoldBackgroundColor : theme.highlightColor,
-                                                borderRadius: BorderRadius.circular(15),
+                                                borderRadius: BorderRadius.circular(15.r),
                                                 boxShadow: [
                                                   if (finalGame['score1'] == finalScore || finalGame['score2'] == finalScore)
                                                     BoxShadow(
@@ -226,7 +244,7 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                                 ]),
                                             child: finalGame['score1'] == finalScore || finalGame['score2'] == finalScore
                                                 ? Padding(
-                                                padding: EdgeInsets.all(12),
+                                                padding: EdgeInsets.all(12.r),
                                                 child: Row(
                                                   children: [
                                                     Expanded(
@@ -234,13 +252,13 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                                             finalGame['score1'] == finalScore ? finalGame['player1_0'] : finalGame['player2_0'], finalGame)),
                                                     Container(
                                                       decoration: BoxDecoration(
-                                                        borderRadius: BorderRadius.circular(15),
+                                                        borderRadius: BorderRadius.circular(15.r),
                                                         color: const Color(0xFFFFD700),
                                                       ),
-                                                      padding: EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                                                      padding: EdgeInsets.symmetric(vertical: 4.h, horizontal: 6.w),
                                                       child: Text(
                                                         'WIN',
-                                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: const Color(0xffffffff)),
+                                                        style: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.w500, color: const Color(0xffffffff)),
                                                       ),
                                                     ),
                                                   ],
@@ -251,39 +269,41 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                   }
 
                                   if (index >= roundTables.length) {
-                                    return SizedBox(height: itemHeight.toDouble());
+                                    return SizedBox(height: itemHeight);
                                   }
 
                                   final game = roundTables[index];
+                                  final isWalkOverGame = _isWalkOver(game);
+
                                   return AbsorbPointer(
                                     absorbing: round + 1 != _currentRound,
                                     child: Column(
                                       children: [
                                         SizedBox(
-                                          height: itemHeight.toDouble(),
+                                          height: itemHeight,
                                           child: Row(
                                             crossAxisAlignment: CrossAxisAlignment.end,
                                             children: [
                                               Center(
                                                 child: Container(
-                                                    height: 90,
-                                                    width: 200,
+                                                    height: 90.h,
+                                                    width: 200.w,
                                                     decoration: BoxDecoration(
-                                                        color: game['player1_0'] != null ? theme.scaffoldBackgroundColor : theme.highlightColor,
-                                                        borderRadius: BorderRadius.circular(12),
+                                                        color: game['player1_0'] != null && game['player1_0'] != '' ? theme.scaffoldBackgroundColor : theme.highlightColor,
+                                                        borderRadius: BorderRadius.circular(12.r),
                                                         border: game['score1'] == finalScore || game['score2'] == finalScore
                                                             ? game['score1'] == finalScore
                                                             ? Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.5), width: 2)
                                                             : Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.2), width: 2)
                                                             : Border.all(color: theme.highlightColor, width: 2),
                                                         boxShadow: [
-                                                          if (game['player1_0'] != null)
+                                                          if (game['player1_0'] != null && game['player1_0'] != '')
                                                             BoxShadow(color: theme.highlightColor, blurRadius: 10, spreadRadius: 0)
                                                         ]),
-                                                    child: game['player1_0'] != null
+                                                    child: game['player1_0'] != null && game['player1_0'] != ''
                                                         ? InkWell(
-                                                      borderRadius: BorderRadius.circular(12),
-                                                      onTap: () async {
+                                                      borderRadius: BorderRadius.circular(12.r),
+                                                      onTap: isWalkOverGame ? null : () async {
                                                         final score1 = await GameManager.scoreInput(finalScore, game['score1']);
 
                                                         if (score1 == game['score1']) {
@@ -296,27 +316,25 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                                         }
                                                       },
                                                       child: Padding(
-                                                          padding: EdgeInsets.all(12),
+                                                          padding: EdgeInsets.all(12.r),
                                                           child: Row(
                                                             children: [
                                                               Expanded(child: _playerCard(game['player1_0'], game)),
                                                               Container(
-                                                                padding: EdgeInsets.all(5),
+                                                                padding: EdgeInsets.all(5.r),
                                                                 decoration: BoxDecoration(
                                                                   shape: BoxShape.circle,
                                                                   color: theme.colorScheme.secondary,
                                                                 ),
                                                                 child: Text(
                                                                   '${game['score1']}',
-                                                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: theme.colorScheme.onSecondary),
+                                                                  style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w900, color: theme.colorScheme.onSecondary),
                                                                 ),
                                                               )
                                                             ],
                                                           )),
                                                     )
-                                                        : game['overWalk'] == true
-                                                        ? WalkOverCard()
-                                                        : WaitPreRound()),
+                                                        : WalkOverCard()),
                                               ),
                                               Expanded(
                                                 child: Container(
@@ -332,7 +350,7 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                               ),
                                               Container(
                                                 height: 1.25,
-                                                width: 15,
+                                                width: 15.w,
                                                 color: game['score1'] == finalScore || game['score2'] == finalScore
                                                     ? theme.colorScheme.primary.withValues(alpha: 0.7)
                                                     : theme.highlightColor,
@@ -341,30 +359,30 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                           ),
                                         ),
                                         SizedBox(
-                                          height: itemHeight.toDouble(),
+                                          height: itemHeight,
                                           child: Row(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
                                               Center(
                                                 child: Container(
-                                                    height: 90,
-                                                    width: 200,
+                                                    height: 90.h,
+                                                    width: 200.w,
                                                     decoration: BoxDecoration(
-                                                        color: game['player2_0'] != null ? theme.scaffoldBackgroundColor : theme.highlightColor,
-                                                        borderRadius: BorderRadius.circular(15),
+                                                        color: game['player2_0'] != null && game['player2_0'] != '' ? theme.scaffoldBackgroundColor : theme.highlightColor,
+                                                        borderRadius: BorderRadius.circular(15.r),
                                                         border: game['score1'] == finalScore || game['score2'] == finalScore
                                                             ? game['score2'] == finalScore
                                                             ? Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.7), width: 2)
                                                             : Border.all(color: theme.colorScheme.onError.withValues(alpha: 0.2), width: 2)
                                                             : Border.all(color: theme.highlightColor, width: 2),
                                                         boxShadow: [
-                                                          if (game['player2_0'] != null)
+                                                          if (game['player2_0'] != null && game['player2_0'] != '')
                                                             BoxShadow(color: theme.highlightColor, blurRadius: 10, spreadRadius: 0)
                                                         ]),
-                                                    child: game['player2_0'] != null
+                                                    child: game['player2_0'] != null && game['player2_0'] != ''
                                                         ? InkWell(
-                                                      borderRadius: BorderRadius.circular(12),
-                                                      onTap: () async {
+                                                      borderRadius: BorderRadius.circular(12.r),
+                                                      onTap: isWalkOverGame ? null : () async {
                                                         final score2 = await GameManager.scoreInput(finalScore, game['score2']);
 
                                                         if (score2 == game['score2']) {
@@ -372,32 +390,30 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                                           return;
                                                         }
 
-                                                        if (score2 != null && score2 != game['score1']) {
+                                                        if (score2 != null && score2 != game['score2']) {
                                                           widget.scheduleProvider.updateScore(game['tableId'], score2, 2);
                                                         }
                                                       },
                                                       child: Padding(
-                                                          padding: EdgeInsets.all(12),
+                                                          padding: EdgeInsets.all(12.r),
                                                           child: Row(
                                                             children: [
                                                               Expanded(child: _playerCard(game['player2_0'], game)),
                                                               Container(
-                                                                padding: EdgeInsets.all(5),
+                                                                padding: EdgeInsets.all(5.r),
                                                                 decoration: BoxDecoration(
                                                                   shape: BoxShape.circle,
                                                                   color: theme.colorScheme.secondary,
                                                                 ),
                                                                 child: Text(
                                                                   '${game['score2']}',
-                                                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: theme.colorScheme.onSecondary),
+                                                                  style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w900, color: theme.colorScheme.onSecondary),
                                                                 ),
                                                               )
                                                             ],
                                                           )),
                                                     )
-                                                        : game['overWalk'] == true
-                                                        ? WalkOverCard()
-                                                        : WaitPreRound()),
+                                                        : WalkOverCard()),
                                               ),
                                               Expanded(
                                                 child: Container(
@@ -413,7 +429,7 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                               ),
                                               Container(
                                                 height: 1.25,
-                                                width: 15,
+                                                width: 15.w,
                                                 color: game['score1'] == finalScore || game['score2'] == finalScore
                                                     ? theme.colorScheme.primary.withValues(alpha: 0.7)
                                                     : theme.highlightColor,
@@ -490,36 +506,55 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
         : '$num강';
   }
 
-  Widget _playerCard(String uid, Map game) {
+  Widget _playerCard(String? uid, Map game) {
     return Builder(builder: (context) {
       final theme = Theme.of(context);
       final scheduleMembers = widget.scheduleProvider.scheduleMembers;
 
-      if (scheduleMembers == null || !scheduleMembers.containsKey(uid)) {
-        return Container();
+      if (uid == null || uid.isEmpty || scheduleMembers == null || !scheduleMembers.containsKey(uid)) {
+        return Container(
+          child: Center(
+            child: Text(
+              '부전승',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.error,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        );
       }
 
       final player = scheduleMembers[uid];
+      final isByePlayer = _isPlayerBye(uid);
 
       return Padding(
-          padding: EdgeInsets.all(12),
+          padding: EdgeInsets.all(12.r),
           child: Row(
             children: [
               Text(
                 '${player['memberIndex']}.',
                 style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.secondary,
+                  color: isByePlayer ? theme.colorScheme.error : theme.colorScheme.secondary,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10.w),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      TextFormManager.profileText(
+                      isByePlayer
+                          ? '${TextFormManager.profileText(
+                        player['nickName'],
+                        player['name'],
+                        player['birthYear'],
+                        player['gender'],
+                        useNickname: player['gender'] == null,
+                      )} (부전승)'
+                          : TextFormManager.profileText(
                         player['nickName'],
                         player['name'],
                         player['birthYear'],
@@ -528,6 +563,7 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                       ),
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
+                        color: isByePlayer ? theme.colorScheme.error : null,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

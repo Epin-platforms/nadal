@@ -552,13 +552,24 @@ class ScheduleProvider extends ChangeNotifier {
     }
   }
 
-  Future<Response?> updateMemberIndex(List<Map<String, dynamic>> members) async {
+  Future<Response?> updateMemberIndex(List<Map<String, dynamic>> slots) async {
     try {
       AppRoute.pushLoading();
       final data = <String, dynamic>{'scheduleId': _scheduleId};
-      for (int i = 0; i < members.length; i++) {
-        data[members[i]['uid']] = i + 1;
+
+      // 부전승이 아닌 실제 멤버만 필터링해서 인덱스 업데이트
+      for (int i = 0; i < slots.length; i++) {
+        final slot = slots[i];
+
+        // 부전승 슬롯은 건너뛰기
+        if (slot['isBye'] == true) continue;
+
+        final uid = slot['uid'];
+        if (uid != null) {
+          data[uid] = slot['memberIndex'] ?? (i + 1);
+        }
       }
+
       return await serverManager.put('game/member/indexUpdate', data: data);
     } catch (e) {
       _setError('멤버 순서 업데이트 실패: $e');
@@ -568,19 +579,31 @@ class ScheduleProvider extends ChangeNotifier {
     }
   }
 
-  Future<Response?> updateTeamIndex(List<Map<String, dynamic>> teamsList) async {
+  Future<Response?> updateTeamIndex(List<Map<String, dynamic>> teamSlots) async {
     try {
       AppRoute.pushLoading();
       final data = <String, dynamic>{'scheduleId': _scheduleId};
-      for (int i = 0; i < teamsList.length; i++) {
-        final team = teamsList[i];
-        if (team['members'] != null) {
-          for (var member in team['members']) {
+
+      for (int i = 0; i < teamSlots.length; i++) {
+        final teamSlot = teamSlots[i];
+
+        // 부전승 슬롯은 건너뛰기
+        if (teamSlot['isBye'] == true) continue;
+
+        final members = teamSlot['members'] as List?;
+        final memberIndex = teamSlot['memberIndex'] ?? (i + 1);
+
+        if (members != null) {
+          // 팀의 모든 멤버에게 같은 인덱스 적용
+          for (var member in members) {
             final uid = member['uid'];
-            if (uid != null) data[uid] = i + 1;
+            if (uid != null) {
+              data[uid] = memberIndex;
+            }
           }
         }
       }
+
       return await serverManager.put('game/member/indexUpdate', data: data);
     } catch (e) {
       _setError('팀 순서 업데이트 실패: $e');

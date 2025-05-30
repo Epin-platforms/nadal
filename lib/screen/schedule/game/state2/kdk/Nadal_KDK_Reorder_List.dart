@@ -38,54 +38,22 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> {
     final map = provider.scheduleMembers;
     if (map == null || map.isEmpty) return;
 
-    // 비-토너먼트 스케줄: 기존 로직 유지
-    if (!provider.isGameSchedule ||
-        (provider.gameType != GameType.tourSingle &&
-            provider.gameType != GameType.tourDouble)) {
+    // KDK는 부전승 없이 실제 멤버만 처리
+    // 모든 멤버에 memberIndex가 있는지 확인
+    final allHaveIndex = map.values.every((m) =>
+    m['memberIndex'] != null && m['memberIndex'] is int && m['memberIndex'] > 0);
+    if (!allHaveIndex) return;
 
-      // 모든 멤버에 memberIndex가 있는지 확인
-      final allHaveIndex = map.values.every((m) =>
-      m['memberIndex'] != null && m['memberIndex'] is int && m['memberIndex'] > 0);
-      if (!allHaveIndex) return;
-
-      // memberIndex 순으로 정렬
-      members = map.values
-          .map((m) => Map<String, dynamic>.from(m))
-          .toList()
-        ..sort((a, b) => (a['memberIndex'] as int)
-            .compareTo(b['memberIndex'] as int));
-
-    } else {
-      // 토너먼트 스케줄: 슬롯 고정, 빈 슬롯엔 bye 표시
-      final slots = provider.totalSlots;
-      final byeSet = provider.byePlayers.toSet();
-
-      // 인덱스 → member 매핑
-      final idxToMember = <int, Map<String, dynamic>>{};
-      for (var m in map.values) {
-        final idx = m['memberIndex'] as int?;
-        if (idx != null) idxToMember[idx] = Map.from(m);
-      }
-
-      members = List.generate(slots, (i) {
-        final idx = i + 1;
-        if (idxToMember.containsKey(idx)) {
-          final member = idxToMember[idx]!;
-          // bye 플레이어 표시용 플래그 추가
-          member['isBye'] = byeSet.contains(member['uid']);
-          return member;
-        } else {
-          // 빈 슬롯: 간단히 bye slot 표시
-          return {
-            'memberIndex': idx,
-            'isBye': true,
-          };
-        }
-      });
-    }
+    // memberIndex 순으로 정렬
+    members = map.values
+        .map((m) => Map<String, dynamic>.from(m))
+        .toList()
+      ..sort((a, b) => (a['memberIndex'] as int)
+          .compareTo(b['memberIndex'] as int));
 
     if (mounted) setState(() {});
   }
+
   void _pointListener(PointerMoveEvent event) {
     if (!isOwner) return;
 
@@ -135,6 +103,7 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> {
     HapticFeedback.mediumImpact();
 
     if (_isChanged) {
+      // KDK는 모든 멤버가 실제 플레이어이므로 그대로 전달
       final res = await widget.scheduleProvider.updateMemberIndex(members);
       if (res?.statusCode == 200) {
         _isChanged = false;
@@ -161,6 +130,12 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> {
 
     final fromItem = members.removeAt(fromIndex);
     members.insert(toIndex, fromItem);
+
+    // 모든 멤버의 memberIndex를 새 위치에 맞게 업데이트
+    for (int i = 0; i < members.length; i++) {
+      members[i]['memberIndex'] = i + 1;
+    }
+
     _checkChanges();
     HapticFeedback.lightImpact();
 
@@ -193,7 +168,7 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> {
                 color: _isChanged
                     ? theme.colorScheme.secondary.withValues(alpha: 0.1)
                     : theme.colorScheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12.r),
                 border: Border.all(
                   color: _isChanged
                       ? theme.colorScheme.secondary.withValues(alpha: 0.3)
@@ -265,12 +240,12 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> {
                           feedback: Material(
                             elevation: 8,
                             color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(12.r),
                             child: Container(
-                              width: MediaQuery.of(context).size.width - 60,
+                              width: MediaQuery.of(context).size.width - 60.w,
                               decoration: BoxDecoration(
                                 color: theme.cardColor,
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(12.r),
                                 boxShadow: [
                                   BoxShadow(
                                     color: theme.colorScheme.primary.withValues(alpha: 0.2),
@@ -286,7 +261,7 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> {
                             height: 70.h,
                             decoration: BoxDecoration(
                               color: theme.colorScheme.primary.withValues(alpha: 0.05),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(8.r),
                               border: Border.all(
                                 color: theme.colorScheme.primary.withValues(alpha: 0.1),
                                 width: 1,
@@ -333,7 +308,7 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> {
                       ? theme.colorScheme.secondary.withValues(alpha: 0.4)
                       : theme.colorScheme.primary.withValues(alpha: 0.4),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(14.r),
                   ),
                 ),
                 child: Row(
