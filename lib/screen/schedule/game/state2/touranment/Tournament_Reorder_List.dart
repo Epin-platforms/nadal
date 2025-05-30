@@ -10,141 +10,75 @@ class TournamentReorderList extends StatefulWidget {
   State<TournamentReorderList> createState() => _TournamentReorderListState();
 }
 
-class _TournamentReorderListState extends State<TournamentReorderList> with SingleTickerProviderStateMixin{
+class _TournamentReorderListState extends State<TournamentReorderList> {
   bool isOwner = false;
   final ScrollController _scrollController = ScrollController();
   List<Map<String, dynamic>> members = [];
-  late AnimationController _buttonAnimationController;
-  late Animation<double> _buttonScaleAnimation;
-  bool _showTournamentView = false; // 토너먼트 보기 모드 토글
+  bool _isChanged = false;
+  bool _showTournamentView = false;
 
   @override
   void initState() {
-    _buttonAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-
-    _buttonScaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(
-        parent: _buttonAnimationController,
-        curve: Curves.easeInOut,
-      ),
-    );
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      isOwner = widget.scheduleProvider.schedule?['uid'] == FirebaseAuth.instance.currentUser!.uid;
-
-      // 주기적으로 버튼 애니메이션 실행 (중요한 버튼임을 강조)
-      if (isOwner && widget.scheduleProvider.schedule?['state'] == 2) {
-        Future.delayed(const Duration(seconds: 1), () {
-          _startButtonPulse();
-        });
-      }
-    });
-
-    initializeMembersWhenReady();
     super.initState();
+    _initializeData();
   }
 
   @override
   void dispose() {
-    _buttonAnimationController.dispose();
-    // TODO: implement dispose
+    _scrollController.dispose();
     super.dispose();
   }
 
-  void initializeMembersWhenReady() async {
-    while (
-      widget.scheduleProvider.scheduleMembers == null ||
-        widget.scheduleProvider.scheduleMembers!.values.any((e) => e['memberIndex'] == null)
-    ) {
-      await Future.delayed(const Duration(milliseconds: 100));
-    }
-
-    initializeMembers();
+  void _initializeData() {
+    isOwner = widget.scheduleProvider.schedule?['uid'] == FirebaseAuth.instance.currentUser!.uid;
+    _loadMembers();
   }
 
+  void _loadMembers() {
+    final allMembers = widget.scheduleProvider.getAllMembers();
 
-  void initializeMembers() async{
+    if (allMembers.isEmpty) return;
 
-    // 1. 원본 멤버 데이터 가져오기
-    final originalMembers = widget.scheduleProvider.scheduleMembers!.entries
-        .map((e){
-          return e.value;
-        })
+    // 모든 멤버가 memberIndex를 가지고 있는지 확인
+    final hasAllIndexes = allMembers.values.every((member) =>
+    member['memberIndex'] != null && member['memberIndex'] > 0);
+
+    if (!hasAllIndexes) return;
+
+    members = allMembers.entries
+        .map((e) => Map<String, dynamic>.from(e.value))
         .toList();
 
-    // 2. 모든 memberIndex 값을 찾기
-    final List<int> memberIndices = originalMembers
-        .map<int>((member){
-            return (member['memberIndex'] as num).toInt();
-          })
-        .toList();
-
-    // 3. 최대 인덱스 찾기
-    final int maxIndex = memberIndices.reduce((value, element) => value > element ? value : element);
-
-    // 4. 빈 인덱스를 채운 새 리스트 생성 (크기는 최대 인덱스 + 1)
-    final filledMembers = List<Map<String, dynamic>?>.filled(maxIndex + 1, null);
-
-    // 5. 원본 멤버들을 해당 인덱스 위치에 배치
-    for (var member in originalMembers) {
-      final index = member['memberIndex'] as int;
-      filledMembers[index] = member;
-    }
-
-    // 6. null 값을 가진 인덱스에 부전승 표시 멤버 생성
-    // (인덱스 0은 일반적으로 사용하지 않는 경우 건너뛰기)
-    for (int i = 1; i <= maxIndex; i++) {
-      if (filledMembers[i] == null) {
-        filledMembers[i] = {
-          'memberIndex' : i,
-          'uid' : 'walk_over_$i'
-        };
-      }
-    }
-
-    // 7. null 값 제거하고 최종 멤버 리스트 생성
-    members = filledMembers.where((member) => member != null).toList().cast<Map<String, dynamic>>();
-
-    // 멤버 인덱스로 정렬
     members.sort((a, b) => (a['memberIndex'] as int).compareTo(b['memberIndex'] as int));
 
-    setState(() {}); // UI 업데이트
-  }
-
-  void _startButtonPulse() {
-    _buttonAnimationController.forward().then((_) {
-      _buttonAnimationController.reverse().then((_) {
-        if (mounted && _isChanged) {
-          Future.delayed(const Duration(seconds: 2), () {
-            _startButtonPulse();
-          });
-        }
-      });
-    });
-  }
-
-  bool _isChanged = false;
-
-  _pointListener(event) {
-    final pos = event.position;
-    final box = context.findRenderObject() as RenderBox;
-    final local = box.globalToLocal(pos);
-
-    const threshold = 120; // 스크롤 영역 확장
-    const speed = 15.0; // 스크롤 속도 증가
-    if (local.dy < threshold) {
-      final factor = 1.0 - (local.dy / threshold); // 위치에 따른 가속도
-      _scrollController.jumpTo(_scrollController.offset - (speed * factor));
-    } else if (local.dy > box.size.height - threshold) {
-      final factor = (local.dy - (box.size.height - threshold)) / threshold;
-      _scrollController.jumpTo(_scrollController.offset + (speed * factor));
+    if (mounted) {
+      setState(() {});
     }
   }
 
-  void _changedCheck() {
+  void _pointListener(PointerMoveEvent event) {
+    if (!isOwner) return;
+
+    final pos = event.position;
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) return;
+
+    final local = box.globalToLocal(pos);
+    const threshold = 120.0;
+    const speed = 15.0;
+
+    if (local.dy < threshold) {
+      final factor = 1.0 - (local.dy / threshold);
+      final newOffset = (_scrollController.offset - (speed * factor)).clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.jumpTo(newOffset);
+    } else if (local.dy > box.size.height - threshold) {
+      final factor = (local.dy - (box.size.height - threshold)) / threshold;
+      final newOffset = (_scrollController.offset + (speed * factor)).clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.jumpTo(newOffset);
+    }
+  }
+
+  void _checkChanges() {
     bool changed = false;
     for (var i = 0; i < members.length; i++) {
       if (members[i]['memberIndex'] != (i + 1)) {
@@ -154,23 +88,17 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
     }
 
     if (changed != _isChanged) {
-      setState(() {
-        _isChanged = changed;
-      });
+      _isChanged = changed;
+      if (mounted) {
+        setState(() {});
+      }
 
       if (_isChanged) {
-        HapticFeedback.mediumImpact(); // 변경 감지 시 햅틱 피드백
-        _startButtonPulse(); // 변경되었을 때 애니메이션 시작
+        HapticFeedback.mediumImpact();
       }
     }
   }
 
-  // 부전승 여부 확인
-  bool isWalkOver(Map<String, dynamic> member) {
-    return member['uid'].toString().startsWith('walk_over_');
-  }
-
-  // 토너먼트에서 매치업 계산
   List<List<int>> calculateTournamentMatchups() {
     List<List<int>> matchups = [];
 
@@ -178,7 +106,6 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
       if (i + 1 < members.length) {
         matchups.add([i, i + 1]);
       } else {
-        // 홀수인 경우 마지막 선수는 단독 배치
         matchups.add([i, -1]);
       }
     }
@@ -186,30 +113,95 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
     return matchups;
   }
 
-  // 부전승 자동 승리 체크
   bool isAutoWin(int player1Index, int player2Index) {
-    // 두 번째 선수가 없는 경우 (홀수 인원)
     if (player2Index == -1) return true;
 
-    bool player1IsWalkOver = isWalkOver(members[player1Index]);
-    bool player2IsWalkOver = isWalkOver(members[player2Index]);
+    final player1IsWalkOver = widget.scheduleProvider.isWalkOverMember(members[player1Index]['uid']);
+    final player2IsWalkOver = widget.scheduleProvider.isWalkOverMember(members[player2Index]['uid']);
 
-    // 부전승 vs 일반 선수
-    if (player1IsWalkOver && !player2IsWalkOver) return false; // 2번 선수 승리
-    if (!player1IsWalkOver && player2IsWalkOver) return true;  // 1번 선수 승리
+    if (player1IsWalkOver && !player2IsWalkOver) return false;
+    if (!player1IsWalkOver && player2IsWalkOver) return true;
 
-    // 둘 다 부전승인 경우 (이런 경우는 피해야 함)
     return false;
+  }
+
+  Future<void> _handleButtonPress() async {
+    if (!mounted) return;
+
+    HapticFeedback.mediumImpact();
+
+    if (_isChanged) {
+      final res = await widget.scheduleProvider.updateMemberIndex(members);
+      if (res?.statusCode == 200) {
+        _isChanged = false;
+        if (mounted) {
+          setState(() {});
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('성공적으로 순서공개가 되었어요'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('순서공개에 실패했어요'),
+            behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: '다시 시도',
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
+    } else {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('해당 순서로 게임을 만들게요'),
+          content: const Text('게임을 만든 후에는 순서 변경이 불가해요'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('음.. 잠시만요'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                widget.scheduleProvider.createGameTable();
+              },
+              child: const Text('네! 진행해주세요'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  void _onDragAccept(int fromIndex, int toIndex) {
+    if (fromIndex == toIndex || !mounted) return;
+
+    final fromItem = members.removeAt(fromIndex);
+    members.insert(toIndex, fromItem);
+    _checkChanges();
+    HapticFeedback.lightImpact();
+
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    if (widget.scheduleProvider.scheduleMembers!.values.where((e) => e['memberIndex'] == null).isNotEmpty) {
-      return const Center(
-        child: NadalCircular(),
-      );
+    // 데이터 로딩 확인
+    if (members.isEmpty) {
+      _loadMembers();
+      if (members.isEmpty) {
+        return const Center(child: NadalCircular());
+      }
     }
 
     return Column(
@@ -272,10 +264,11 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    setState(() {
-                      _showTournamentView = !_showTournamentView;
-                    });
+                    _showTournamentView = !_showTournamentView;
                     HapticFeedback.lightImpact();
+                    if (mounted) {
+                      setState(() {});
+                    }
                   },
                   icon: Icon(_showTournamentView ? Icons.list : Icons.account_tree_rounded),
                   label: Text(_showTournamentView ? '리스트 보기' : '토너먼트 대진표'),
@@ -306,93 +299,42 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
         if (isOwner && widget.scheduleProvider.schedule!['state'] == 2)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: ScaleTransition(
-              scale: _buttonScaleAnimation,
-              child: SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: () async{
-                    HapticFeedback.mediumImpact();
-                    if (_isChanged) {
-                      final res = await widget.scheduleProvider.updateMemberIndex(members);
-                      if(res?.statusCode == 200){
-                        setState(() {
-                          _isChanged = false;
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('성공적으로 순서공개가 되었어요'),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      }else{
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('순서공개에 실패했어요'),
-                            behavior: SnackBarBehavior.floating,
-                            action: SnackBarAction(
-                              label: '다시 시도',
-                              onPressed: () {},
-                            ),
-                          ),
-                        );
-                      }
-                    } else {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: Text('해당 순서로 게임을 만들게요'),
-                          content: Text('게임을 만든 후에는 순서 변경이 불가해요'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: Text('음.. 잠시만요'),
-                            ),
-                            ElevatedButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                widget.scheduleProvider.createGameTable();
-                              },
-                              child: Text('네! 진행해주세요'),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _isChanged
-                        ? theme.colorScheme.secondary
-                        : theme.colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    elevation: 4,
-                    shadowColor: _isChanged
-                        ? theme.colorScheme.secondary.withValues(alpha: 0.4)
-                        : theme.colorScheme.primary.withValues(alpha: 0.4),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+            child: SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: _handleButtonPress,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _isChanged
+                      ? theme.colorScheme.secondary
+                      : theme.colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 4,
+                  shadowColor: _isChanged
+                      ? theme.colorScheme.secondary.withValues(alpha: 0.4)
+                      : theme.colorScheme.primary.withValues(alpha: 0.4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _isChanged
+                          ? Icons.published_with_changes_rounded
+                          : Icons.check_circle_rounded,
+                      size: 20,
                     ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        _isChanged
-                            ? Icons.published_with_changes_rounded
-                            : Icons.check_circle_rounded,
-                        size: 20,
+                    const SizedBox(width: 8),
+                    Text(
+                      _isChanged ? '순서 공개하기' : '게임 진행',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _isChanged ? '순서 공개하기' : '게임 진행',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -404,102 +346,77 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
   // 원래 리스트 뷰 (드래그 앤 드롭 기능을 가진)
   Widget _buildListView(ThemeData theme) {
     return Listener(
-      onPointerMove: (event) {
-        if (isOwner) {
-          _pointListener(event);
-        }
-      },
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: ListView.separated(
-          controller: _scrollController,
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: members.length,
-          separatorBuilder: (context, index) => SizedBox(height: 2,),
-          itemBuilder: (context, index) {
-            return IgnorePointer(
-              ignoring: !isOwner || widget.scheduleProvider.schedule!['state'] != 2,
-              child: DragTarget<int>(
-                onWillAcceptWithDetails: (details) => details.data != index,
-                onAcceptWithDetails: (details) {
-                  setState(() {
-                    final fromIndex = details.data;
-                    final fromItem = members.removeAt(fromIndex);
-                    members.insert(index, fromItem);
-                    _changedCheck();
-                  });
+      onPointerMove: _pointListener,
+      child: ListView.separated(
+        controller: _scrollController,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: members.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 2),
+        itemBuilder: (context, index) {
+          final member = members[index];
+          final isWalkOver = widget.scheduleProvider.isWalkOverMember(member['uid']);
 
-                  // 드래그 완료 시 햅틱 피드백
-                  HapticFeedback.lightImpact();
-                },
-                builder: (context, candidateData, rejectedData) {
-                  final isDragTarget = candidateData.isNotEmpty;
+          return IgnorePointer(
+            ignoring: !isOwner || widget.scheduleProvider.schedule!['state'] != 2,
+            child: DragTarget<int>(
+              onWillAcceptWithDetails: (details) => details.data != index,
+              onAcceptWithDetails: (details) => _onDragAccept(details.data, index),
+              builder: (context, candidateData, rejectedData) {
+                final isDragTarget = candidateData.isNotEmpty;
 
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    decoration: BoxDecoration(
-                      color: isDragTarget
-                          ? theme.colorScheme.primary.withValues(alpha: 0.08)
-                          : Colors.transparent,
-                    ),
-                    child: LongPressDraggable<int>(
-                      data: index,
-                      onDragStarted: () {
-                        // 드래그 시작 시 햅틱 피드백
-                        HapticFeedback.mediumImpact();
-                      },
-                      feedback: Material(
-                        elevation: 8,
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          width: MediaQuery.of(context).size.width - 60,
-                          decoration: BoxDecoration(
-                            color: theme.cardColor,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: theme.colorScheme.primary.withValues(alpha: 0.2),
-                                blurRadius: 10,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                          child: NadalSoloCard(
-                            isDragging: true,
-                            user: members[index],
-                            index: index,
-                          ),
-                        ),
-                      ),
-                      childWhenDragging: Container(
-                        height: 70,
+                return Container(
+                  decoration: BoxDecoration(
+                    color: isDragTarget
+                        ? theme.colorScheme.primary.withValues(alpha: 0.08)
+                        : Colors.transparent,
+                  ),
+                  child: LongPressDraggable<int>(
+                    data: index,
+                    onDragStarted: () => HapticFeedback.mediumImpact(),
+                    feedback: Material(
+                      elevation: 8,
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        width: MediaQuery.of(context).size.width - 60,
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                            width: 1,
-                            style: BorderStyle.solid,
-                          ),
+                          color: theme.cardColor,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                              blurRadius: 10,
+                              spreadRadius: 1,
+                            ),
+                          ],
                         ),
-                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        child: Center(
-                          child: Icon(
-                            Icons.swap_vert_rounded,
-                            color: theme.colorScheme.primary.withValues(alpha: 0.4),
-                            size: 24,
-                          ),
+                        child: _buildMemberCard(member, index, true, isWalkOver),
+                      ),
+                    ),
+                    childWhenDragging: Container(
+                      height: 70,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                          width: 1,
                         ),
                       ),
-                      child: isOwner
-                          ? Stack(
-                        children: [
-                          NadalSoloCard(
-                            isDragging: false,
-                            user: members[index],
-                            index: index,
-                          ),
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      child: Center(
+                        child: Icon(
+                          Icons.swap_vert_rounded,
+                          color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                    child: isOwner
+                        ? Stack(
+                      children: [
+                        _buildMemberCard(member, index, false, isWalkOver),
+                        if (!isWalkOver)
                           Positioned(
                             right: 20,
                             top: 0,
@@ -512,20 +429,15 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
                               ),
                             ),
                           ),
-                        ],
-                      )
-                          : NadalSoloCard(
-                        isDragging: false,
-                        user: members[index],
-                        index: index,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            );
-          },
-        ),
+                      ],
+                    )
+                        : _buildMemberCard(member, index, false, isWalkOver),
+                  ),
+                );
+              },
+            ),
+          );
+        },
       ),
     );
   }
@@ -573,16 +485,11 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
 
           // 토너먼트 대진표
           ...matchups.map((matchup) {
-            // 매치업의 두 선수 인덱스
             final player1Index = matchup[0];
             final player2Index = matchup[1];
-
-            // 두 번째 선수가 없는 경우 (홀수일 때 마지막 선수)
             final hasBothPlayers = player2Index != -1;
-
-            // 부전승 승리 여부
-            final player1WinsAuto = hasBothPlayers && isWalkOver(members[player2Index]);
-            final player2WinsAuto = hasBothPlayers && isWalkOver(members[player1Index]);
+            final player1WinsAuto = hasBothPlayers && isAutoWin(player1Index, player2Index);
+            final player2WinsAuto = hasBothPlayers && isAutoWin(player2Index, player1Index);
 
             return Container(
               margin: const EdgeInsets.only(bottom: 16),
@@ -600,7 +507,6 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
               clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
-                  // 첫 번째 선수
                   _buildTournamentPlayerCard(
                     theme,
                     members[player1Index],
@@ -609,7 +515,6 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
                     isTop: true,
                   ),
 
-                  // 구분선
                   if (hasBothPlayers)
                     Divider(
                       height: 1,
@@ -617,7 +522,6 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
                       color: theme.dividerColor.withValues(alpha: 0.5),
                     ),
 
-                  // 두 번째 선수 (있는 경우)
                   if (hasBothPlayers)
                     _buildTournamentPlayerCard(
                       theme,
@@ -643,7 +547,7 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
         bool showMatchBorders = true,
         bool isTop = true}
       ) {
-    final bool isWalkOverPlayer = isWalkOver(player);
+    final isWalkOverPlayer = widget.scheduleProvider.isWalkOverMember(player['uid']);
 
     return Container(
       height: 72,
@@ -656,14 +560,13 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
         borderRadius: !showMatchBorders
             ? BorderRadius.circular(16)
             : BorderRadius.vertical(
-          top: isTop ? Radius.circular(16) : Radius.zero,
-          bottom: isTop ? Radius.zero : Radius.circular(16),
+          top: isTop ? const Radius.circular(16) : Radius.zero,
+          bottom: isTop ? Radius.zero : const Radius.circular(16),
         ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          // 시드 넘버 또는 부전승 표시
           Container(
             width: 30,
             height: 30,
@@ -687,14 +590,15 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
 
           const SizedBox(width: 12),
 
-          // 선수 정보
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  isWalkOverPlayer ? '부전승' : (player['name'] ?? player['nickName'] ?? '선수 ${player['memberIndex']}'),
+                  isWalkOverPlayer
+                      ? '부전승'
+                      : (player['name'] ?? player['nickName'] ?? '선수 ${player['memberIndex']}'),
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: isWalkOverPlayer
@@ -715,7 +619,6 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
             ),
           ),
 
-          // 승리 또는 부전승 아이콘
           if (isWinner)
             Container(
               padding: const EdgeInsets.all(8),
@@ -744,6 +647,68 @@ class _TournamentReorderListState extends State<TournamentReorderList> with Sing
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMemberCard(Map<String, dynamic> member, int index, bool isDragging, bool isWalkOver) {
+    final theme = Theme.of(context);
+
+    if (isWalkOver) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.error.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: theme.colorScheme.error.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.error.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '${index + 1}',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.error,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Icon(
+              Icons.person_off_rounded,
+              color: theme.colorScheme.error,
+              size: 24,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '부전승',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return NadalSoloCard(
+      isDragging: isDragging,
+      user: member,
+      index: index,
     );
   }
 }

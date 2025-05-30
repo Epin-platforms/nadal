@@ -3,142 +3,126 @@ import 'package:flutter/services.dart';
 import '../../../../../manager/project/Import_Manager.dart';
 
 class TournamentTeamReorderList extends StatefulWidget {
-  const TournamentTeamReorderList({super.key,required this.scheduleProvider});
+  const TournamentTeamReorderList({super.key, required this.scheduleProvider});
   final ScheduleProvider scheduleProvider;
   @override
   State<TournamentTeamReorderList> createState() => _TournamentTeamReorderListState();
 }
 
-class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> with SingleTickerProviderStateMixin {
+class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> {
   bool isOwner = false;
   final ScrollController _scrollController = ScrollController();
   List<Map<String, dynamic>> teamsList = [];
-  late AnimationController _buttonAnimationController;
-  late Animation<double> _buttonScaleAnimation;
-  bool _showTournamentView = false; // 토너먼트 보기 모드 토글
+  bool _isChanged = false;
+  bool _showTournamentView = false;
 
   @override
   void initState() {
-    _buttonAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-
-    _buttonScaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(
-        parent: _buttonAnimationController,
-        curve: Curves.easeInOut,
-      ),
-    );
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      isOwner = widget.scheduleProvider.schedule?['uid'] == FirebaseAuth.instance.currentUser!.uid;
-      initializeTeams();
-
-      // 주기적으로 버튼 애니메이션 실행 (중요한 버튼임을 강조)
-      if (isOwner) {
-        Future.delayed(const Duration(seconds: 1), () {
-          _startButtonPulse();
-        });
-      }
-    });
     super.initState();
+    _initializeData();
   }
 
   @override
   void dispose() {
-    _buttonAnimationController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  void initializeTeams() {
-    if (widget.scheduleProvider.teams == null) {
-      return;
-    }
+  void _initializeData() {
+    isOwner = widget.scheduleProvider.schedule?['uid'] == FirebaseAuth.instance.currentUser!.uid;
+    _loadTeams();
+  }
 
-    final Map<String, List<dynamic>> teamsData = widget.scheduleProvider.teams!;
+  void _loadTeams() {
+    final allMembers = widget.scheduleProvider.getAllMembers();
+    final teamsData = widget.scheduleProvider.teams;
+
+    if (allMembers.isEmpty) return;
+
+    // 모든 멤버가 memberIndex를 가지고 있는지 확인
+    final hasAllIndexes = allMembers.values.every((member) =>
+    member['memberIndex'] != null && member['memberIndex'] > 0);
+
+    if (!hasAllIndexes) return;
+
     teamsList = [];
 
-    // 각 팀 데이터 구성
-    teamsData.forEach((teamName, members) {
-      if (members.isNotEmpty) {
-        // 첫 번째 멤버에서 인덱스 가져오기 (팀원들은 모두 같은 인덱스를 가짐)
-        final firstMember = members[0];
-        final memberIndex = firstMember['memberIndex'] ?? 0;
+    if (teamsData != null && teamsData.isNotEmpty) {
+      // 실제 팀 데이터에서 팀 리스트 구성
+      teamsData.forEach((teamName, members) {
+        if (members.isNotEmpty) {
+          final firstMember = members[0];
+          final memberIndex = firstMember['memberIndex'] ?? 0;
+          final isWalkOverTeam = widget.scheduleProvider.isWalkOverMember(firstMember['uid']);
 
-        teamsList.add({
-          'teamName': teamName,
-          'members': members,
-          'memberIndex': memberIndex,
-          'profileImage': firstMember['profileImage'] ?? '',
-          'walkOver': false,
-        });
-      }
-    });
+          teamsList.add({
+            'teamName': teamName,
+            'members': members,
+            'memberIndex': memberIndex,
+            'profileImage': firstMember['profileImage'] ?? '',
+            'walkOver': isWalkOverTeam,
+          });
+        }
+      });
+    } else {
+      // teams가 없는 경우 allMembers에서 팀 구성
+      final Map<String, List<dynamic>> teamMap = {};
+
+      allMembers.forEach((uid, memberData) {
+        final String? teamName = memberData['teamName'];
+        if (teamName != null && teamName.isNotEmpty) {
+          teamMap.putIfAbsent(teamName, () => []).add(memberData);
+        }
+      });
+
+      teamMap.forEach((teamName, members) {
+        if (members.isNotEmpty) {
+          final firstMember = members[0];
+          final memberIndex = firstMember['memberIndex'] ?? 0;
+          final isWalkOverTeam = widget.scheduleProvider.isWalkOverMember(firstMember['uid']);
+
+          teamsList.add({
+            'teamName': teamName,
+            'members': members,
+            'memberIndex': memberIndex,
+            'profileImage': firstMember['profileImage'] ?? '',
+            'walkOver': isWalkOverTeam,
+          });
+        }
+      });
+    }
 
     // 인덱스로 정렬
     teamsList.sort((a, b) => (a['memberIndex'] as int).compareTo(b['memberIndex'] as int));
 
-    // 최대 인덱스 찾기
-    int maxIndex = 0;
-    for (var team in teamsList) {
-      if (team['memberIndex'] > maxIndex) {
-        maxIndex = team['memberIndex'];
-      }
+    if (mounted) {
+      setState(() {});
     }
-
-    // 부전승 처리 - 빈 인덱스 채우기
-    Set<int> usedIndices = teamsList.map((team) => team['memberIndex'] as int).toSet();
-
-    for (int i = 1; i <= maxIndex; i++) {
-      if (!usedIndices.contains(i)) {
-        teamsList.add({
-          'teamName': '부전승 $i',
-          'members': <Map<String, dynamic>>[],
-          'memberIndex': i,
-          'walkOver': true,
-        });
-      }
-    }
-
-    // 인덱스로 다시 정렬
-    teamsList.sort((a, b) => (a['memberIndex'] as int).compareTo(b['memberIndex'] as int));
-
-    setState(() {});
   }
 
-  void _startButtonPulse() {
-    _buttonAnimationController.forward().then((_) {
-      _buttonAnimationController.reverse().then((_) {
-        if (mounted && _isChanged) {
-          Future.delayed(const Duration(seconds: 2), () {
-            _startButtonPulse();
-          });
-        }
-      });
-    });
-  }
+  void _pointListener(PointerMoveEvent event) {
+    if (!isOwner) return;
 
-  bool _isChanged = false;
-
-  _pointListener(event) {
     final pos = event.position;
-    final box = context.findRenderObject() as RenderBox;
-    final local = box.globalToLocal(pos);
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) return;
 
-    const threshold = 120; // 스크롤 영역 확장
-    const speed = 15.0; // 스크롤 속도 증가
+    final local = box.globalToLocal(pos);
+    const threshold = 120.0;
+    const speed = 15.0;
+
     if (local.dy < threshold) {
-      final factor = 1.0 - (local.dy / threshold); // 위치에 따른 가속도
-      _scrollController.jumpTo(_scrollController.offset - (speed * factor));
+      final factor = 1.0 - (local.dy / threshold);
+      final newOffset = (_scrollController.offset - (speed * factor)).clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.jumpTo(newOffset);
     } else if (local.dy > box.size.height - threshold) {
       final factor = (local.dy - (box.size.height - threshold)) / threshold;
-      _scrollController.jumpTo(_scrollController.offset + (speed * factor));
+      final newOffset = (_scrollController.offset + (speed * factor)).clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.jumpTo(newOffset);
     }
   }
 
-  void _changedCheck() {
+  void _checkChanges() {
     bool changed = false;
     for (var i = 0; i < teamsList.length; i++) {
       if (teamsList[i]['memberIndex'] != (i + 1)) {
@@ -148,18 +132,17 @@ class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> w
     }
 
     if (changed != _isChanged) {
-      setState(() {
-        _isChanged = changed;
-      });
+      _isChanged = changed;
+      if (mounted) {
+        setState(() {});
+      }
 
       if (_isChanged) {
-        HapticFeedback.mediumImpact(); // 변경 감지 시 햅틱 피드백
-        _startButtonPulse(); // 변경되었을 때 애니메이션 시작
+        HapticFeedback.mediumImpact();
       }
     }
   }
 
-  // 토너먼트에서 매치업 계산
   List<List<int>> calculateTournamentMatchups() {
     List<List<int>> matchups = [];
 
@@ -167,7 +150,6 @@ class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> w
       if (i + 1 < teamsList.length) {
         matchups.add([i, i + 1]);
       } else {
-        // 홀수인 경우 마지막 팀은 단독 배치
         matchups.add([i, -1]);
       }
     }
@@ -175,30 +157,93 @@ class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> w
     return matchups;
   }
 
-  // 부전승 자동 승리 체크
   bool isAutoWin(int team1Index, int team2Index) {
-    // 두 번째 팀이 없는 경우 (홀수 인원)
     if (team2Index == -1) return true;
 
-    bool team1IsWalkOver = teamsList[team1Index]['walkOver'] == true;
-    bool team2IsWalkOver = teamsList[team2Index]['walkOver'] == true;
+    final team1IsWalkOver = teamsList[team1Index]['walkOver'] == true;
+    final team2IsWalkOver = teamsList[team2Index]['walkOver'] == true;
 
-    // 부전승 vs 일반 팀
-    if (team1IsWalkOver && !team2IsWalkOver) return false; // 2번 팀 승리
-    if (!team1IsWalkOver && team2IsWalkOver) return true;  // 1번 팀 승리
+    if (team1IsWalkOver && !team2IsWalkOver) return false;
+    if (!team1IsWalkOver && team2IsWalkOver) return true;
 
-    // 둘 다 부전승인 경우
     return false;
+  }
+
+  Future<void> _handleButtonPress() async {
+    if (!mounted) return;
+
+    HapticFeedback.mediumImpact();
+
+    if (_isChanged) {
+      final sm = ScaffoldMessenger.of(context);
+      final res = await widget.scheduleProvider.updateTeamIndex(teamsList);
+
+      // 팀 데이터 새로고침
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          _loadTeams();
+        }
+      });
+
+      if (res?.statusCode == 200) {
+        _isChanged = false;
+        if (mounted) {
+          setState(() {});
+        }
+        sm.showSnackBar(
+          const SnackBar(
+            content: Text('성공적으로 팀 순서가 공개되었어요'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        sm.showSnackBar(
+          SnackBar(
+            content: const Text('팀 순서 공개에 실패했어요'),
+            behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: '다시 시도',
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
+    } else {
+      DialogManager.showBasicDialog(
+          title: '해당 순서로 팀 게임을 만들게요',
+          content: '게임을 만든 후에는 팀 순서 변경이 불가해요',
+          confirmText: '네! 진행해주세요',
+          cancelText: '음.. 잠시만요',
+          onConfirm: () {
+            widget.scheduleProvider.createGameTable();
+          }
+      );
+    }
+  }
+
+  void _onDragAccept(int fromIndex, int toIndex) {
+    if (fromIndex == toIndex || !mounted) return;
+
+    final fromItem = teamsList.removeAt(fromIndex);
+    teamsList.insert(toIndex, fromItem);
+    _checkChanges();
+    HapticFeedback.lightImpact();
+
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    // 데이터 로딩 확인
     if (teamsList.isEmpty) {
-      return const Center(
-        child: NadalCircular(),
-      );
+      _loadTeams();
+      if (teamsList.isEmpty) {
+        return const Center(child: NadalCircular());
+      }
     }
 
     return Column(
@@ -261,10 +306,11 @@ class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> w
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    setState(() {
-                      _showTournamentView = !_showTournamentView;
-                    });
+                    _showTournamentView = !_showTournamentView;
                     HapticFeedback.lightImpact();
+                    if (mounted) {
+                      setState(() {});
+                    }
                   },
                   icon: Icon(_showTournamentView ? Icons.list : Icons.account_tree_rounded),
                   label: Text(_showTournamentView ? '리스트 보기' : '토너먼트 대진표'),
@@ -295,88 +341,42 @@ class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> w
         if (isOwner && widget.scheduleProvider.schedule!['state'] == 2)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: ScaleTransition(
-              scale: _buttonScaleAnimation,
-              child: SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: () async {
-
-                    HapticFeedback.mediumImpact();
-                    if (_isChanged) {
-                      final sm = ScaffoldMessenger.of(context);
-                      final res = await widget.scheduleProvider.updateTeamIndex(teamsList);
-                      Future.delayed(const Duration(milliseconds: 300), () {
-                        initializeTeams();
-                      });
-
-                      if (res?.statusCode == 200) {
-                        setState(() {
-                          _isChanged = false;
-                        });
-                        sm.showSnackBar(
-                          const SnackBar(
-                            content: Text('성공적으로 팀 순서가 공개되었어요'),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      } else {
-                        sm.showSnackBar(
-                          SnackBar(
-                            content: const Text('팀 순서 공개에 실패했어요'),
-                            behavior: SnackBarBehavior.floating,
-                            action: SnackBarAction(
-                              label: '다시 시도',
-                              onPressed: () {},
-                            ),
-                          ),
-                        );
-                      }
-                    } else {
-                      DialogManager.showBasicDialog(
-                          title: '해당 순서로 팀 게임을 만들게요',
-                          content: '게임을 만든 후에는 팀 순서 변경이 불가해요',
-                          confirmText: '네! 진행해주세요',
-                          cancelText: '음.. 잠시만요',
-                          onConfirm: (){
-                            widget.scheduleProvider.createGameTable();
-                          }
-                      );
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _isChanged
-                        ? theme.colorScheme.secondary
-                        : theme.colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    elevation: 4,
-                    shadowColor: _isChanged
-                        ? theme.colorScheme.secondary.withValues(alpha: 0.4)
-                        : theme.colorScheme.primary.withValues(alpha: 0.4),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+            child: SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: _handleButtonPress,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _isChanged
+                      ? theme.colorScheme.secondary
+                      : theme.colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 4,
+                  shadowColor: _isChanged
+                      ? theme.colorScheme.secondary.withValues(alpha: 0.4)
+                      : theme.colorScheme.primary.withValues(alpha: 0.4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _isChanged
+                          ? Icons.published_with_changes_rounded
+                          : Icons.check_circle_rounded,
+                      size: 20,
                     ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        _isChanged
-                            ? Icons.published_with_changes_rounded
-                            : Icons.check_circle_rounded,
-                        size: 20,
+                    const SizedBox(width: 8),
+                    Text(
+                      _isChanged ? '팀 순서 공개하기' : '게임 진행',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _isChanged ? '팀 순서 공개하기' : '게임 진행',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -388,98 +388,77 @@ class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> w
   // 팀 리스트 뷰 (드래그 앤 드롭 기능)
   Widget _buildListView(ThemeData theme) {
     return Listener(
-      onPointerMove: (event) {
-        if (isOwner) {
-          _pointListener(event);
-        }
-      },
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: ListView.separated(
-          controller: _scrollController,
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: teamsList.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 2),
-          itemBuilder: (context, index) {
-            return IgnorePointer(
-              ignoring: !isOwner || widget.scheduleProvider.schedule!['state'] != 2,
-              child: DragTarget<int>(
-                onWillAcceptWithDetails: (details) => details.data != index,
-                onAcceptWithDetails: (details) {
-                  setState(() {
-                    final fromIndex = details.data;
-                    final fromItem = teamsList.removeAt(fromIndex);
-                    teamsList.insert(index, fromItem);
-                    _changedCheck();
-                  });
+      onPointerMove: _pointListener,
+      child: ListView.separated(
+        controller: _scrollController,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: teamsList.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 2),
+        itemBuilder: (context, index) {
+          final team = teamsList[index];
+          final isWalkOverTeam = team['walkOver'] == true;
 
-                  // 드래그 완료 시 햅틱 피드백
-                  HapticFeedback.lightImpact();
-                },
-                builder: (context, candidateData, rejectedData) {
-                  final isDragTarget = candidateData.isNotEmpty;
+          return IgnorePointer(
+            ignoring: !isOwner || widget.scheduleProvider.schedule!['state'] != 2,
+            child: DragTarget<int>(
+              onWillAcceptWithDetails: (details) => details.data != index,
+              onAcceptWithDetails: (details) => _onDragAccept(details.data, index),
+              builder: (context, candidateData, rejectedData) {
+                final isDragTarget = candidateData.isNotEmpty;
 
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    decoration: BoxDecoration(
-                      color: isDragTarget
-                          ? theme.colorScheme.primary.withValues(alpha: 0.08)
-                          : Colors.transparent,
-                    ),
-                    child: LongPressDraggable<int>(
-                      data: index,
-                      onDragStarted: () {
-                        // 드래그 시작 시 햅틱 피드백
-                        HapticFeedback.mediumImpact();
-                      },
-                      feedback: Material(
-                        elevation: 8,
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          width: MediaQuery.of(context).size.width - 60,
-                          decoration: BoxDecoration(
-                            color: theme.cardColor,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: theme.colorScheme.primary.withValues(alpha: 0.2),
-                                blurRadius: 10,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                          child: _buildTeamCard(
-                            theme,
-                            teamsList[index],
-                            isDragging: true,
-                          ),
-                        ),
-                      ),
-                      childWhenDragging: Container(
-                        height: 80, // 팀 카드는 좀 더 높게
+                return Container(
+                  decoration: BoxDecoration(
+                    color: isDragTarget
+                        ? theme.colorScheme.primary.withValues(alpha: 0.08)
+                        : Colors.transparent,
+                  ),
+                  child: LongPressDraggable<int>(
+                    data: index,
+                    onDragStarted: () => HapticFeedback.mediumImpact(),
+                    feedback: Material(
+                      elevation: 8,
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        width: MediaQuery.of(context).size.width - 60,
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                            width: 1,
-                            style: BorderStyle.solid,
-                          ),
+                          color: theme.cardColor,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                              blurRadius: 10,
+                              spreadRadius: 1,
+                            ),
+                          ],
                         ),
-                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        child: Center(
-                          child: Icon(
-                            Icons.swap_vert_rounded,
-                            color: theme.colorScheme.primary.withValues(alpha: 0.4),
-                            size: 24,
-                          ),
+                        child: _buildTeamCard(theme, team, isDragging: true),
+                      ),
+                    ),
+                    childWhenDragging: Container(
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                          width: 1,
                         ),
                       ),
-                      child: isOwner
-                          ? Stack(
-                        children: [
-                          _buildTeamCard(theme, teamsList[index], isDragging: false),
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      child: Center(
+                        child: Icon(
+                          Icons.swap_vert_rounded,
+                          color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                    child: isOwner
+                        ? Stack(
+                      children: [
+                        _buildTeamCard(theme, team, isDragging: false),
+                        if (!isWalkOverTeam)
                           Positioned(
                             right: 20,
                             top: 0,
@@ -492,23 +471,22 @@ class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> w
                               ),
                             ),
                           ),
-                        ],
-                      )
-                          : _buildTeamCard(theme, teamsList[index], isDragging: false),
-                    ),
-                  );
-                },
-              ),
-            );
-          },
-        ),
+                      ],
+                    )
+                        : _buildTeamCard(theme, team, isDragging: false),
+                  ),
+                );
+              },
+            ),
+          );
+        },
       ),
     );
   }
 
   // 팀 카드 위젯
   Widget _buildTeamCard(ThemeData theme, Map<String, dynamic> team, {bool isDragging = false}) {
-    final bool isWalkOverTeam = team['walkOver'] == true;
+    final isWalkOverTeam = team['walkOver'] == true;
     final teamMembers = team['members'] as List<dynamic>;
 
     // 멤버 이름 목록 생성
@@ -526,8 +504,13 @@ class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> w
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: theme.cardColor,
+        color: isWalkOverTeam
+            ? theme.colorScheme.error.withValues(alpha: 0.1)
+            : theme.cardColor,
         borderRadius: BorderRadius.circular(12),
+        border: isWalkOverTeam
+            ? Border.all(color: theme.colorScheme.error.withValues(alpha: 0.3), width: 1)
+            : null,
         boxShadow: isDragging
             ? [
           BoxShadow(
@@ -554,7 +537,7 @@ class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> w
               height: 32,
               decoration: BoxDecoration(
                 color: isWalkOverTeam
-                    ? theme.colorScheme.error.withValues(alpha: 0.1)
+                    ? theme.colorScheme.error.withValues(alpha: 0.2)
                     : theme.colorScheme.primary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
@@ -675,16 +658,11 @@ class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> w
 
           // 토너먼트 대진표
           ...matchups.map((matchup) {
-            // 매치업의 두 팀 인덱스
             final team1Index = matchup[0];
             final team2Index = matchup[1];
-
-            // 두 번째 팀이 없는 경우 (홀수일 때 마지막 팀)
             final hasBothTeams = team2Index != -1;
-
-            // 부전승 승리 여부
-            final team1WinsAuto = hasBothTeams && teamsList[team2Index]['walkOver'] == true;
-            final team2WinsAuto = hasBothTeams && teamsList[team1Index]['walkOver'] == true;
+            final team1WinsAuto = hasBothTeams && isAutoWin(team1Index, team2Index);
+            final team2WinsAuto = hasBothTeams && isAutoWin(team2Index, team1Index);
 
             return Container(
               margin: const EdgeInsets.only(bottom: 16),
@@ -702,7 +680,6 @@ class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> w
               clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
-                  // 첫 번째 팀
                   _buildTournamentTeamCard(
                     theme,
                     teamsList[team1Index],
@@ -711,7 +688,6 @@ class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> w
                     isTop: true,
                   ),
 
-                  // 구분선
                   if (hasBothTeams)
                     Divider(
                       height: 1,
@@ -719,7 +695,6 @@ class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> w
                       color: theme.dividerColor.withValues(alpha: 0.5),
                     ),
 
-                  // 두 번째 팀 (있는 경우)
                   if (hasBothTeams)
                     _buildTournamentTeamCard(
                       theme,
@@ -745,7 +720,7 @@ class _TournamentTeamReorderListState extends State<TournamentTeamReorderList> w
         bool showMatchBorders = true,
         bool isTop = true}
       ) {
-    final bool isWalkOverTeam = team['walkOver'] == true;
+    final isWalkOverTeam = team['walkOver'] == true;
     final teamMembers = team['members'] as List<dynamic>;
 
     // 멤버 이름 목록 생성

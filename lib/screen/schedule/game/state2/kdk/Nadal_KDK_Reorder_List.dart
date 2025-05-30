@@ -10,82 +10,74 @@ class NadalKDKReorderList extends StatefulWidget {
   State<NadalKDKReorderList> createState() => _NadalKDKReorderListState();
 }
 
-class _NadalKDKReorderListState extends State<NadalKDKReorderList> with SingleTickerProviderStateMixin {
+class _NadalKDKReorderListState extends State<NadalKDKReorderList> {
   bool isOwner = false;
   final ScrollController _scrollController = ScrollController();
   List<Map<String, dynamic>> members = [];
-  late AnimationController _buttonAnimationController;
-  late Animation<double> _buttonScaleAnimation;
+  bool _isChanged = false;
 
   @override
   void initState() {
-    _buttonAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-
-    _buttonScaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(
-        parent: _buttonAnimationController,
-        curve: Curves.easeInOut,
-      ),
-    );
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      isOwner = widget.scheduleProvider.schedule?['uid'] == FirebaseAuth.instance.currentUser!.uid;
-      members = widget.scheduleProvider.scheduleMembers!.entries
-          .map((e) => Map<String, dynamic>.from(e.value))
-          .toList();
-      members.sort((a, b) => a['memberIndex'].compareTo(b['memberIndex']));
-      setState(() {});
-
-      // 주기적으로 버튼 애니메이션 실행 (중요한 버튼임을 강조)
-      if (isOwner && widget.scheduleProvider.schedule?['state'] == 2) {
-        Future.delayed(const Duration(seconds: 1), () {
-          _startButtonPulse();
-        });
-      }
-    });
     super.initState();
-  }
-
-  void _startButtonPulse() {
-    _buttonAnimationController.forward().then((_) {
-      _buttonAnimationController.reverse().then((_) {
-        if (mounted && _isChanged) {
-          Future.delayed(const Duration(seconds: 2), () {
-            _startButtonPulse();
-          });
-        }
-      });
-    });
+    _initializeData();
   }
 
   @override
   void dispose() {
-    _buttonAnimationController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  bool _isChanged = false;
+  void _initializeData() {
+    isOwner = widget.scheduleProvider.schedule?['uid'] == FirebaseAuth.instance.currentUser!.uid;
+    _loadMembers();
+  }
 
-  _pointListener(event) {
-    final pos = event.position;
-    final box = context.findRenderObject() as RenderBox;
-    final local = box.globalToLocal(pos);
+  void _loadMembers() {
+    final allMembers = widget.scheduleProvider.getAllMembers();
 
-    const threshold = 120; // 스크롤 영역 확장
-    const speed = 15.0; // 스크롤 속도 증가
-    if (local.dy < threshold) {
-      final factor = 1.0 - (local.dy / threshold); // 위치에 따른 가속도
-      _scrollController.jumpTo(_scrollController.offset - (speed * factor));
-    } else if (local.dy > box.size.height - threshold) {
-      final factor = (local.dy - (box.size.height - threshold)) / threshold;
-      _scrollController.jumpTo(_scrollController.offset + (speed * factor));
+    if (allMembers.isEmpty) return;
+
+    // 모든 멤버가 memberIndex를 가지고 있는지 확인
+    final hasAllIndexes = allMembers.values.every((member) =>
+    member['memberIndex'] != null && member['memberIndex'] > 0);
+
+    if (!hasAllIndexes) return;
+
+    members = allMembers.entries
+        .map((e) => Map<String, dynamic>.from(e.value))
+        .toList();
+
+    members.sort((a, b) => (a['memberIndex'] as int).compareTo(b['memberIndex'] as int));
+
+    if (mounted) {
+      setState(() {});
     }
   }
 
-  void _changedCheck() {
+  void _pointListener(PointerMoveEvent event) {
+    if (!isOwner) return;
+
+    final pos = event.position;
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) return;
+
+    final local = box.globalToLocal(pos);
+    const threshold = 120.0;
+    const speed = 15.0;
+
+    if (local.dy < threshold) {
+      final factor = 1.0 - (local.dy / threshold);
+      final newOffset = (_scrollController.offset - (speed * factor)).clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.jumpTo(newOffset);
+    } else if (local.dy > box.size.height - threshold) {
+      final factor = (local.dy - (box.size.height - threshold)) / threshold;
+      final newOffset = (_scrollController.offset + (speed * factor)).clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.jumpTo(newOffset);
+    }
+  }
+
+  void _checkChanges() {
     bool changed = false;
     for (var i = 0; i < members.length; i++) {
       if (members[i]['memberIndex'] != (i + 1)) {
@@ -95,14 +87,54 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> with SingleTi
     }
 
     if (changed != _isChanged) {
-      setState(() {
-        _isChanged = changed;
-      });
+      _isChanged = changed;
+      if (mounted) {
+        setState(() {});
+      }
 
       if (_isChanged) {
-        HapticFeedback.mediumImpact(); // 변경 감지 시 햅틱 피드백
-        _startButtonPulse(); // 변경되었을 때 애니메이션 시작
+        HapticFeedback.mediumImpact();
       }
+    }
+  }
+
+  Future<void> _handleButtonPress() async {
+    if (!mounted) return;
+
+    HapticFeedback.mediumImpact();
+
+    if (_isChanged) {
+      final res = await widget.scheduleProvider.updateMemberIndex(members);
+      if (res?.statusCode == 200) {
+        _isChanged = false;
+        if (mounted) {
+          setState(() {});
+        }
+        SnackBarManager.showCleanSnackBar(context, '성공적으로 순서공개가 되었어요');
+      } else {
+        SnackBarManager.showCleanSnackBar(context, '순서공개에 실패했어요', icon: Icons.warning_amber);
+      }
+    } else {
+      DialogManager.showBasicDialog(
+          title: '해당 순서로 게임을 만들게요',
+          content: '게임을 만든 후에는 순서 변경이 불가해요',
+          confirmText: '네! 진행해주세요',
+          onConfirm: () => widget.scheduleProvider.createGameTable(),
+          cancelText: '음.. 잠시만요'
+      );
+    }
+  }
+
+  void _onDragAccept(int fromIndex, int toIndex) {
+    if (fromIndex == toIndex || !mounted) return;
+
+    final fromItem = members.removeAt(fromIndex);
+    members.insert(toIndex, fromItem);
+    _checkChanges();
+    HapticFeedback.lightImpact();
+
+    if (mounted) {
+      setState(() {});
     }
   }
 
@@ -110,10 +142,12 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> with SingleTi
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    if (widget.scheduleProvider.scheduleMembers!.values.where((e) => e['memberIndex'] == null).isNotEmpty) {
-      return const Center(
-        child: NadalCircular(),
-      );
+    // 데이터 로딩 확인
+    if (members.isEmpty) {
+      _loadMembers();
+      if (members.isEmpty) {
+        return const Center(child: NadalCircular());
+      }
     }
 
     return Column(
@@ -123,7 +157,7 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> with SingleTi
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.w),
             child: Container(
-              padding:  EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
               decoration: BoxDecoration(
                 color: _isChanged
                     ? theme.colorScheme.secondary.withValues(alpha: 0.1)
@@ -171,102 +205,77 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> with SingleTi
         // 멤버 목록
         Expanded(
           child: Listener(
-            onPointerMove: (event) {
-              if (isOwner) {
-                _pointListener(event);
-              }
-            },
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: ListView.separated(
-                controller: _scrollController,
-                padding:  EdgeInsets.symmetric(vertical: 8.h),
-                itemCount: members.length,
-                separatorBuilder: (context, index) => SizedBox(height: 2.h,),
-                itemBuilder: (context, index) {
-                  return IgnorePointer(
-                    ignoring: !isOwner || widget.scheduleProvider.schedule!['state'] != 2,
-                    child: DragTarget<int>(
-                      onWillAcceptWithDetails: (details) => details.data != index,
-                      onAcceptWithDetails: (details) {
-                        setState(() {
-                          final fromIndex = details.data;
-                          final fromItem = members.removeAt(fromIndex);
-                          members.insert(index, fromItem);
-                          _changedCheck();
-                        });
+            onPointerMove: _pointListener,
+            child: ListView.separated(
+              controller: _scrollController,
+              padding: EdgeInsets.symmetric(vertical: 8.h),
+              itemCount: members.length,
+              separatorBuilder: (context, index) => SizedBox(height: 2.h),
+              itemBuilder: (context, index) {
+                final member = members[index];
+                final isWalkOver = widget.scheduleProvider.isWalkOverMember(member['uid']);
 
-                        // 드래그 완료 시 햅틱 피드백
-                        HapticFeedback.lightImpact();
-                      },
-                      builder: (context, candidateData, rejectedData) {
-                        final isDragTarget = candidateData.isNotEmpty;
+                return IgnorePointer(
+                  ignoring: !isOwner || widget.scheduleProvider.schedule!['state'] != 2,
+                  child: DragTarget<int>(
+                    onWillAcceptWithDetails: (details) => details.data != index,
+                    onAcceptWithDetails: (details) => _onDragAccept(details.data, index),
+                    builder: (context, candidateData, rejectedData) {
+                      final isDragTarget = candidateData.isNotEmpty;
 
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          decoration: BoxDecoration(
-                            color: isDragTarget
-                                ? theme.colorScheme.primary.withValues(alpha: 0.08)
-                                : Colors.transparent,
-                          ),
-                          child: LongPressDraggable<int>(
-                            data: index,
-                            onDragStarted: () {
-                              // 드래그 시작 시 햅틱 피드백
-                              HapticFeedback.mediumImpact();
-                            },
-                            feedback: Material(
-                              elevation: 8,
-                              color: Colors.transparent,
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                width: MediaQuery.of(context).size.width - 60,
-                                decoration: BoxDecoration(
-                                  color: theme.cardColor,
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: theme.colorScheme.primary.withValues(alpha: 0.2),
-                                      blurRadius: 10,
-                                      spreadRadius: 1,
-                                    ),
-                                  ],
-                                ),
-                                child: NadalSoloCard(
-                                  isDragging: true,
-                                  user: members[index],
-                                  index: index,
-                                ),
-                              ),
-                            ),
-                            childWhenDragging: Container(
-                              height: 70.h,
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: isDragTarget
+                              ? theme.colorScheme.primary.withValues(alpha: 0.08)
+                              : Colors.transparent,
+                        ),
+                        child: LongPressDraggable<int>(
+                          data: index,
+                          onDragStarted: () => HapticFeedback.mediumImpact(),
+                          feedback: Material(
+                            elevation: 8,
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              width: MediaQuery.of(context).size.width - 60,
                               decoration: BoxDecoration(
-                                color: theme.colorScheme.primary.withValues(alpha: 0.05),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                                  width: 1,
-                                  style: BorderStyle.solid,
-                                ),
+                                color: theme.cardColor,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                                    blurRadius: 10,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
                               ),
-                              margin: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
-                              child: Center(
-                                child: Icon(
-                                  Icons.swap_vert_rounded,
-                                  color: theme.colorScheme.primary.withValues(alpha: 0.4),
-                                  size: 24.r,
-                                ),
+                              child: _buildMemberCard(member, index, true, isWalkOver),
+                            ),
+                          ),
+                          childWhenDragging: Container(
+                            height: 70.h,
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                                width: 1,
                               ),
                             ),
-                            child: isOwner
-                                ? Stack(
-                              children: [
-                                NadalSoloCard(
-                                  isDragging: false,
-                                  user: members[index],
-                                  index: index,
-                                ),
+                            margin: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+                            child: Center(
+                              child: Icon(
+                                Icons.swap_vert_rounded,
+                                color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                                size: 24.r,
+                              ),
+                            ),
+                          ),
+                          child: isOwner
+                              ? Stack(
+                            children: [
+                              _buildMemberCard(member, index, false, isWalkOver),
+                              if (!isWalkOver)
                                 Positioned(
                                   right: 20.w,
                                   top: 0,
@@ -279,20 +288,15 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> with SingleTi
                                     ),
                                   ),
                                 ),
-                              ],
-                            )
-                                : NadalSoloCard(
-                              isDragging: false,
-                              user: members[index],
-                              index: index,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  );
-                },
-              ),
+                            ],
+                          )
+                              : _buildMemberCard(member, index, false, isWalkOver),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
             ),
           ),
         ),
@@ -303,66 +307,109 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> with SingleTi
         if (isOwner && widget.scheduleProvider.schedule?['state'] == 2)
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-            child: ScaleTransition(
-              scale: _buttonScaleAnimation,
-              child: SizedBox(
-                width: double.infinity,
-                height: 52.h,
-                child: ElevatedButton(
-                  onPressed: () async{
-                    HapticFeedback.mediumImpact();
-                    if (_isChanged) {
-                      final res = await widget.scheduleProvider.updateMemberIndex(members);
-                      if(res?.statusCode == 200){
-                        setState(() {
-                          _isChanged = false;
-                        });
-                        SnackBarManager.showCleanSnackBar(context, '성공적으로 순서공개가 되었어요');
-                      }else{
-                        SnackBarManager.showCleanSnackBar(context, '순서공개에 실패했어요', icon: Icons.warning_amber);
-                      }
-                    } else {
-                      DialogManager.showBasicDialog(title: '해당 순서로 게임을 만들게요', content: '게임을 만든 후에는 순서 변경이 불가해요',
-                          confirmText: '네! 진행해주세요', onConfirm: ()=> widget.scheduleProvider.createGameTable(), cancelText: '음.. 잠시만요');
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _isChanged
-                        ? theme.colorScheme.secondary
-                        : theme.colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    elevation: 4,
-                    shadowColor: _isChanged
-                        ? theme.colorScheme.secondary.withValues(alpha: 0.4)
-                        : theme.colorScheme.primary.withValues(alpha: 0.4),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+            child: SizedBox(
+              width: double.infinity,
+              height: 52.h,
+              child: ElevatedButton(
+                onPressed: _handleButtonPress,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _isChanged
+                      ? theme.colorScheme.secondary
+                      : theme.colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 4,
+                  shadowColor: _isChanged
+                      ? theme.colorScheme.secondary.withValues(alpha: 0.4)
+                      : theme.colorScheme.primary.withValues(alpha: 0.4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _isChanged
+                          ? Icons.published_with_changes_rounded
+                          : Icons.check_circle_rounded,
+                      size: 20.r,
                     ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        _isChanged
-                            ? Icons.published_with_changes_rounded
-                            : Icons.check_circle_rounded,
-                        size: 20.r,
+                    const SizedBox(width: 8),
+                    Text(
+                      _isChanged ? '순서 공개하기' : '게임 진행',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _isChanged ? '순서 공개하기' : '게임 진행',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildMemberCard(Map<String, dynamic> member, int index, bool isDragging, bool isWalkOver) {
+    final theme = Theme.of(context);
+
+    if (isWalkOver) {
+      return Container(
+        margin: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.error.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: theme.colorScheme.error.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34.r,
+              height: 34.r,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.error.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '${index + 1}',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.error,
+                  fontSize: 14.sp,
+                ),
+              ),
+            ),
+            SizedBox(width: 16.w),
+            Icon(
+              Icons.person_off_rounded,
+              color: theme.colorScheme.error,
+              size: 24.r,
+            ),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: Text(
+                '부전승',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return NadalSoloCard(
+      isDragging: isDragging,
+      user: member,
+      index: index,
     );
   }
 }
