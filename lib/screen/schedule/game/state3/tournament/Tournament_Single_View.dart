@@ -93,7 +93,10 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
 
       if (roundTables.isEmpty) continue;
 
-      final allCompleted = roundTables.every((table) =>
+      // 부전승 테이블 자동 완료 처리
+      final nonByeTables = roundTables.where((table) => !_isAutoWinTable(table)).toList();
+
+      final allCompleted = nonByeTables.every((table) =>
       table['score1'] == currentFinalScore || table['score2'] == currentFinalScore);
 
       if (!allCompleted) {
@@ -147,8 +150,31 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
       return true;
     }
 
-    // 부전승 플레이어가 포함된 경우
-    return _isPlayerBye(player1Id) || _isPlayerBye(player2Id);
+    // 첫 라운드에서만 부전승 플레이어 체크
+    final round = gameData['tableId'] ~/ 1000;
+    if (round == 1) {
+      return _isPlayerBye(player1Id) || _isPlayerBye(player2Id);
+    }
+
+    return false;
+  }
+
+  // 자동 승리 테이블인지 확인 (부전승 포함)
+  bool _isAutoWinTable(Map gameData) {
+    final player1Id = gameData['player1_0'];
+    final player2Id = gameData['player2_0'];
+    final round = gameData['tableId'] ~/ 1000;
+
+    // 첫 라운드에서만 부전승 체크
+    if (round == 1) {
+      if (player1Id == null || player1Id == '' || player2Id == null || player2Id == '') {
+        return true;
+      }
+      return _isPlayerBye(player1Id) || _isPlayerBye(player2Id);
+    }
+
+    // 다른 라운드에서는 플레이어가 없는 경우만
+    return player1Id == null || player1Id == '' || player2Id == null || player2Id == '';
   }
 
   @override
@@ -274,6 +300,7 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
 
                                   final game = roundTables[index];
                                   final isWalkOverGame = _isWalkOver(game);
+                                  final gameRound = game['tableId'] ~/ 1000;
 
                                   return AbsorbPointer(
                                     absorbing: round + 1 != _currentRound,
@@ -304,6 +331,11 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                                         ? InkWell(
                                                       borderRadius: BorderRadius.circular(12.r),
                                                       onTap: isWalkOverGame ? null : () async {
+                                                        // 부전승 플레이어는 점수 입력 불가
+                                                        if (gameRound == 1 && _isPlayerBye(game['player1_0'])) {
+                                                          return;
+                                                        }
+
                                                         final score1 = await GameManager.scoreInput(finalScore, game['score1']);
 
                                                         if (score1 == game['score1']) {
@@ -320,21 +352,23 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                                           child: Row(
                                                             children: [
                                                               Expanded(child: _playerCard(game['player1_0'], game)),
-                                                              Container(
-                                                                padding: EdgeInsets.all(5.r),
-                                                                decoration: BoxDecoration(
-                                                                  shape: BoxShape.circle,
-                                                                  color: theme.colorScheme.secondary,
-                                                                ),
-                                                                child: Text(
-                                                                  '${game['score1']}',
-                                                                  style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w900, color: theme.colorScheme.onSecondary),
-                                                                ),
-                                                              )
+                                                              // 부전승이 아닐 때만 점수 표시
+                                                              if (!(gameRound == 1 && _isPlayerBye(game['player1_0'])))
+                                                                Container(
+                                                                  padding: EdgeInsets.all(5.r),
+                                                                  decoration: BoxDecoration(
+                                                                    shape: BoxShape.circle,
+                                                                    color: theme.colorScheme.secondary,
+                                                                  ),
+                                                                  child: Text(
+                                                                    '${game['score1']}',
+                                                                    style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w900, color: theme.colorScheme.onSecondary),
+                                                                  ),
+                                                                )
                                                             ],
                                                           )),
                                                     )
-                                                        : WalkOverCard()),
+                                                        : gameRound == 1 ? WalkOverCard() : WaitPreRound()),
                                               ),
                                               Expanded(
                                                 child: Container(
@@ -383,6 +417,11 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                                         ? InkWell(
                                                       borderRadius: BorderRadius.circular(12.r),
                                                       onTap: isWalkOverGame ? null : () async {
+                                                        // 부전승 플레이어는 점수 입력 불가
+                                                        if (gameRound == 1 && _isPlayerBye(game['player2_0'])) {
+                                                          return;
+                                                        }
+
                                                         final score2 = await GameManager.scoreInput(finalScore, game['score2']);
 
                                                         if (score2 == game['score2']) {
@@ -399,21 +438,23 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                                                           child: Row(
                                                             children: [
                                                               Expanded(child: _playerCard(game['player2_0'], game)),
-                                                              Container(
-                                                                padding: EdgeInsets.all(5.r),
-                                                                decoration: BoxDecoration(
-                                                                  shape: BoxShape.circle,
-                                                                  color: theme.colorScheme.secondary,
-                                                                ),
-                                                                child: Text(
-                                                                  '${game['score2']}',
-                                                                  style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w900, color: theme.colorScheme.onSecondary),
-                                                                ),
-                                                              )
+                                                              // 부전승이 아닐 때만 점수 표시
+                                                              if (!(gameRound == 1 && _isPlayerBye(game['player2_0'])))
+                                                                Container(
+                                                                  padding: EdgeInsets.all(5.r),
+                                                                  decoration: BoxDecoration(
+                                                                    shape: BoxShape.circle,
+                                                                    color: theme.colorScheme.secondary,
+                                                                  ),
+                                                                  child: Text(
+                                                                    '${game['score2']}',
+                                                                    style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w900, color: theme.colorScheme.onSecondary),
+                                                                  ),
+                                                                )
                                                             ],
                                                           )),
                                                     )
-                                                        : WalkOverCard()),
+                                                        : gameRound == 1 ? WalkOverCard() : WaitPreRound()),
                                               ),
                                               Expanded(
                                                 child: Container(
@@ -452,7 +493,11 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
             NadalButton(
               onPressed: () {
                 final currentRoundGame = gameTable.where((element) => element['tableId'] ~/ 1000 == _currentRound);
-                final isEnd = currentRoundGame
+
+                // 부전승이 아닌 실제 게임만 체크
+                final realGames = currentRoundGame.where((element) => !_isAutoWinTable(element));
+
+                final isEnd = realGames
                     .where((element) =>
                 (element['score1'] != finalScore && element['score2'] != finalScore) ||
                     (element['score1'] == finalScore && element['score1'] == element['score2']))
@@ -493,10 +538,11 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
   }
 
   String _getRoundName(int round) {
-    final scheduleMembers = widget.scheduleProvider.scheduleMembers;
-    if (scheduleMembers == null) return '라운드 $round';
+    // totalSlots 기반으로 강 수 계산 (2의 제곱수)
+    final totalSlots = widget.scheduleProvider.totalSlots;
+    if (totalSlots <= 0) return '라운드 $round';
 
-    final num = scheduleMembers.length ~/ pow(2, round - 1);
+    final num = totalSlots ~/ pow(2, round - 1);
     return num == 2
         ? '결승'
         : num == 4
@@ -510,8 +556,22 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
     return Builder(builder: (context) {
       final theme = Theme.of(context);
       final scheduleMembers = widget.scheduleProvider.scheduleMembers;
+      final gameRound = game['tableId'] ~/ 1000;
 
       if (uid == null || uid.isEmpty || scheduleMembers == null || !scheduleMembers.containsKey(uid)) {
+        // 첫 라운드가 아니면 "대기 중" 표시
+        if (gameRound > 1) {
+          return Center(
+            child: Text(
+              '대기 중',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.hintColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          );
+        }
+        // 첫 라운드에서만 "부전승" 표시
         return Center(
           child: Text(
             '부전승',
@@ -524,7 +584,7 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
       }
 
       final player = scheduleMembers[uid];
-      final isByePlayer = _isPlayerBye(uid);
+      final isByePlayer = gameRound == 1 && _isPlayerBye(uid); // 첫 라운드에서만 부전승 체크
 
       return Padding(
           padding: EdgeInsets.all(12.r),
