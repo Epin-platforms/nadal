@@ -633,6 +633,7 @@ class ScheduleProvider extends ChangeNotifier {
         default:
           throw Exception('알 수 없는 게임 타입');
       }
+
       await serverManager.post(
           'game/createTable/$route', data: {'scheduleId': _scheduleId});
     } catch (e) {

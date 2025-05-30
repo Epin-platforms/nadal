@@ -512,14 +512,12 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
       final scheduleMembers = widget.scheduleProvider.scheduleMembers;
 
       if (uid == null || uid.isEmpty || scheduleMembers == null || !scheduleMembers.containsKey(uid)) {
-        return Container(
-          child: Center(
-            child: Text(
-              '부전승',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.error,
-                fontWeight: FontWeight.w600,
-              ),
+        return Center(
+          child: Text(
+            '부전승',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.error,
+              fontWeight: FontWeight.w600,
             ),
           ),
         );

@@ -133,6 +133,24 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
     }
   }
 
+  bool _isPlayerBye(String? playerId) {
+    if (playerId == null || playerId.isEmpty) return false;
+    return widget.scheduleProvider.byePlayers.contains(playerId);
+  }
+
+  bool _isWalkOver(Map gameData) {
+    final player1Id = gameData['player1_0'];
+    final player2Id = gameData['player2_0'];
+
+    // 한 쪽이 null이거나 빈 문자열인 경우
+    if (player1Id == null || player1Id == '' || player2Id == null || player2Id == '') {
+      return true;
+    }
+
+    // 부전승 플레이어가 포함된 경우
+    return _isPlayerBye(player1Id) || _isPlayerBye(player2Id);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -162,7 +180,7 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
                   constrained: false,
                   minScale: 0.1,
                   maxScale: 2.5,
-                  boundaryMargin: const EdgeInsets.all(100),
+                  boundaryMargin: EdgeInsets.all(100.r),
                   child: IntrinsicHeight(
                     child: Row(
                       children: List.generate(_roundList.length + 1, (round) {
@@ -170,17 +188,17 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
                         return AbsorbPointer(
                           absorbing: !isProgress,
                           child: SizedBox(
-                            width: 240,
+                            width: 240.w,
                             child: Column(
                               children: [
                                 SizedBox(
-                                  height: 60,
+                                  height: 60.h,
                                   child: Center(
                                     child: ChoiceChip(
                                       label: Text(
                                         _getRoundName(round + 1),
                                         style: TextStyle(
-                                          fontSize: 13,
+                                          fontSize: 13.sp,
                                           fontWeight: FontWeight.w700,
                                           color: _currentRound == round + 1 ? Colors.white : theme.colorScheme.primary,
                                         ),
@@ -190,7 +208,7 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
                                       backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
                                       avatarBorder: CircleBorder(),
                                       avatar: _currentRound == round + 1
-                                          ? Icon(Icons.check_circle, color: theme.colorScheme.onPrimary, size: 16)
+                                          ? Icon(Icons.check_circle, color: theme.colorScheme.onPrimary, size: 16.r)
                                           : null,
                                       onSelected: (_) {},
                                     ),
@@ -212,18 +230,18 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
                                       child: Align(
                                         alignment: Alignment.centerLeft,
                                         child: Container(
-                                            height: 120,
-                                            width: 200,
+                                            height: 120.h,
+                                            width: 200.w,
                                             decoration: BoxDecoration(
                                                 color: finalGame['score1'] == finalScore || finalGame['score2'] == finalScore ? theme.scaffoldBackgroundColor : theme.highlightColor,
-                                                borderRadius: BorderRadius.circular(15),
+                                                borderRadius: BorderRadius.circular(15.r),
                                                 boxShadow: [
                                                   if (finalGame['score1'] == finalScore || finalGame['score2'] == finalScore)
                                                     BoxShadow(color: theme.highlightColor, blurRadius: 10, spreadRadius: 0)
                                                 ]),
                                             child: finalGame['score1'] == finalScore || finalGame['score2'] == finalScore
                                                 ? Padding(
-                                                padding: EdgeInsets.all(12),
+                                                padding: EdgeInsets.all(12.r),
                                                 child: Row(
                                                   children: [
                                                     Expanded(
@@ -234,13 +252,13 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
                                                             finalGame)),
                                                     Container(
                                                       decoration: BoxDecoration(
-                                                        borderRadius: BorderRadius.circular(15),
+                                                        borderRadius: BorderRadius.circular(15.r),
                                                         color: const Color(0xFFFFD700),
                                                       ),
-                                                      padding: EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                                                      padding: EdgeInsets.symmetric(vertical: 4.h, horizontal: 6.w),
                                                       child: Text(
                                                         'WIN',
-                                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: const Color(0xffffffff)),
+                                                        style: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.w500, color: const Color(0xffffffff)),
                                                       ),
                                                     ),
                                                   ],
@@ -255,6 +273,8 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
                                   }
 
                                   final game = roundTables[index];
+                                  final isWalkOverGame = _isWalkOver(game);
+
                                   return AbsorbPointer(
                                     absorbing: round + 1 != _currentRound,
                                     child: Column(
@@ -266,24 +286,24 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
                                             children: [
                                               Center(
                                                 child: Container(
-                                                    height: 120,
-                                                    width: 200,
+                                                    height: 120.h,
+                                                    width: 200.w,
                                                     decoration: BoxDecoration(
-                                                        color: game['player1_0'] != null ? theme.scaffoldBackgroundColor : theme.highlightColor,
-                                                        borderRadius: BorderRadius.circular(12),
+                                                        color: game['player1_0'] != null && game['player1_0'] != '' ? theme.scaffoldBackgroundColor : theme.highlightColor,
+                                                        borderRadius: BorderRadius.circular(12.r),
                                                         border: game['score1'] == finalScore || game['score2'] == finalScore
                                                             ? game['score1'] == finalScore
                                                             ? Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.5), width: 2)
                                                             : Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.2), width: 2)
                                                             : Border.all(color: theme.highlightColor, width: 2),
                                                         boxShadow: [
-                                                          if (game['player1_0'] != null)
+                                                          if (game['player1_0'] != null && game['player1_0'] != '')
                                                             BoxShadow(color: theme.highlightColor, blurRadius: 10, spreadRadius: 0)
                                                         ]),
-                                                    child: game['player1_0'] != null
+                                                    child: game['player1_0'] != null && game['player1_0'] != ''
                                                         ? InkWell(
-                                                      borderRadius: BorderRadius.circular(12),
-                                                      onTap: () async {
+                                                      borderRadius: BorderRadius.circular(12.r),
+                                                      onTap: isWalkOverGame ? null : () async {
                                                         final score1 = await GameManager.scoreInput(finalScore, game['score1']);
 
                                                         if (score1 == game['score1']) {
@@ -296,27 +316,25 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
                                                         }
                                                       },
                                                       child: Padding(
-                                                          padding: EdgeInsets.all(12),
+                                                          padding: EdgeInsets.all(12.r),
                                                           child: Row(
                                                             children: [
                                                               Expanded(child: _teamCard([game['player1_0'], game['player1_1']], game)),
                                                               Container(
-                                                                padding: EdgeInsets.all(5),
+                                                                padding: EdgeInsets.all(5.r),
                                                                 decoration: BoxDecoration(
                                                                   shape: BoxShape.circle,
                                                                   color: theme.colorScheme.secondary,
                                                                 ),
                                                                 child: Text(
                                                                   '${game['score1']}',
-                                                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: theme.colorScheme.onSecondary),
+                                                                  style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w900, color: theme.colorScheme.onSecondary),
                                                                 ),
                                                               )
                                                             ],
                                                           )),
                                                     )
-                                                        : game['overWalk'] == true
-                                                        ? WalkOverCard()
-                                                        : WaitPreRound()),
+                                                        : WalkOverCard()),
                                               ),
                                               Expanded(
                                                 child: Container(
@@ -332,7 +350,7 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
                                               ),
                                               Container(
                                                 height: 1.25,
-                                                width: 15,
+                                                width: 15.w,
                                                 color: game['score1'] == finalScore || game['score2'] == finalScore
                                                     ? theme.colorScheme.primary.withValues(alpha: 0.7)
                                                     : theme.highlightColor,
@@ -347,24 +365,24 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
                                             children: [
                                               Center(
                                                 child: Container(
-                                                    height: 120,
-                                                    width: 200,
+                                                    height: 120.h,
+                                                    width: 200.w,
                                                     decoration: BoxDecoration(
-                                                        color: game['player2_0'] != null ? theme.scaffoldBackgroundColor : theme.highlightColor,
-                                                        borderRadius: BorderRadius.circular(15),
+                                                        color: game['player2_0'] != null && game['player2_0'] != '' ? theme.scaffoldBackgroundColor : theme.highlightColor,
+                                                        borderRadius: BorderRadius.circular(15.r),
                                                         border: game['score1'] == finalScore || game['score2'] == finalScore
                                                             ? game['score2'] == finalScore
                                                             ? Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.7), width: 2)
                                                             : Border.all(color: theme.colorScheme.onError.withValues(alpha: 0.2), width: 2)
                                                             : Border.all(color: theme.highlightColor, width: 2),
                                                         boxShadow: [
-                                                          if (game['player2_0'] != null)
+                                                          if (game['player2_0'] != null && game['player2_0'] != '')
                                                             BoxShadow(color: theme.highlightColor, blurRadius: 10, spreadRadius: 0)
                                                         ]),
-                                                    child: game['player2_0'] != null
+                                                    child: game['player2_0'] != null && game['player2_0'] != ''
                                                         ? InkWell(
-                                                      borderRadius: BorderRadius.circular(12),
-                                                      onTap: () async {
+                                                      borderRadius: BorderRadius.circular(12.r),
+                                                      onTap: isWalkOverGame ? null : () async {
                                                         final score2 = await GameManager.scoreInput(finalScore, game['score2']);
 
                                                         if (score2 == game['score2']) {
@@ -377,27 +395,25 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
                                                         }
                                                       },
                                                       child: Padding(
-                                                          padding: EdgeInsets.all(12),
+                                                          padding: EdgeInsets.all(12.r),
                                                           child: Row(
                                                             children: [
                                                               Expanded(child: _teamCard([game['player2_0'], game['player2_1']], game)),
                                                               Container(
-                                                                padding: EdgeInsets.all(5),
+                                                                padding: EdgeInsets.all(5.r),
                                                                 decoration: BoxDecoration(
                                                                   shape: BoxShape.circle,
                                                                   color: theme.colorScheme.secondary,
                                                                 ),
                                                                 child: Text(
                                                                   '${game['score2']}',
-                                                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: theme.colorScheme.onSecondary),
+                                                                  style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w900, color: theme.colorScheme.onSecondary),
                                                                 ),
                                                               )
                                                             ],
                                                           )),
                                                     )
-                                                        : game['overWalk'] == true
-                                                        ? WalkOverCard()
-                                                        : WaitPreRound()),
+                                                        : WalkOverCard()),
                                               ),
                                               Expanded(
                                                 child: Container(
@@ -413,7 +429,7 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
                                               ),
                                               Container(
                                                 height: 1.25,
-                                                width: 15,
+                                                width: 15.w,
                                                 color: game['score1'] == finalScore || game['score2'] == finalScore
                                                     ? theme.colorScheme.primary.withValues(alpha: 0.7)
                                                     : theme.highlightColor,
@@ -477,11 +493,9 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
   }
 
   String _getRoundName(int round) {
-    final scheduleMembers = widget.scheduleProvider.scheduleMembers;
-    if (scheduleMembers == null) return '라운드 $round';
+    final teamCount = widget.scheduleProvider.getTeamCount();
+    if (teamCount <= 0) return '라운드 $round';
 
-    final membersCount = scheduleMembers.length;
-    final teamCount = (membersCount / 2).ceil();
     final num = teamCount ~/ pow(2, round - 1);
     return num == 2
         ? '결승'
@@ -504,40 +518,56 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
       final validUids = uids.where((uid) => uid != null && uid.isNotEmpty && scheduleMembers.containsKey(uid)).toList();
 
       if (validUids.isEmpty) {
-        return const Center(child: Text('팀 정보 없음'));
+        return Center(
+          child: Text(
+            '부전승',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.error,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        );
       }
 
       final members = validUids.map((uid) => scheduleMembers[uid!]).toList();
       final teamIndex = members.first['memberIndex'];
       final teamName = members.first['teamName'] ?? '팀 $teamIndex';
 
+      // 부전승 여부 확인
+      final isByeTeam = validUids.any((uid) => _isPlayerBye(uid));
+
       return Padding(
-          padding: const EdgeInsets.all(6),
+          padding: EdgeInsets.all(6.r),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(4),
+                    padding: EdgeInsets.all(4.r),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.secondary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
+                      color: isByeTeam
+                          ? theme.colorScheme.error.withValues(alpha: 0.1)
+                          : theme.colorScheme.secondary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4.r),
                     ),
                     child: Text(
                       '$teamIndex',
                       style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.secondary,
+                        color: isByeTeam
+                            ? theme.colorScheme.error
+                            : theme.colorScheme.secondary,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8.w),
                   Expanded(
                     child: Text(
-                      teamName,
+                      isByeTeam ? '$teamName (부전승)' : teamName,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
+                        color: isByeTeam ? theme.colorScheme.error : null,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -545,9 +575,9 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: 4.h),
               ...members.map((member) => Padding(
-                padding: const EdgeInsets.only(left: 8, top: 2),
+                padding: EdgeInsets.only(left: 8.w, top: 2.h),
                 child: Text(
                   TextFormManager.profileText(
                     member['nickName'],
@@ -557,7 +587,9 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
                     useNickname: member['useNickname'] == 1,
                   ),
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.hintColor,
+                    color: isByeTeam
+                        ? theme.colorScheme.error.withValues(alpha: 0.7)
+                        : theme.hintColor,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

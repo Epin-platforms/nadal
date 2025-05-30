@@ -1,6 +1,4 @@
 import 'package:flutter/services.dart';
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../../manager/project/Import_Manager.dart';
 import '../widget/Nadal_Solo_Card.dart';
 
@@ -130,7 +128,8 @@ class _TournamentReorderListState extends State<TournamentReorderList> {
   void _checkChanges() {
     var changed = false;
     for (var i = 0; i < slots.length; i++) {
-      if (slots[i]['memberIndex'] != (i + 1)) {
+      // 원래 memberIndex와 현재 위치 비교
+      if (slots[i]['originalIndex'] != (i + 1)) {
         changed = true;
         break;
       }
@@ -164,9 +163,38 @@ class _TournamentReorderListState extends State<TournamentReorderList> {
     return false;
   }
 
+  bool _validateByeSlots() {
+    // 토너먼트 대진에서 연속된 두 슬롯이 모두 부전승인지 확인 (1vs2, 3vs4, 5vs6...)
+    for (int i = 0; i < slots.length; i += 2) {
+      if (i + 1 < slots.length) {
+        final slot1 = slots[i];
+        final slot2 = slots[i + 1];
+
+        final isBye1 = slot1['isBye'] == true;
+        final isBye2 = slot2['isBye'] == true;
+
+        // 연속된 두 슬롯이 모두 부전승이면 안됨
+        if (isBye1 && isBye2) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
   Future<void> _handleButtonPress() async {
     if (!mounted) return;
     HapticFeedback.mediumImpact();
+
+    if (!_validateByeSlots()) {
+      DialogManager.showBasicDialog(
+        title: '순서 조정이 필요해요',
+        content: '연속된 두 슬롯이 모두 부전승일 수 없어요.\n순서를 다시 조정해주세요.',
+        confirmText: '확인',
+      );
+      return;
+    }
+
 
     if (_isChanged) {
       // 변경된 슬롯으로 멤버 인덱스 업데이트
@@ -384,7 +412,7 @@ class _TournamentReorderListState extends State<TournamentReorderList> {
                     feedback: Material(
                       elevation: 8,
                       color: Colors.transparent,
-                      child: Container(
+                      child: SizedBox(
                         width: MediaQuery.of(context).size.width - 60.w,
                         child: isBye
                             ? _buildByeCard(theme, slot, isDragging: true)

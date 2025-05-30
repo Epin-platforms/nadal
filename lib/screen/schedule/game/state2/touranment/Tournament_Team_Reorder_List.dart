@@ -183,9 +183,38 @@ class _TournamentTeamReorderListState
     return false;
   }
 
+  bool _validateByeTeamSlots() {
+    // 토너먼트 대진에서 연속된 두 팀이 모두 부전승인지 확인 (1vs2, 3vs4, 5vs6...)
+    for (int i = 0; i < teamSlots.length; i += 2) {
+      if (i + 1 < teamSlots.length) {
+        final team1 = teamSlots[i];
+        final team2 = teamSlots[i + 1];
+
+        final isBye1 = team1['isBye'] == true;
+        final isBye2 = team2['isBye'] == true;
+
+        // 연속된 두 팀이 모두 부전승이면 안됨
+        if (isBye1 && isBye2) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
   Future<void> _handleButtonPress() async {
     if (!mounted) return;
     HapticFeedback.mediumImpact();
+
+    if (!_validateByeTeamSlots()) {
+      DialogManager.showBasicDialog(
+        title: '팀 순서 조정이 필요해요',
+        content: '연속된 두 팀이 모두 부전승일 수 없어요.\n팀 순서를 다시 조정해주세요.',
+        confirmText: '확인',
+      );
+      return;
+    }
+
 
     if (_isChanged) {
       final res = await widget.scheduleProvider.updateTeamIndex(teamSlots);
