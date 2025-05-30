@@ -70,7 +70,7 @@ class _RoomScheduleState extends State<RoomSchedule> {
                     RoomCalendar(provider: provider,),
                     if(provider.getEventsForDay(provider.selectedDay).isEmpty)
                       SizedBox(
-                        height: 230,
+                        height: 300,
                         child: NadalEmptyList(title: '이 날은 아직 비어 있어요', subtitle: '일정을 하나 추가해볼까요?', onAction: () async{
                           final date = provider.selectedDay;
                           final roomId = provider.roomId;

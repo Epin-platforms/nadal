@@ -12,8 +12,8 @@ class NadalSoloCard extends StatelessWidget {
 
     return Container(
       width: MediaQuery.of(context).size.width,
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin:  EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+      padding:  EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(12),
@@ -31,10 +31,10 @@ class NadalSoloCard extends StatelessWidget {
         children: [
           // 순서 번호
           Container(
-            width: 34,
-            height: 34,
+            width: 34.r,
+            height: 34.r,
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.9),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.9),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: theme.colorScheme.outline.withValues(alpha: 0.4),
@@ -43,16 +43,18 @@ class NadalSoloCard extends StatelessWidget {
             ),
             alignment: Alignment.center,
             child: Text(
-              '${index + 1}',
+              '${
+                  user['memberIndex'] ??
+                  index + 1}',
               style: theme.textTheme.labelMedium?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: theme.colorScheme.onSurfaceVariant,
-                fontSize: 14,
+                fontSize: 14.sp,
               ),
             ),
           ),
 
-          const SizedBox(width: 16),
+          SizedBox(width: 16.w),
 
           // 프로필
           Container(
@@ -65,11 +67,11 @@ class NadalSoloCard extends StatelessWidget {
             ),
             child: NadalProfileFrame(
               imageUrl: user['profileImage'],
-              size: 40,
+              size: 40.r,
             ),
           ),
 
-          const SizedBox(width: 12),
+          SizedBox(width: 12.w),
 
           // 이름 or 닉네임
           Expanded(
@@ -87,7 +89,7 @@ class NadalSoloCard extends StatelessWidget {
                   ),
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
-                    fontSize: 15,
+                    fontSize: 15.sp,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -95,11 +97,11 @@ class NadalSoloCard extends StatelessWidget {
 
                 if (user['teamName'] != null) // 팀명이 있다면
                   Padding(
-                    padding: const EdgeInsets.only(top: 2),
+                    padding: EdgeInsets.only(top: 2.h),
                     child: Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
                           decoration: BoxDecoration(
                             color: theme.colorScheme.primary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
@@ -109,7 +111,7 @@ class NadalSoloCard extends StatelessWidget {
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: theme.colorScheme.primary,
                               fontWeight: FontWeight.w500,
-                              fontSize: 11,
+                              fontSize: 11.sp,
                             ),
                           ),
                         ),

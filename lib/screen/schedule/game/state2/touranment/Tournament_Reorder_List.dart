@@ -1,11 +1,13 @@
 import 'package:flutter/services.dart';
-
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../../manager/project/Import_Manager.dart';
 import '../widget/Nadal_Solo_Card.dart';
 
 class TournamentReorderList extends StatefulWidget {
   const TournamentReorderList({super.key, required this.scheduleProvider});
   final ScheduleProvider scheduleProvider;
+
   @override
   State<TournamentReorderList> createState() => _TournamentReorderListState();
 }
@@ -30,113 +32,132 @@ class _TournamentReorderListState extends State<TournamentReorderList> {
   }
 
   void _initializeData() {
-    isOwner = widget.scheduleProvider.schedule?['uid'] == FirebaseAuth.instance.currentUser!.uid;
+    isOwner = widget.scheduleProvider.schedule?['uid'] ==
+        FirebaseAuth.instance.currentUser!.uid;
     _loadMembers();
   }
 
   void _loadMembers() {
-    final allMembers = widget.scheduleProvider.getAllMembers();
-
-    if (allMembers.isEmpty) return;
+    final map = widget.scheduleProvider.scheduleMembers;
+    if (map == null || map.isEmpty) return;
 
     // 모든 멤버가 memberIndex를 가지고 있는지 확인
-    final hasAllIndexes = allMembers.values.every((member) =>
-    member['memberIndex'] != null && member['memberIndex'] > 0);
-
+    final hasAllIndexes = map.values.every((m) =>
+    m['memberIndex'] != null &&
+        m['memberIndex'] is int &&
+        (m['memberIndex'] as int) > 0);
     if (!hasAllIndexes) return;
 
-    members = allMembers.entries
-        .map((e) => Map<String, dynamic>.from(e.value))
-        .toList();
+    // 토너먼트 여부에 따라 리스트 생성
+    if (!widget.scheduleProvider.isGameSchedule ||
+        (widget.scheduleProvider.gameType != GameType.tourSingle &&
+            widget.scheduleProvider.gameType != GameType.tourDouble)) {
+      // 일반 스케줄: memberIndex 순서대로만 정렬
+      members = map.values
+          .map((m) => Map<String, dynamic>.from(m))
+          .toList()
+        ..sort((a, b) => (a['memberIndex'] as int)
+            .compareTo(b['memberIndex'] as int));
+    } else {
+      // 토너먼트: totalSlots 길이만큼 고정, 빈 슬롯엔 bye slot
+      final slots = widget.scheduleProvider.totalSlots;
+      final byeSet = widget.scheduleProvider.byePlayers.toSet();
 
-    members.sort((a, b) => (a['memberIndex'] as int).compareTo(b['memberIndex'] as int));
+      // index → member 매핑
+      final idxToMember = <int, Map<String, dynamic>>{};
+      for (var m in map.values) {
+        final idx = m['memberIndex'] as int;
+        idxToMember[idx] = Map<String, dynamic>.from(m);
+      }
 
-    if (mounted) {
-      setState(() {});
+      members = List.generate(slots, (i) {
+        final idx = i + 1;
+        if (idxToMember.containsKey(idx)) {
+          final member = idxToMember[idx]!;
+          member['isBye'] = byeSet.contains(member['uid']);
+          return member;
+        } else {
+          return {
+            'memberIndex': idx,
+            'isBye': true,
+            // uid/name 등은 없으므로 화면에서 빈 슬롯으로 처리하세요
+          };
+        }
+      });
     }
+
+    if (mounted) setState(() {});
   }
 
   void _pointListener(PointerMoveEvent event) {
     if (!isOwner) return;
-
-    final pos = event.position;
     final box = context.findRenderObject() as RenderBox?;
     if (box == null) return;
-
-    final local = box.globalToLocal(pos);
+    final local = box.globalToLocal(event.position);
     const threshold = 120.0;
     const speed = 15.0;
 
     if (local.dy < threshold) {
       final factor = 1.0 - (local.dy / threshold);
-      final newOffset = (_scrollController.offset - (speed * factor)).clamp(0.0, _scrollController.position.maxScrollExtent);
+      final newOffset = (_scrollController.offset - (speed * factor))
+          .clamp(0.0, _scrollController.position.maxScrollExtent);
       _scrollController.jumpTo(newOffset);
     } else if (local.dy > box.size.height - threshold) {
-      final factor = (local.dy - (box.size.height - threshold)) / threshold;
-      final newOffset = (_scrollController.offset + (speed * factor)).clamp(0.0, _scrollController.position.maxScrollExtent);
+      final factor =
+          (local.dy - (box.size.height - threshold)) / threshold;
+      final newOffset = (_scrollController.offset + (speed * factor))
+          .clamp(0.0, _scrollController.position.maxScrollExtent);
       _scrollController.jumpTo(newOffset);
     }
   }
 
   void _checkChanges() {
-    bool changed = false;
+    var changed = false;
     for (var i = 0; i < members.length; i++) {
       if (members[i]['memberIndex'] != (i + 1)) {
         changed = true;
         break;
       }
     }
-
     if (changed != _isChanged) {
       _isChanged = changed;
-      if (mounted) {
-        setState(() {});
-      }
-
-      if (_isChanged) {
-        HapticFeedback.mediumImpact();
-      }
+      if (mounted) setState(() {});
+      if (_isChanged) HapticFeedback.mediumImpact();
     }
   }
 
   List<List<int>> calculateTournamentMatchups() {
-    List<List<int>> matchups = [];
-
-    for (int i = 0; i < members.length; i += 2) {
+    final matchups = <List<int>>[];
+    for (var i = 0; i < members.length; i += 2) {
       if (i + 1 < members.length) {
         matchups.add([i, i + 1]);
       } else {
         matchups.add([i, -1]);
       }
     }
-
     return matchups;
   }
 
-  bool isAutoWin(int player1Index, int player2Index) {
-    if (player2Index == -1) return true;
-
-    final player1IsWalkOver = widget.scheduleProvider.isWalkOverMember(members[player1Index]['uid']);
-    final player2IsWalkOver = widget.scheduleProvider.isWalkOverMember(members[player2Index]['uid']);
-
-    if (player1IsWalkOver && !player2IsWalkOver) return false;
-    if (!player1IsWalkOver && player2IsWalkOver) return true;
-
+  bool isAutoWin(int p1, int p2) {
+    if (p2 == -1) return true;
+    final bye = widget.scheduleProvider.byePlayers.toSet();
+    final p1Bye = bye.contains(members[p1]['uid']);
+    final p2Bye = bye.contains(members[p2]['uid']);
+    if (p1Bye && !p2Bye) return false;
+    if (!p1Bye && p2Bye) return true;
     return false;
   }
 
   Future<void> _handleButtonPress() async {
     if (!mounted) return;
-
     HapticFeedback.mediumImpact();
 
     if (_isChanged) {
-      final res = await widget.scheduleProvider.updateMemberIndex(members);
+      final res =
+      await widget.scheduleProvider.updateMemberIndex(members);
       if (res?.statusCode == 200) {
         _isChanged = false;
-        if (mounted) {
-          setState(() {});
-        }
+        if (mounted) setState(() {});
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('성공적으로 순서공개가 되었어요'),
@@ -150,7 +171,7 @@ class _TournamentReorderListState extends State<TournamentReorderList> {
             behavior: SnackBarBehavior.floating,
             action: SnackBarAction(
               label: '다시 시도',
-              onPressed: () {},
+              onPressed: _handleButtonPress,
             ),
           ),
         );
@@ -158,7 +179,7 @@ class _TournamentReorderListState extends State<TournamentReorderList> {
     } else {
       showDialog(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (c) => AlertDialog(
           title: const Text('해당 순서로 게임을 만들게요'),
           content: const Text('게임을 만든 후에는 순서 변경이 불가해요'),
           actions: [
@@ -179,24 +200,20 @@ class _TournamentReorderListState extends State<TournamentReorderList> {
     }
   }
 
-  void _onDragAccept(int fromIndex, int toIndex) {
-    if (fromIndex == toIndex || !mounted) return;
-
-    final fromItem = members.removeAt(fromIndex);
-    members.insert(toIndex, fromItem);
+  void _onDragAccept(int from, int to) {
+    if (from == to || !mounted) return;
+    final item = members.removeAt(from);
+    members.insert(to, item);
     _checkChanges();
     HapticFeedback.lightImpact();
-
-    if (mounted) {
-      setState(() {});
-    }
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // 데이터 로딩 확인
+    // 데이터 준비
     if (members.isEmpty) {
       _loadMembers();
       if (members.isEmpty) {
@@ -206,22 +223,21 @@ class _TournamentReorderListState extends State<TournamentReorderList> {
 
     return Column(
       children: [
-        // 상태 표시
+        // 상태 안내
         if (isOwner && widget.scheduleProvider.schedule!['state'] == 2)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: _isChanged
-                    ? theme.colorScheme.secondary.withValues(alpha: 0.1)
-                    : theme.colorScheme.primary.withValues(alpha: 0.1),
+                    ? theme.colorScheme.secondary.withValues(alpha:0.1)
+                    : theme.colorScheme.primary.withValues(alpha:0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: _isChanged
-                      ? theme.colorScheme.secondary.withValues(alpha: 0.3)
-                      : theme.colorScheme.primary.withValues(alpha: 0.3),
-                  width: 1,
+                      ? theme.colorScheme.secondary.withValues(alpha:0.3)
+                      : theme.colorScheme.primary.withValues(alpha:0.3),
                 ),
               ),
               child: Row(
@@ -233,19 +249,18 @@ class _TournamentReorderListState extends State<TournamentReorderList> {
                     color: _isChanged
                         ? theme.colorScheme.secondary
                         : theme.colorScheme.primary,
-                    size: 20,
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       _isChanged
                           ? '순서가 변경되었습니다.\n완료 후 "순서 공개" 버튼을 클릭해주세요.'
                           : '참가자 순서를 변경하려면 카드를 길게 누른 후 드래그하세요.',
                       style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w500,
                         color: _isChanged
                             ? theme.colorScheme.secondary
                             : theme.colorScheme.primary,
-                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -254,51 +269,44 @@ class _TournamentReorderListState extends State<TournamentReorderList> {
             ),
           ),
 
-        const SizedBox(height: 8),
-
-        // 토글 버튼: 일반 목록 <-> 토너먼트 대진표
+        // 토글 버튼
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    _showTournamentView = !_showTournamentView;
-                    HapticFeedback.lightImpact();
-                    if (mounted) {
-                      setState(() {});
-                    }
-                  },
-                  icon: Icon(_showTournamentView ? Icons.list : Icons.account_tree_rounded),
-                  label: Text(_showTournamentView ? '리스트 보기' : '토너먼트 대진표'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
-                    foregroundColor: theme.colorScheme.primary,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                ),
-              ),
-            ],
+          child: ElevatedButton.icon(
+            onPressed: () {
+              _showTournamentView = !_showTournamentView;
+              HapticFeedback.lightImpact();
+              setState(() {});
+            },
+            icon: Icon(
+              _showTournamentView ? Icons.list : Icons.account_tree,
+            ),
+            label: Text(
+              _showTournamentView ? '리스트 보기' : '토너먼트 대진표',
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor:
+              theme.colorScheme.primary.withValues(alpha:0.1),
+              foregroundColor: theme.colorScheme.primary,
+              elevation: 0,
+            ),
           ),
         ),
 
         const SizedBox(height: 8),
 
-        // 토너먼트 대진표 또는 일반 목록
+        // 본문
         Expanded(
           child: _showTournamentView
               ? _buildTournamentView(theme)
               : _buildListView(theme),
         ),
 
-        const SizedBox(height: 16),
-
         // 하단 버튼
         if (isOwner && widget.scheduleProvider.schedule!['state'] == 2)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: SizedBox(
               width: double.infinity,
               height: 52,
@@ -308,11 +316,6 @@ class _TournamentReorderListState extends State<TournamentReorderList> {
                   backgroundColor: _isChanged
                       ? theme.colorScheme.secondary
                       : theme.colorScheme.primary,
-                  foregroundColor: Colors.white,
-                  elevation: 4,
-                  shadowColor: _isChanged
-                      ? theme.colorScheme.secondary.withValues(alpha: 0.4)
-                      : theme.colorScheme.primary.withValues(alpha: 0.4),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -322,17 +325,13 @@ class _TournamentReorderListState extends State<TournamentReorderList> {
                   children: [
                     Icon(
                       _isChanged
-                          ? Icons.published_with_changes_rounded
-                          : Icons.check_circle_rounded,
-                      size: 20,
+                          ? Icons.published_with_changes
+                          : Icons.check_circle,
                     ),
                     const SizedBox(width: 8),
                     Text(
                       _isChanged ? '순서 공개하기' : '게임 진행',
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: const TextStyle(color: Colors.white),
                     ),
                   ],
                 ),
@@ -343,7 +342,6 @@ class _TournamentReorderListState extends State<TournamentReorderList> {
     );
   }
 
-  // 원래 리스트 뷰 (드래그 앤 드롭 기능을 가진)
   Widget _buildListView(ThemeData theme) {
     return Listener(
       onPointerMove: _pointListener,
@@ -351,87 +349,40 @@ class _TournamentReorderListState extends State<TournamentReorderList> {
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: members.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 2),
-        itemBuilder: (context, index) {
-          final member = members[index];
-          final isWalkOver = widget.scheduleProvider.isWalkOverMember(member['uid']);
+        separatorBuilder: (_, __) => const SizedBox(height: 4),
+        itemBuilder: (context, idx) {
+          final m = members[idx];
+          final isBye = m['isBye'] == true;
 
           return IgnorePointer(
-            ignoring: !isOwner || widget.scheduleProvider.schedule!['state'] != 2,
+            ignoring: !isOwner ||
+                widget.scheduleProvider.schedule!['state'] != 2,
             child: DragTarget<int>(
-              onWillAcceptWithDetails: (details) => details.data != index,
-              onAcceptWithDetails: (details) => _onDragAccept(details.data, index),
-              builder: (context, candidateData, rejectedData) {
-                final isDragTarget = candidateData.isNotEmpty;
-
+              onWillAcceptWithDetails: (d) => d.data != idx,
+              onAcceptWithDetails: (d) => _onDragAccept(d.data, idx),
+              builder: (ctx, candidate, __) {
+                final highlighting = candidate.isNotEmpty;
                 return Container(
-                  decoration: BoxDecoration(
-                    color: isDragTarget
-                        ? theme.colorScheme.primary.withValues(alpha: 0.08)
-                        : Colors.transparent,
-                  ),
+                  color: highlighting
+                      ? theme.colorScheme.primary.withValues(alpha:0.08)
+                      : null,
                   child: LongPressDraggable<int>(
-                    data: index,
-                    onDragStarted: () => HapticFeedback.mediumImpact(),
+                    data: idx,
                     feedback: Material(
                       elevation: 8,
                       color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
                       child: Container(
                         width: MediaQuery.of(context).size.width - 60,
-                        decoration: BoxDecoration(
-                          color: theme.cardColor,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: theme.colorScheme.primary.withValues(alpha: 0.2),
-                              blurRadius: 10,
-                              spreadRadius: 1,
-                            ),
-                          ],
-                        ),
-                        child: _buildMemberCard(member, index, true, isWalkOver),
+                        child: _buildMemberCard(m, true, isBye),
                       ),
                     ),
-                    childWhenDragging: Container(
-                      height: 70,
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                          width: 1,
-                        ),
-                      ),
-                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      child: Center(
-                        child: Icon(
-                          Icons.swap_vert_rounded,
-                          color: theme.colorScheme.primary.withValues(alpha: 0.4),
-                          size: 24,
-                        ),
-                      ),
+                    childWhenDragging: Opacity(
+                      opacity: 0.4,
+                      child: _buildMemberCard(m, false, isBye),
                     ),
-                    child: isOwner
-                        ? Stack(
-                      children: [
-                        _buildMemberCard(member, index, false, isWalkOver),
-                        if (!isWalkOver)
-                          Positioned(
-                            right: 20,
-                            top: 0,
-                            bottom: 0,
-                            child: Center(
-                              child: Icon(
-                                Icons.drag_handle_rounded,
-                                color: theme.hintColor.withValues(alpha: 0.5),
-                                size: 20,
-                              ),
-                            ),
-                          ),
-                      ],
-                    )
-                        : _buildMemberCard(member, index, false, isWalkOver),
+                    onDragStarted: () =>
+                        HapticFeedback.mediumImpact(),
+                    child: _buildMemberCard(m, false, isBye),
                   ),
                 );
               },
@@ -442,120 +393,72 @@ class _TournamentReorderListState extends State<TournamentReorderList> {
     );
   }
 
-  // 새로운 토너먼트 대진표 뷰
   Widget _buildTournamentView(ThemeData theme) {
     final matchups = calculateTournamentMatchups();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
-        children: [
-          // 토너먼트 설명
-          Container(
-            padding: const EdgeInsets.all(12),
+        children: matchups.map((pair) {
+          final i1 = pair[0], i2 = pair[1];
+          final hasBoth = i2 != -1;
+          final win1 = hasBoth && isAutoWin(i1, i2);
+          final win2 = hasBoth && isAutoWin(i2, i1);
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: theme.colorScheme.primary.withValues(alpha: 0.2),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.info_outline,
-                  color: theme.colorScheme.primary,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '이 대진표는 현재 설정된 순서로 토너먼트가\n진행되면 생성될 예상 구도입니다.\n실제 대진표는 게임 시작 후 확인할 수 있습니다.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
+              color: theme.cardColor,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: theme.shadowColor.withValues(alpha:0.1),
+                  blurRadius: 8,
                 ),
               ],
             ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // 토너먼트 대진표
-          ...matchups.map((matchup) {
-            final player1Index = matchup[0];
-            final player2Index = matchup[1];
-            final hasBothPlayers = player2Index != -1;
-            final player1WinsAuto = hasBothPlayers && isAutoWin(player1Index, player2Index);
-            final player2WinsAuto = hasBothPlayers && isAutoWin(player2Index, player1Index);
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: theme.cardColor,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.shadowColor.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
+            child: Column(
+              children: [
+                _buildTournamentPlayerCard(
+                  theme,
+                  members[i1],
+                  isWinner: win1,
+                  isTop: true,
+                  showMatchBorders: hasBoth,
+                ),
+                if (hasBoth)
+                  Divider(color: theme.dividerColor),
+                if (hasBoth)
                   _buildTournamentPlayerCard(
                     theme,
-                    members[player1Index],
-                    isWinner: player1WinsAuto,
-                    showMatchBorders: hasBothPlayers,
-                    isTop: true,
+                    members[i2],
+                    isWinner: win2,
+                    isTop: false,
+                    showMatchBorders: true,
                   ),
-
-                  if (hasBothPlayers)
-                    Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: theme.dividerColor.withValues(alpha: 0.5),
-                    ),
-
-                  if (hasBothPlayers)
-                    _buildTournamentPlayerCard(
-                      theme,
-                      members[player2Index],
-                      isWinner: player2WinsAuto,
-                      showMatchBorders: true,
-                      isTop: false,
-                    ),
-                ],
-              ),
-            );
-          }),
-        ],
+              ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }
 
-  // 토너먼트 대진표의 선수 카드
   Widget _buildTournamentPlayerCard(
       ThemeData theme,
-      Map<String, dynamic> player,
-      {bool isWinner = false,
-        bool showMatchBorders = true,
-        bool isTop = true}
-      ) {
-    final isWalkOverPlayer = widget.scheduleProvider.isWalkOverMember(player['uid']);
-
+      Map<String, dynamic> player, {
+        required bool isWinner,
+        required bool isTop,
+        required bool showMatchBorders,
+      }) {
+    final isBye = player['isBye'] == true;
     return Container(
       height: 72,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: isWinner
-            ? theme.colorScheme.primary.withValues(alpha: 0.05)
-            : isWalkOverPlayer
-            ? theme.colorScheme.error.withValues(alpha: 0.05)
+            ? theme.colorScheme.primary.withValues(alpha:0.05)
+            : isBye
+            ? theme.colorScheme.error.withValues(alpha:0.05)
             : null,
         borderRadius: !showMatchBorders
             ? BorderRadius.circular(16)
@@ -564,140 +467,78 @@ class _TournamentReorderListState extends State<TournamentReorderList> {
           bottom: isTop ? Radius.zero : const Radius.circular(16),
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: isWalkOverPlayer
-                  ? theme.colorScheme.error.withValues(alpha: 0.1)
-                  : theme.colorScheme.primary.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
+          CircleAvatar(
+            radius: 15,
+            backgroundColor: isBye
+                ? theme.colorScheme.error.withValues(alpha:0.2)
+                : theme.colorScheme.primary.withValues(alpha:0.2),
             child: Text(
-              isWalkOverPlayer ? '부' : '${player['memberIndex']}',
+              isBye ? '부' : '${player['memberIndex']}',
               style: theme.textTheme.bodyMedium?.copyWith(
+                color:
+                isBye ? theme.colorScheme.error : theme.colorScheme.primary,
                 fontWeight: FontWeight.bold,
-                color: isWalkOverPlayer
-                    ? theme.colorScheme.error
-                    : theme.colorScheme.primary,
               ),
             ),
           ),
-
           const SizedBox(width: 12),
-
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  isWalkOverPlayer
-                      ? '부전승'
-                      : (player['name'] ?? player['nickName'] ?? '선수 ${player['memberIndex']}'),
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: isWalkOverPlayer
-                        ? theme.colorScheme.error
-                        : null,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (player['team'] != null && !isWalkOverPlayer)
-                  Text(
-                    player['team'],
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.hintColor,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-              ],
+            child: Text(
+              isBye
+                  ? '부전승'
+                  : (player['name'] ?? player['nickName'] ?? ''),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: isBye ? theme.colorScheme.error : null,
+              ),
             ),
           ),
-
           if (isWinner)
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.emoji_events_rounded,
-                color: theme.colorScheme.primary,
-                size: 20,
-              ),
-            )
-          else if (isWalkOverPlayer)
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.error.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.person_off_rounded,
-                color: theme.colorScheme.error,
-                size: 20,
-              ),
-            ),
+            Icon(Icons.emoji_events, color: theme.colorScheme.primary),
+          if (!isWinner && isBye)
+            Icon(Icons.person_off, color: theme.colorScheme.error),
         ],
       ),
     );
   }
 
-  Widget _buildMemberCard(Map<String, dynamic> member, int index, bool isDragging, bool isWalkOver) {
+  Widget _buildMemberCard(
+      Map<String, dynamic> member, bool isDragging, bool isBye) {
     final theme = Theme.of(context);
-
-    if (isWalkOver) {
+    if (isBye) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: theme.colorScheme.error.withValues(alpha: 0.1),
+          color: theme.colorScheme.error.withValues(alpha:0.1),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: theme.colorScheme.error.withValues(alpha: 0.3),
-            width: 1,
+            color: theme.colorScheme.error.withValues(alpha:0.3),
           ),
         ),
         child: Row(
           children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.error.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              alignment: Alignment.center,
+            CircleAvatar(
+              radius: 17,
+              backgroundColor: theme.colorScheme.error.withValues(alpha:0.2),
               child: Text(
-                '${index + 1}',
+                '${member['memberIndex']}',
                 style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
                   color: theme.colorScheme.error,
-                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Icon(
-              Icons.person_off_rounded,
-              color: theme.colorScheme.error,
-              size: 24,
             ),
             const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                '부전승',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.error,
-                ),
+            Icon(Icons.person_off, color: theme.colorScheme.error),
+            const SizedBox(width: 12),
+            Text(
+              '부전승',
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: theme.colorScheme.error,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -708,7 +549,7 @@ class _TournamentReorderListState extends State<TournamentReorderList> {
     return NadalSoloCard(
       isDragging: isDragging,
       user: member,
-      index: index,
+      index: member['memberIndex'],
     );
   }
 }

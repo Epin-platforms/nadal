@@ -34,27 +34,58 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> {
   }
 
   void _loadMembers() {
-    final allMembers = widget.scheduleProvider.getAllMembers();
+    final provider = widget.scheduleProvider;
+    final map = provider.scheduleMembers;
+    if (map == null || map.isEmpty) return;
 
-    if (allMembers.isEmpty) return;
+    // 비-토너먼트 스케줄: 기존 로직 유지
+    if (!provider.isGameSchedule ||
+        (provider.gameType != GameType.tourSingle &&
+            provider.gameType != GameType.tourDouble)) {
 
-    // 모든 멤버가 memberIndex를 가지고 있는지 확인
-    final hasAllIndexes = allMembers.values.every((member) =>
-    member['memberIndex'] != null && member['memberIndex'] > 0);
+      // 모든 멤버에 memberIndex가 있는지 확인
+      final allHaveIndex = map.values.every((m) =>
+      m['memberIndex'] != null && m['memberIndex'] is int && m['memberIndex'] > 0);
+      if (!allHaveIndex) return;
 
-    if (!hasAllIndexes) return;
+      // memberIndex 순으로 정렬
+      members = map.values
+          .map((m) => Map<String, dynamic>.from(m))
+          .toList()
+        ..sort((a, b) => (a['memberIndex'] as int)
+            .compareTo(b['memberIndex'] as int));
 
-    members = allMembers.entries
-        .map((e) => Map<String, dynamic>.from(e.value))
-        .toList();
+    } else {
+      // 토너먼트 스케줄: 슬롯 고정, 빈 슬롯엔 bye 표시
+      final slots = provider.totalSlots;
+      final byeSet = provider.byePlayers.toSet();
 
-    members.sort((a, b) => (a['memberIndex'] as int).compareTo(b['memberIndex'] as int));
+      // 인덱스 → member 매핑
+      final idxToMember = <int, Map<String, dynamic>>{};
+      for (var m in map.values) {
+        final idx = m['memberIndex'] as int?;
+        if (idx != null) idxToMember[idx] = Map.from(m);
+      }
 
-    if (mounted) {
-      setState(() {});
+      members = List.generate(slots, (i) {
+        final idx = i + 1;
+        if (idxToMember.containsKey(idx)) {
+          final member = idxToMember[idx]!;
+          // bye 플레이어 표시용 플래그 추가
+          member['isBye'] = byeSet.contains(member['uid']);
+          return member;
+        } else {
+          // 빈 슬롯: 간단히 bye slot 표시
+          return {
+            'memberIndex': idx,
+            'isBye': true,
+          };
+        }
+      });
     }
-  }
 
+    if (mounted) setState(() {});
+  }
   void _pointListener(PointerMoveEvent event) {
     if (!isOwner) return;
 
@@ -213,7 +244,6 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> {
               separatorBuilder: (context, index) => SizedBox(height: 2.h),
               itemBuilder: (context, index) {
                 final member = members[index];
-                final isWalkOver = widget.scheduleProvider.isWalkOverMember(member['uid']);
 
                 return IgnorePointer(
                   ignoring: !isOwner || widget.scheduleProvider.schedule!['state'] != 2,
@@ -249,7 +279,7 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> {
                                   ),
                                 ],
                               ),
-                              child: _buildMemberCard(member, index, true, isWalkOver),
+                              child: _buildMemberCard(member, index, true),
                             ),
                           ),
                           childWhenDragging: Container(
@@ -271,26 +301,7 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> {
                               ),
                             ),
                           ),
-                          child: isOwner
-                              ? Stack(
-                            children: [
-                              _buildMemberCard(member, index, false, isWalkOver),
-                              if (!isWalkOver)
-                                Positioned(
-                                  right: 20.w,
-                                  top: 0,
-                                  bottom: 0,
-                                  child: Center(
-                                    child: Icon(
-                                      Icons.drag_handle_rounded,
-                                      color: theme.hintColor.withValues(alpha: 0.5),
-                                      size: 20.r,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          )
-                              : _buildMemberCard(member, index, false, isWalkOver),
+                          child: _buildMemberCard(member, index, false),
                         ),
                       );
                     },
@@ -334,7 +345,7 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> {
                           : Icons.check_circle_rounded,
                       size: 20.r,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8.w),
                     Text(
                       _isChanged ? '순서 공개하기' : '게임 진행',
                       style: theme.textTheme.bodyLarge?.copyWith(
@@ -351,61 +362,7 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> {
     );
   }
 
-  Widget _buildMemberCard(Map<String, dynamic> member, int index, bool isDragging, bool isWalkOver) {
-    final theme = Theme.of(context);
-
-    if (isWalkOver) {
-      return Container(
-        margin: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.error.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: theme.colorScheme.error.withValues(alpha: 0.3),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 34.r,
-              height: 34.r,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.error.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                '${index + 1}',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.error,
-                  fontSize: 14.sp,
-                ),
-              ),
-            ),
-            SizedBox(width: 16.w),
-            Icon(
-              Icons.person_off_rounded,
-              color: theme.colorScheme.error,
-              size: 24.r,
-            ),
-            SizedBox(width: 12.w),
-            Expanded(
-              child: Text(
-                '부전승',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.error,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
+  Widget _buildMemberCard(Map<String, dynamic> member, int index, bool isDragging) {
     return NadalSoloCard(
       isDragging: isDragging,
       user: member,

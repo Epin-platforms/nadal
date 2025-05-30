@@ -56,7 +56,7 @@ class _KdkSingleViewViewState extends State<KdkSingleView> with SingleTickerProv
                       : theme.colorScheme.primary,
                   size: 20.r,
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12.w),
                 Expanded(
                   child: Text(
                     isEnd
@@ -70,6 +70,7 @@ class _KdkSingleViewViewState extends State<KdkSingleView> with SingleTickerProv
                     ),
                   ),
                 ),
+                SizedBox(width: 12.w),
                 // 여기에 실시간 보기 버튼 추가
                 ElevatedButton.icon(
                   onPressed: () {
@@ -78,12 +79,12 @@ class _KdkSingleViewViewState extends State<KdkSingleView> with SingleTickerProv
                     context.push('/live-match-view'); // 적절한 라우트로 변경
                   },
                   icon: Icon(Icons.live_tv_rounded, size: 16.r),
-                  label: const Text('실시간 보기'),
+                  label: Text('실시간 보기' , style: theme.textTheme.labelMedium,),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.colorScheme.primary,
                     foregroundColor: Colors.white,
-                    padding:  EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    minimumSize: const Size(0, 36),
+                    padding:  EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+                    minimumSize:  Size(0, 36.w),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),

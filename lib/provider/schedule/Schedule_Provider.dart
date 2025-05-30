@@ -35,9 +35,9 @@ class ScheduleProvider extends ChangeNotifier {
   int _currentStateView = 0;
   bool _isGameInitialized = false;
 
-  // === 부전승 관련 데이터 ===
-  Map<String, dynamic>? _walkOverMembers;
+  // === Tournament & bye 처리 ===
   int _totalSlots = 0; // 2의 배수로 계산된 총 슬롯 수
+  final Set<String> _byePlayers = {};
 
   // === Court Input State ===
   int? _courtInputTableId;
@@ -58,8 +58,9 @@ class ScheduleProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   int? get courtInputTableId => _courtInputTableId;
   TextEditingController? get courtController => _courtController;
-  Map<String, dynamic>? get walkOverMembers => _walkOverMembers;
   int get totalSlots => _totalSlots;
+  List<String> get byePlayers => _byePlayers.toList();
+  int get byeCount => _byePlayers.length;
 
   // === Computed Properties ===
   bool get isGameSchedule => _schedule?['tag'] == '게임';
@@ -79,92 +80,89 @@ class ScheduleProvider extends ChangeNotifier {
 
   bool get isTeamGame => gameType == GameType.tourDouble;
 
-  // === 부전승 관련 헬퍼 메서드 ===
+  // === Participant Counts ===
 
-  /// 실제 참가자 수 (부전승 제외)
-  int get realMemberCount {
-    if (_scheduleMembers == null) return 0;
-    return _scheduleMembers!.values
-        .where((member) => member['isWalkOver'] != true)
-        .length;
-  }
+  /// 전체 참가자 수
+  int get realMemberCount => _scheduleMembers?.length ?? 0;
 
-  /// 부전승 멤버 수
-  int get walkOverCount {
-    if (_scheduleMembers == null) return 0;
-    return _scheduleMembers!.values
-        .where((member) => member['isWalkOver'] == true)
-        .length;
-  }
-
-  /// 토너먼트에서 필요한 총 슬롯 수 계산 (2의 배수)
-  int calculateTournamentSlots() {
-    if (!isGameSchedule || gameType == GameType.kdkSingle || gameType == GameType.kdkDouble) {
-      return realMemberCount;
-    }
-
-    if (gameType == GameType.tourDouble) {
-      // 팀 수 기준으로 계산
-      final teamCount = getTeamCount();
-      if (teamCount <= 1) return 2;
-      return _getNextPowerOfTwo(teamCount);
-    } else {
-      // 개인 수 기준으로 계산
-      if (realMemberCount <= 1) return 2;
-      return _getNextPowerOfTwo(realMemberCount);
-    }
-  }
-
-  /// 2의 배수 중 가장 가까운 큰 수 반환
-  int _getNextPowerOfTwo(int number) {
-    if (number <= 1) return 2;
-    int power = 1;
-    while (power < number) {
-      power *= 2;
-    }
-    return power;
-  }
+  /// 필요한 bye 수
+  int get requiredByeCount => _totalSlots - realMemberCount;
 
   /// 팀 수 계산
   int getTeamCount() {
     if (_teams != null) return _teams!.length;
-
     if (_scheduleMembers == null) return 0;
-
-    final realMembers = _scheduleMembers!.values
-        .where((member) => member['isWalkOver'] != true);
-
     final Set<String> teamNames = {};
-    for (final member in realMembers) {
+    for (final member in _scheduleMembers!.values) {
       final teamName = member['teamName'];
       if (teamName != null && teamName.toString().isNotEmpty) {
         teamNames.add(teamName.toString());
       }
     }
-
     return teamNames.length;
   }
 
-  /// 부전승이 필요한 슬롯 수
-  int getRequiredWalkOverCount() {
-    final slots = calculateTournamentSlots();
-    final real = isTeamGame ? getTeamCount() : realMemberCount;
-    return slots - real;
+  // === Tournament slot 계산 ===
+
+  int calculateTournamentSlots() {
+    if (!isGameSchedule ||
+        gameType == GameType.kdkSingle ||
+        gameType == GameType.kdkDouble) {
+      return realMemberCount;
+    }
+    final count = isTeamGame ? getTeamCount() : realMemberCount;
+    if (count <= 1) return 2;
+    return _getNextPowerOfTwo(count);
+  }
+
+  int _getNextPowerOfTwo(int number) {
+    int power = 1;
+    while (power < number) power <<= 1;
+    return power;
+  }
+
+  // === bye 처리 ===
+
+  /// 빈 슬롯의 인접 인덱스 플레이어를 bye 처리
+  void _assignByes() {
+    // 토너먼트가 아니면 bye 없음
+    if (!isGameSchedule ||
+        (gameType != GameType.tourSingle && gameType != GameType.tourDouble)) {
+      _byePlayers.clear();
+      return;
+    }
+    _byePlayers.clear();
+    // 1라운드 슬롯 수
+    _totalSlots = calculateTournamentSlots();
+
+    // index -> uid 맵
+    final Map<int, String> indexToUid = {};
+    _scheduleMembers!.forEach((uid, data) {
+      final idx = data['memberIndex'] as int?;
+      if (idx != null) indexToUid[idx] = uid;
+    });
+
+    // 빈 인덱스 찾아서 adjacent 처리
+    for (var i = 1; i <= _totalSlots; i++) {
+      if (!indexToUid.containsKey(i)) {
+        final adjacent = (i.isOdd) ? i + 1 : i - 1;
+        final byeUid = indexToUid[adjacent];
+        if (byeUid != null) _byePlayers.add(byeUid);
+      }
+    }
   }
 
   // === Initialization ===
+
   Future<void> initializeSchedule(int scheduleId) async {
     try {
       _setLoading(true);
       _clearError();
       _scheduleId = scheduleId;
-
       await _fetchScheduleData();
-
       if (isGameSchedule && _schedule != null) {
         await _initializeGameData();
       }
-
     } catch (e) {
       _setError('스케줄 초기화 실패: $e');
     } finally {
@@ -174,18 +172,14 @@ class ScheduleProvider extends ChangeNotifier {
 
   Future<void> _fetchScheduleData() async {
     final res = await serverManager.get('schedule/$_scheduleId');
-
     if (res.statusCode == 200) {
       _schedule = Map<String, dynamic>.from(res.data['schedule'] ?? {});
-
       if (_schedule == null) {
         _handleScheduleNotFound();
         return;
       }
-
       await _processScheduleMembers(res.data['members']);
       _checkRoomRedirect();
-
     } else {
       throw Exception('스케줄 데이터 로드 실패');
     }
@@ -193,40 +187,30 @@ class ScheduleProvider extends ChangeNotifier {
 
   void _handleScheduleNotFound() {
     AppRoute.context?.pop();
-    AppRoute.context?.read<UserProvider>().fetchMySchedules(DateTime.now(), force: true, reFetch: true);
+    AppRoute.context
+        ?.read<UserProvider>()
+        .fetchMySchedules(DateTime.now(), force: true, reFetch: true);
     DialogManager.showBasicDialog(
-        title: '어라..?',
-        content: "해당 스케줄을 찾을수 없어요",
-        confirmText: "확인"
+      title: '어라..?',
+      content: '해당 스케줄을 찾을 수 없어요',
+      confirmText: '확인',
     );
   }
 
   Future<void> _processScheduleMembers(List? members) async {
     if (members == null) return;
-
-    _scheduleMembers = {};
-    _walkOverMembers = {};
-
-    for (final member in members) {
-      if (member['uid'] == null) continue;
-
-      final memberData = Map<String, dynamic>.from(member);
-      final uid = member['uid'].toString();
-
-      // 부전승 멤버와 일반 멤버 분리
-      if (memberData['isWalkOver'] == true) {
-        _walkOverMembers![uid] = memberData;
-      } else {
-        _scheduleMembers![uid] = memberData;
-      }
-    }
-
-    // 토너먼트인 경우 총 슬롯 수 계산
-    if (isGameSchedule && (gameType == GameType.tourSingle || gameType == GameType.tourDouble)) {
+    _scheduleMembers = {
+      for (final m in members)
+        if (m['uid'] != null)
+          m['uid'].toString(): Map<String, dynamic>.from(m)
+    };
+    // 토너먼트인 경우 슬롯 및 bye 처리
+    if (isGameSchedule &&
+        (gameType == GameType.tourSingle || gameType == GameType.tourDouble)) {
       _totalSlots = calculateTournamentSlots();
+      _assignByes();
     }
-
-    // 복식 토너먼트인 경우 팀 데이터 구성
+    // 복식 토너먼트 팀 구성
     if (gameType == GameType.tourDouble) {
       _buildTeamData();
     }
@@ -234,63 +218,44 @@ class ScheduleProvider extends ChangeNotifier {
 
   void _buildTeamData() {
     if (_scheduleMembers == null) return;
-
     final Map<String, List<dynamic>> teamMap = {};
-
-    // 실제 참가자들로 팀 구성
     _scheduleMembers!.forEach((uid, memberData) {
       final String? teamName = memberData['teamName'];
-
       if (teamName != null && teamName.isNotEmpty) {
         teamMap.putIfAbsent(teamName, () => []).add(memberData);
       }
     });
-
-    // 부전승 팀 추가 (있다면)
-    if (_walkOverMembers != null) {
-      _walkOverMembers!.forEach((uid, memberData) {
-        final String? teamName = memberData['teamName'];
-        if (teamName != null && teamName.isNotEmpty) {
-          teamMap.putIfAbsent(teamName, () => []).add(memberData);
-        }
-      });
-    }
-
     _teams = teamMap;
   }
 
   void _checkRoomRedirect() {
     final roomId = _schedule?['roomId'];
     final currentUid = _auth.currentUser?.uid;
-
     if (roomId != null &&
         currentUid != null &&
-        !_scheduleMembers!.containsKey(currentUid) && //현재 사용자가 스케줄에 참가중이 아니고
-        AppRoute.context!.read<RoomsProvider>().rooms?.containsKey(roomId) == false){ //방에도 없다면
+        !_scheduleMembers!.containsKey(currentUid) &&
+        AppRoute.context!.read<RoomsProvider>().rooms?.containsKey(roomId) ==
+            false) {
       AppRoute.context?.pushReplacement('/room/preview/$roomId');
     }
   }
 
   Future<void> _initializeGameData() async {
     if (_isGameInitialized) return;
-
     try {
       _currentStateView = _schedule?['state'] ?? 0;
-
-      // 소켓 연결 및 리스너 설정
       if (currentState.index < ScheduleState.completed.index) {
         _setupGameSocketListeners(true);
         _socket.emit('joinGame', _scheduleId);
       }
-
       _isGameInitialized = true;
-
     } catch (e) {
       _setError('게임 초기화 실패: $e');
     }
   }
 
   // === Socket Management ===
+
   void _setupGameSocketListeners(bool enable) {
     if (enable) {
       _socket.on('changedState', _handleStateChange);
@@ -315,15 +280,20 @@ class ScheduleProvider extends ChangeNotifier {
     }
   }
 
-  void _handleMemberRefresh(dynamic data) {
-    updateMembers();
+  bool indexing = false;
+
+  void _handleMemberRefresh(dynamic data) async {
+    indexing = true;
+    notifyListeners();
+    await updateMembers();
+    indexing = false;
+    notifyListeners();
   }
 
   void _handleScoreChange(dynamic data) {
     final tableId = data['tableId'];
     final score = data['score'];
     final where = data['where'];
-
     if (_gameTables?[tableId] != null) {
       _gameTables![tableId]!['score$where'] = score;
       notifyListeners();
@@ -333,7 +303,6 @@ class ScheduleProvider extends ChangeNotifier {
   void _handleCourtChange(dynamic data) {
     final tableId = data['tableId'];
     final court = data['court'];
-
     if (_gameTables?[tableId] != null) {
       _gameTables![tableId]!['court'] = court;
       notifyListeners();
@@ -345,63 +314,38 @@ class ScheduleProvider extends ChangeNotifier {
   }
 
   // === Schedule Operations ===
+
   Future<void> updateMembers() async {
     try {
       final scheduleId = _schedule?['scheduleId'];
       final useNickname = _schedule?['useNickname'] ?? 1;
-
       if (scheduleId == null) return;
-
-      final res = await serverManager.get('scheduleMember/$scheduleId?useNickname=$useNickname');
-
+      final res = await serverManager.get(
+          'scheduleMember/$scheduleId?useNickname=$useNickname');
       if (res.statusCode == 200 && res.data is List) {
         await _processScheduleMembers(res.data);
         notifyListeners();
       }
-
     } catch (e) {
       _setError('멤버 업데이트 실패: $e');
     }
   }
 
-  /// 모든 멤버 리스트 반환 (일반 + 부전승)
-  Map<String, dynamic> getAllMembers() {
-    final allMembers = <String, dynamic>{};
-
-    if (_scheduleMembers != null) {
-      allMembers.addAll(_scheduleMembers!);
-    }
-
-    if (_walkOverMembers != null) {
-      allMembers.addAll(_walkOverMembers!);
-    }
-
-    return allMembers;
-  }
-
-  /// 부전승 여부 확인
-  bool isWalkOverMember(String uid) {
-    return _walkOverMembers?.containsKey(uid) == true;
-  }
-
-  /// 멤버 데이터 가져오기 (일반 + 부전승)
   Map<String, dynamic>? getMemberData(String uid) {
-    return _scheduleMembers?[uid] ?? _walkOverMembers?[uid];
+    return _scheduleMembers?[uid];
   }
 
-  /// 게임 타입별 최대 참가자 정보
   Map<String, dynamic> getGameLimits() {
     final limits = <String, dynamic>{};
-
     switch (gameType) {
       case GameType.kdkSingle:
         limits['min'] = GameManager.min_kdk_single_member;
-        limits['max'] = GameManager.max_kdk_single_member; // JSON에서 동적으로 로드하도록 서버 연동 필요
+        limits['max'] = GameManager.max_kdk_single_member;
         limits['type'] = 'KDK 단식';
         break;
       case GameType.kdkDouble:
         limits['min'] = GameManager.min_kdk_double_member;
-        limits['max'] = GameManager.max_kdk_double_member; // JSON에서 동적으로 로드하도록 서버 연동 필요
+        limits['max'] = GameManager.max_kdk_double_member;
         limits['type'] = 'KDK 복식';
         break;
       case GameType.tourSingle:
@@ -420,42 +364,32 @@ class ScheduleProvider extends ChangeNotifier {
         limits['max'] = 16;
         limits['type'] = '일반';
     }
-
     return limits;
   }
 
-  /// 참가 가능 여부 체크 (부전승 고려)
   bool canParticipate() {
     final limits = getGameLimits();
     final currentCount = isTeamGame ? getTeamCount() : realMemberCount;
-
     return currentCount < limits['max'];
   }
 
-  /// 게임 시작 가능 여부 체크
   bool canStartGame() {
     final limits = getGameLimits();
     final currentCount = isTeamGame ? getTeamCount() : realMemberCount;
-
     return currentCount >= limits['min'] && currentCount <= limits['max'];
   }
 
-  // === 기존 메서드들 유지 ===
   Future<String> participateSchedule() async {
     final validation = _validateParticipation();
     if (validation != 'ok') return validation;
-
     try {
       AppRoute.pushLoading();
-
       final data = {
         'scheduleId': _schedule!['scheduleId'],
         'gender': AppRoute.context?.read<UserProvider>().user?['gender']
       };
-
       await serverManager.post('schedule/participation', data: data);
       return 'complete';
-
     } catch (e) {
       return 'error';
     } finally {
@@ -465,53 +399,42 @@ class ScheduleProvider extends ChangeNotifier {
 
   String _validateParticipation() {
     final gender = AppRoute.context?.read<UserProvider>().user?['gender'];
-
-    // 남성 인원 제한 확인
     if (_schedule!['maleLimit'] != null && gender == 'M') {
       final limit = _schedule!['maleLimit'];
-      final maleCount = _scheduleMembers!.values.where((e) => e['gender'] == 'M').length;
-
+      final maleCount =
+          _scheduleMembers!.values.where((e) => e['gender'] == 'M').length;
       if (limit <= maleCount) {
-        DialogManager.errorHandler('남자 인원이 다찼어요.');
+        DialogManager.errorHandler('남자 인원이 다 찼어요.');
         return 'maleLimit';
       }
     }
-
-    // 여성 인원 제한 확인
     if (_schedule!['femaleLimit'] != null && gender == 'F') {
       final limit = _schedule!['femaleLimit'];
-      final femaleCount = _scheduleMembers!.values.where((e) => e['gender'] == 'F').length;
-
+      final femaleCount =
+          _scheduleMembers!.values.where((e) => e['gender'] == 'F').length;
       if (limit <= femaleCount) {
-        DialogManager.errorHandler('여자 인원이 다찼어요.');
+        DialogManager.errorHandler('여자 인원이 다 찼어요.');
         return 'femaleLimit';
       }
     }
-
-    // 게임 인원 제한 확인 (개선된 로직)
     if (isGameSchedule && !canParticipate()) {
-      DialogManager.errorHandler('게임 인원이 다찼어요.');
+      DialogManager.errorHandler('게임 인원이 다 찼어요.');
       return 'playerLimit';
     }
-
     return 'ok';
   }
 
-  // === 나머지 기존 메서드들은 동일하게 유지 ===
   Future<String> participateTeamSchedule(int teamId) async {
     try {
       AppRoute.pushLoading();
-
       final data = {
         'scheduleId': _schedule!['scheduleId'],
         'teamId': teamId
       };
-
-      final res = await serverManager.post('schedule/participation/team', data: data);
-
+      final res =
+      await serverManager.post('schedule/participation/team', data: data);
       if (res.statusCode == 204) return 'exist';
       return 'complete';
-
     } catch (e) {
       return 'error';
     } finally {
@@ -522,15 +445,15 @@ class ScheduleProvider extends ChangeNotifier {
   Future<void> cancelParticipation() async {
     try {
       AppRoute.pushLoading();
-
-      final res = await serverManager.delete('schedule/participationCancel/${_schedule!['scheduleId']}');
-
+      final res = await serverManager
+          .delete('schedule/participationCancel/${_schedule!['scheduleId']}');
       if (res.statusCode == 200) {
         _scheduleMembers?.remove(_auth.currentUser!.uid);
-        AppRoute.context?.read<UserProvider>().removeScheduleById(_schedule!['scheduleId']);
+        AppRoute.context
+            ?.read<UserProvider>()
+            .removeScheduleById(_schedule!['scheduleId']);
         notifyListeners();
       }
-
     } catch (e) {
       _setError('참가 취소 실패: $e');
     } finally {
@@ -541,13 +464,9 @@ class ScheduleProvider extends ChangeNotifier {
   Future<void> cancelTeamParticipation() async {
     try {
       AppRoute.pushLoading();
-
-      final res = await serverManager.delete('schedule/participationCancel/team/${_schedule!['scheduleId']}');
-
-      if (res.statusCode == 200) {
-        await updateMembers();
-      }
-
+      final res = await serverManager
+          .delete('schedule/participationCancel/team/${_schedule!['scheduleId']}');
+      if (res.statusCode == 200) await updateMembers();
     } catch (e) {
       _setError('팀 참가 취소 실패: $e');
     } finally {
@@ -555,7 +474,8 @@ class ScheduleProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> memberParticipation(Map<String, dynamic> user, bool approval) async {
+  Future<void> memberParticipation(
+      Map<String, dynamic> user, bool approval) async {
     try {
       final data = {
         'uid': user['uid'],
@@ -563,13 +483,9 @@ class ScheduleProvider extends ChangeNotifier {
         'approval': approval,
         'gender': user['gender']
       };
-
-      final res = await serverManager.put('scheduleMember/updateApproval', data: data);
-
-      if (res.statusCode == 200) {
-        await updateMembers();
-      }
-
+      final res =
+      await serverManager.put('scheduleMember/updateApproval', data: data);
+      if (res.statusCode == 200) await updateMembers();
     } catch (e) {
       _setError('참가 승인/거절 실패: $e');
     }
@@ -578,19 +494,18 @@ class ScheduleProvider extends ChangeNotifier {
   Future<void> deleteSchedule() async {
     try {
       AppRoute.pushLoading();
-
       final res = await serverManager.delete('schedule/$_scheduleId');
-
       if (res.statusCode == 200) {
-        AppRoute.context?.read<UserProvider>().removeScheduleById(_scheduleId!);
+        AppRoute.context
+            ?.read<UserProvider>()
+            .removeScheduleById(_scheduleId!);
         AppRoute.context?.pop();
         DialogManager.showBasicDialog(
-            title: '스케줄 삭제 완료!',
-            content: "선택하신 스케줄을 깔끔하게 정리했어요.",
-            confirmText: "확인"
+          title: '스케줄 삭제 완료!',
+          content: '선택하신 스케줄을 깔끔하게 정리했어요.',
+          confirmText: '확인',
         );
       }
-
     } catch (e) {
       _setError('스케줄 삭제 실패: $e');
     } finally {
@@ -598,12 +513,13 @@ class ScheduleProvider extends ChangeNotifier {
     }
   }
 
-  List<String> filterInviteAbleUsers(List<String> list){
-    if(scheduleMembers == null) return [];
-    return list.where((e)=> !scheduleMembers!.keys.contains(e)).toList();
+  List<String> filterInviteAbleUsers(List<String> list) {
+    if (scheduleMembers == null) return [];
+    return list.where((e) => !scheduleMembers!.keys.contains(e)).toList();
   }
 
   // === Game Operations ===
+
   void setCurrentStateView(int state) {
     if (_currentStateView != state) {
       _currentStateView = state;
@@ -614,12 +530,10 @@ class ScheduleProvider extends ChangeNotifier {
   Future<void> changeGameState(int newState) async {
     try {
       AppRoute.pushLoading();
-
       await serverManager.put('game/state', data: {
         "scheduleId": _scheduleId,
         "state": newState
       });
-
     } catch (e) {
       _setError('게임 상태 변경 실패: $e');
     } finally {
@@ -630,9 +544,7 @@ class ScheduleProvider extends ChangeNotifier {
   Future<void> startGame() async {
     try {
       AppRoute.pushLoading();
-
       await serverManager.put('game/start/$_scheduleId');
-
     } catch (e) {
       _setError('게임 시작 실패: $e');
     } finally {
@@ -643,14 +555,11 @@ class ScheduleProvider extends ChangeNotifier {
   Future<Response?> updateMemberIndex(List<Map<String, dynamic>> members) async {
     try {
       AppRoute.pushLoading();
-
       final data = <String, dynamic>{'scheduleId': _scheduleId};
-
       for (int i = 0; i < members.length; i++) {
         data[members[i]['uid']] = i + 1;
       }
-      final response = await serverManager.put('game/member/indexUpdate', data: data);
-      return response;
+      return await serverManager.put('game/member/indexUpdate', data: data);
     } catch (e) {
       _setError('멤버 순서 업데이트 실패: $e');
       return null;
@@ -662,23 +571,17 @@ class ScheduleProvider extends ChangeNotifier {
   Future<Response?> updateTeamIndex(List<Map<String, dynamic>> teamsList) async {
     try {
       AppRoute.pushLoading();
-
       final data = <String, dynamic>{'scheduleId': _scheduleId};
-
       for (int i = 0; i < teamsList.length; i++) {
         final team = teamsList[i];
-        if (team['walkOver'] != true && team['members'] != null) {
+        if (team['members'] != null) {
           for (var member in team['members']) {
             final uid = member['uid'];
-            if (uid != null) {
-              data[uid] = i + 1;
-            }
+            if (uid != null) data[uid] = i + 1;
           }
         }
       }
-
       return await serverManager.put('game/member/indexUpdate', data: data);
-
     } catch (e) {
       _setError('팀 순서 업데이트 실패: $e');
       return null;
@@ -690,7 +593,6 @@ class ScheduleProvider extends ChangeNotifier {
   Future<void> createGameTable() async {
     try {
       AppRoute.pushLoading();
-
       String route;
       switch (gameType) {
         case GameType.kdkSingle:
@@ -708,9 +610,8 @@ class ScheduleProvider extends ChangeNotifier {
         default:
           throw Exception('알 수 없는 게임 타입');
       }
-
-      await serverManager.post('game/createTable/$route', data: {'scheduleId': _scheduleId});
-
+      await serverManager.post(
+          'game/createTable/$route', data: {'scheduleId': _scheduleId});
     } catch (e) {
       _setError('게임 테이블 생성 실패: $e');
     } finally {
@@ -720,19 +621,15 @@ class ScheduleProvider extends ChangeNotifier {
 
   Future<void> fetchGameTables() async {
     if (!isGameSchedule) return;
-
     try {
       final res = await serverManager.get('game/table/$_scheduleId');
-
       if (res.statusCode == 200) {
         final tables = List<Map<String, dynamic>>.from(res.data);
         _gameTables = {
-          for (final table in tables)
-            table['tableId'] as int: table,
+          for (final table in tables) table['tableId'] as int: table,
         };
         notifyListeners();
       }
-
     } catch (e) {
       _setError('게임 테이블 로드 실패: $e');
     }
@@ -740,15 +637,12 @@ class ScheduleProvider extends ChangeNotifier {
 
   Future<void> fetchGameResult() async {
     if (!isGameSchedule) return;
-
     try {
       final res = await serverManager.get('game/result/$_scheduleId');
-
       if (res.statusCode == 200) {
         _gameResult = List<Map<String, dynamic>>.from(res.data);
         notifyListeners();
       }
-
     } catch (e) {
       _setError('게임 결과 로드 실패: $e');
     }
@@ -762,9 +656,7 @@ class ScheduleProvider extends ChangeNotifier {
         'score': score,
         'where': where
       };
-
       await serverManager.put('game/score', data: data);
-
     } catch (e) {
       _setError('점수 업데이트 실패: $e');
     }
@@ -777,9 +669,7 @@ class ScheduleProvider extends ChangeNotifier {
         'tableId': tableId,
         'court': court
       };
-
       await serverManager.put('game/court', data: data);
-
     } catch (e) {
       _setError('코트 정보 업데이트 실패: $e');
     }
@@ -787,27 +677,21 @@ class ScheduleProvider extends ChangeNotifier {
 
   void setCourtInput(int? tableId) {
     _courtInputTableId = tableId;
-
+    _courtController?.dispose();
     if (tableId == null) {
-      _courtController?.dispose();
       _courtController = null;
     } else {
-      _courtController?.dispose();
       _courtController = TextEditingController(
-          text: _gameTables?[tableId]?['court'] ?? ''
-      );
+          text: _gameTables?[tableId]?['court'] ?? '');
     }
-
     notifyListeners();
   }
 
   Future<void> endGame() async {
     try {
       AppRoute.pushLoading();
-
       final finalScore = _schedule!['finalScore'];
       String endpoint;
-
       switch (gameType) {
         case GameType.kdkSingle:
           endpoint = 'game/end/singleKDK/$_scheduleId?finalScore=$finalScore';
@@ -816,17 +700,17 @@ class ScheduleProvider extends ChangeNotifier {
           endpoint = 'game/end/doubleKDK/$_scheduleId?finalScore=$finalScore';
           break;
         case GameType.tourSingle:
-          endpoint = 'game/end/singleTournament/$_scheduleId?finalScore=$finalScore';
+          endpoint =
+          'game/end/singleTournament/$_scheduleId?finalScore=$finalScore';
           break;
         case GameType.tourDouble:
-          endpoint = 'game/end/doubleTournament/$_scheduleId?finalScore=$finalScore';
+          endpoint =
+          'game/end/doubleTournament/$_scheduleId?finalScore=$finalScore';
           break;
         default:
           throw Exception('알 수 없는 게임 타입');
       }
-
       await serverManager.post(endpoint);
-
     } catch (e) {
       _setError('게임 종료 실패: $e');
     } finally {
@@ -837,12 +721,10 @@ class ScheduleProvider extends ChangeNotifier {
   Future<void> nextRound(int currentRound) async {
     try {
       AppRoute.pushLoading();
-
       await serverManager.put('game/nextRound', data: {
         'scheduleId': _scheduleId,
         'round': currentRound
       });
-
     } catch (e) {
       _setError('다음 라운드 진행 실패: $e');
     } finally {
@@ -851,12 +733,11 @@ class ScheduleProvider extends ChangeNotifier {
   }
 
   // === Utility Methods ===
+
   List<MapEntry<int, Map<String, dynamic>>> getMyGames() {
     if (_gameTables == null) return [];
-
     final uid = _auth.currentUser?.uid;
     if (uid == null) return [];
-
     return _gameTables!.entries.where((entry) {
       final table = entry.value;
       return table['player1_0'] == uid ||
@@ -873,30 +754,26 @@ class ScheduleProvider extends ChangeNotifier {
   }) {
     int totalMatches = 0;
     final playerCount = members.length;
-
     if (isSingles) {
       totalMatches = (playerCount * (playerCount - 1)) ~/ 2;
     } else {
       totalMatches = playerCount.clamp(5, 16);
     }
-
     final minTimePerMatch = isSingles ? 0.75 : 1.0;
     final maxTimePerMatch = isSingles ? 1.25 : 1.5;
-
     final minTotalHours = (totalMatches * minTimePerMatch) / courts;
     final maxTotalHours = (totalMatches * maxTimePerMatch) / courts;
-
-    final roundedMinHours = ((minTotalHours * 2).round() / 2).clamp(0.5, double.infinity);
+    final roundedMinHours =
+    ((minTotalHours * 2).round() / 2).clamp(0.5, double.infinity);
     final ceilingMaxHours = maxTotalHours.ceil();
-
     if (roundedMinHours == ceilingMaxHours.toDouble()) {
       return '약 ${roundedMinHours.toStringAsFixed(roundedMinHours.truncateToDouble() == roundedMinHours ? 0 : 1)}시간';
     }
-
     return '약 ${roundedMinHours.toStringAsFixed(roundedMinHours.truncateToDouble() == roundedMinHours ? 0 : 1)}~${ceilingMaxHours}시간';
   }
 
   // === State Management ===
+
   void _setLoading(bool loading) {
     if (_isLoading != loading) {
       _isLoading = loading;
@@ -907,9 +784,7 @@ class ScheduleProvider extends ChangeNotifier {
   void _setError(String? error) {
     if (_errorMessage != error) {
       _errorMessage = error;
-      if (error != null) {
-        DialogManager.errorHandler(error);
-      }
+      if (error != null) DialogManager.errorHandler(error);
       notifyListeners();
     }
   }
@@ -919,13 +794,13 @@ class ScheduleProvider extends ChangeNotifier {
   }
 
   // === Cleanup ===
+
   @override
   void dispose() {
     if (isGameSchedule && _isGameInitialized) {
       _setupGameSocketListeners(false);
       _socket.emit('leaveGame', _scheduleId);
     }
-
     _courtController?.dispose();
     super.dispose();
   }
