@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:my_sports_calendar/manager/game/Game_Manager.dart';
 import 'package:my_sports_calendar/manager/project/Import_Manager.dart';
 import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
 import 'package:my_sports_calendar/manager/server/Socket_Manager.dart';
@@ -34,6 +35,10 @@ class ScheduleProvider extends ChangeNotifier {
   int _currentStateView = 0;
   bool _isGameInitialized = false;
 
+  // === 부전승 관련 데이터 ===
+  Map<String, dynamic>? _walkOverMembers;
+  int _totalSlots = 0; // 2의 배수로 계산된 총 슬롯 수
+
   // === Court Input State ===
   int? _courtInputTableId;
   TextEditingController? _courtController;
@@ -53,6 +58,8 @@ class ScheduleProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   int? get courtInputTableId => _courtInputTableId;
   TextEditingController? get courtController => _courtController;
+  Map<String, dynamic>? get walkOverMembers => _walkOverMembers;
+  int get totalSlots => _totalSlots;
 
   // === Computed Properties ===
   bool get isGameSchedule => _schedule?['tag'] == '게임';
@@ -71,6 +78,79 @@ class ScheduleProvider extends ChangeNotifier {
   }
 
   bool get isTeamGame => gameType == GameType.tourDouble;
+
+  // === 부전승 관련 헬퍼 메서드 ===
+
+  /// 실제 참가자 수 (부전승 제외)
+  int get realMemberCount {
+    if (_scheduleMembers == null) return 0;
+    return _scheduleMembers!.values
+        .where((member) => member['isWalkOver'] != true)
+        .length;
+  }
+
+  /// 부전승 멤버 수
+  int get walkOverCount {
+    if (_scheduleMembers == null) return 0;
+    return _scheduleMembers!.values
+        .where((member) => member['isWalkOver'] == true)
+        .length;
+  }
+
+  /// 토너먼트에서 필요한 총 슬롯 수 계산 (2의 배수)
+  int calculateTournamentSlots() {
+    if (!isGameSchedule || gameType == GameType.kdkSingle || gameType == GameType.kdkDouble) {
+      return realMemberCount;
+    }
+
+    if (gameType == GameType.tourDouble) {
+      // 팀 수 기준으로 계산
+      final teamCount = getTeamCount();
+      if (teamCount <= 1) return 2;
+      return _getNextPowerOfTwo(teamCount);
+    } else {
+      // 개인 수 기준으로 계산
+      if (realMemberCount <= 1) return 2;
+      return _getNextPowerOfTwo(realMemberCount);
+    }
+  }
+
+  /// 2의 배수 중 가장 가까운 큰 수 반환
+  int _getNextPowerOfTwo(int number) {
+    if (number <= 1) return 2;
+    int power = 1;
+    while (power < number) {
+      power *= 2;
+    }
+    return power;
+  }
+
+  /// 팀 수 계산
+  int getTeamCount() {
+    if (_teams != null) return _teams!.length;
+
+    if (_scheduleMembers == null) return 0;
+
+    final realMembers = _scheduleMembers!.values
+        .where((member) => member['isWalkOver'] != true);
+
+    final Set<String> teamNames = {};
+    for (final member in realMembers) {
+      final teamName = member['teamName'];
+      if (teamName != null && teamName.toString().isNotEmpty) {
+        teamNames.add(teamName.toString());
+      }
+    }
+
+    return teamNames.length;
+  }
+
+  /// 부전승이 필요한 슬롯 수
+  int getRequiredWalkOverCount() {
+    final slots = calculateTournamentSlots();
+    final real = isTeamGame ? getTeamCount() : realMemberCount;
+    return slots - real;
+  }
 
   // === Initialization ===
   Future<void> initializeSchedule(int scheduleId) async {
@@ -124,10 +204,27 @@ class ScheduleProvider extends ChangeNotifier {
   Future<void> _processScheduleMembers(List? members) async {
     if (members == null) return;
 
-    _scheduleMembers = {
-      for (final member in members)
-        if (member['uid'] != null) member['uid']: Map<String, dynamic>.from(member)
-    };
+    _scheduleMembers = {};
+    _walkOverMembers = {};
+
+    for (final member in members) {
+      if (member['uid'] == null) continue;
+
+      final memberData = Map<String, dynamic>.from(member);
+      final uid = member['uid'].toString();
+
+      // 부전승 멤버와 일반 멤버 분리
+      if (memberData['isWalkOver'] == true) {
+        _walkOverMembers![uid] = memberData;
+      } else {
+        _scheduleMembers![uid] = memberData;
+      }
+    }
+
+    // 토너먼트인 경우 총 슬롯 수 계산
+    if (isGameSchedule && (gameType == GameType.tourSingle || gameType == GameType.tourDouble)) {
+      _totalSlots = calculateTournamentSlots();
+    }
 
     // 복식 토너먼트인 경우 팀 데이터 구성
     if (gameType == GameType.tourDouble) {
@@ -140,6 +237,7 @@ class ScheduleProvider extends ChangeNotifier {
 
     final Map<String, List<dynamic>> teamMap = {};
 
+    // 실제 참가자들로 팀 구성
     _scheduleMembers!.forEach((uid, memberData) {
       final String? teamName = memberData['teamName'];
 
@@ -147,6 +245,16 @@ class ScheduleProvider extends ChangeNotifier {
         teamMap.putIfAbsent(teamName, () => []).add(memberData);
       }
     });
+
+    // 부전승 팀 추가 (있다면)
+    if (_walkOverMembers != null) {
+      _walkOverMembers!.forEach((uid, memberData) {
+        final String? teamName = memberData['teamName'];
+        if (teamName != null && teamName.isNotEmpty) {
+          teamMap.putIfAbsent(teamName, () => []).add(memberData);
+        }
+      });
+    }
 
     _teams = teamMap;
   }
@@ -247,16 +355,7 @@ class ScheduleProvider extends ChangeNotifier {
       final res = await serverManager.get('scheduleMember/$scheduleId?useNickname=$useNickname');
 
       if (res.statusCode == 200 && res.data is List) {
-        final members = List<Map<String, dynamic>>.from(res.data);
-        _scheduleMembers = {
-          for (final member in members)
-            if (member['uid'] != null) member['uid']: member,
-        };
-
-        if (gameType == GameType.tourDouble) {
-          _buildTeamData();
-        }
-
+        await _processScheduleMembers(res.data);
         notifyListeners();
       }
 
@@ -265,6 +364,83 @@ class ScheduleProvider extends ChangeNotifier {
     }
   }
 
+  /// 모든 멤버 리스트 반환 (일반 + 부전승)
+  Map<String, dynamic> getAllMembers() {
+    final allMembers = <String, dynamic>{};
+
+    if (_scheduleMembers != null) {
+      allMembers.addAll(_scheduleMembers!);
+    }
+
+    if (_walkOverMembers != null) {
+      allMembers.addAll(_walkOverMembers!);
+    }
+
+    return allMembers;
+  }
+
+  /// 부전승 여부 확인
+  bool isWalkOverMember(String uid) {
+    return _walkOverMembers?.containsKey(uid) == true;
+  }
+
+  /// 멤버 데이터 가져오기 (일반 + 부전승)
+  Map<String, dynamic>? getMemberData(String uid) {
+    return _scheduleMembers?[uid] ?? _walkOverMembers?[uid];
+  }
+
+  /// 게임 타입별 최대 참가자 정보
+  Map<String, dynamic> getGameLimits() {
+    final limits = <String, dynamic>{};
+
+    switch (gameType) {
+      case GameType.kdkSingle:
+        limits['min'] = GameManager.min_kdk_single_member;
+        limits['max'] = GameManager.max_kdk_single_member; // JSON에서 동적으로 로드하도록 서버 연동 필요
+        limits['type'] = 'KDK 단식';
+        break;
+      case GameType.kdkDouble:
+        limits['min'] = GameManager.min_kdk_double_member;
+        limits['max'] = GameManager.max_kdk_double_member; // JSON에서 동적으로 로드하도록 서버 연동 필요
+        limits['type'] = 'KDK 복식';
+        break;
+      case GameType.tourSingle:
+        limits['min'] = GameManager.min_tour_single_member;
+        limits['max'] = GameManager.max_tour_single_member;
+        limits['type'] = '토너먼트 단식';
+        break;
+      case GameType.tourDouble:
+        limits['min'] = GameManager.min_tour_double_member;
+        limits['max'] = GameManager.max_tour_double_member;
+        limits['type'] = '토너먼트 복식';
+        limits['unit'] = '팀';
+        break;
+      default:
+        limits['min'] = 4;
+        limits['max'] = 16;
+        limits['type'] = '일반';
+    }
+
+    return limits;
+  }
+
+  /// 참가 가능 여부 체크 (부전승 고려)
+  bool canParticipate() {
+    final limits = getGameLimits();
+    final currentCount = isTeamGame ? getTeamCount() : realMemberCount;
+
+    return currentCount < limits['max'];
+  }
+
+  /// 게임 시작 가능 여부 체크
+  bool canStartGame() {
+    final limits = getGameLimits();
+    final currentCount = isTeamGame ? getTeamCount() : realMemberCount;
+
+    return currentCount >= limits['min'] && currentCount <= limits['max'];
+  }
+
+  // === 기존 메서드들 유지 ===
   Future<String> participateSchedule() async {
     final validation = _validateParticipation();
     if (validation != 'ok') return validation;
@@ -312,31 +488,16 @@ class ScheduleProvider extends ChangeNotifier {
       }
     }
 
-    // 게임 인원 제한 확인
-    if (isGameSchedule) {
-      final memberCount = _scheduleMembers!.length;
-      int maxLimit = 0;
-
-      switch (gameType) {
-        case GameType.kdkSingle:
-          maxLimit = 13;
-          break;
-        case GameType.kdkDouble:
-          maxLimit = 16;
-          break;
-        default:
-          break;
-      }
-
-      if (maxLimit > 0 && memberCount >= maxLimit) {
-        DialogManager.errorHandler('게임 인원이 다찼어요.');
-        return 'playerLimit';
-      }
+    // 게임 인원 제한 확인 (개선된 로직)
+    if (isGameSchedule && !canParticipate()) {
+      DialogManager.errorHandler('게임 인원이 다찼어요.');
+      return 'playerLimit';
     }
 
     return 'ok';
   }
 
+  // === 나머지 기존 메서드들은 동일하게 유지 ===
   Future<String> participateTeamSchedule(int teamId) async {
     try {
       AppRoute.pushLoading();

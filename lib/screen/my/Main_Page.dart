@@ -5,6 +5,7 @@ import 'package:my_sports_calendar/screen/my/widget/My_Rooms.dart';
 import 'package:my_sports_calendar/screen/my/widget/My_Schedule_Calendar.dart';
 
 import '../../manager/project/Import_Manager.dart';
+import '../../widget/AlwaysScrollableScrollBehavior.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key, required this.homeProvider});
@@ -45,16 +46,16 @@ class _MainPageState extends State<MainPage> {
         ],
       ),
       body: SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                MyProfileListCard(),
-                _homeDivider(),
-                MyScheduleCalendar(),
-                _homeDivider(),
-                MyRooms()
-              ],
-            ),
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: MyProfileListCard()),
+              SliverToBoxAdapter(child: _homeDivider()),
+              SliverToBoxAdapter(
+                child: MyScheduleCalendar(),
+              ),
+              SliverToBoxAdapter(child: _homeDivider()),
+              SliverToBoxAdapter(child: MyRooms()),
+            ],
           )
       )
     );

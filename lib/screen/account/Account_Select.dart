@@ -27,7 +27,7 @@ class _AccountSelectState extends State<AccountSelect> {
               nav.pop();
               DialogManager.showBasicDialog(title: '정말 해당 계좌를 삭제할까요?', content: "삭제후 복구가 불가합니다",
                   confirmText: "앗! 잠깐만요",
-                  cancelText: "삭제할레요",  onCancel: () async{
+                  cancelText: "삭제할래요",  onCancel: () async{
                     final res = await provider.removeAccount(accountId);
                     if(res != null){
                       SnackBarManager.showCleanSnackBar(context, '성공적으로 제거되었습니다');

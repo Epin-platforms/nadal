@@ -297,34 +297,37 @@ class _ScheduleCreateState extends State<ScheduleCreate> {
                                     child: NadalTextField(controller: provider.addressDetailController, label: '장소 상세', maxLength: 30, ),
                                   ),
 
-                                SizedBox(height: 16.h,),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(BootstrapIcons.person_badge, size: 18.r, color: theme.hintColor,),
-                                        SizedBox(width: 8.w,),
-                                        Text(
-                                          '참가 신청 받기', style:  theme.textTheme.titleMedium,
-                                        ),
-                                      ],
-                                    ),
+                                if(provider.roomId != null)...
+                                    [
+                                      SizedBox(height: 16.h,),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Icon(BootstrapIcons.person_badge, size: 18.r, color: theme.hintColor,),
+                                              SizedBox(width: 8.w,),
+                                              Text(
+                                                '참가 신청 받기', style:  theme.textTheme.titleMedium,
+                                              ),
+                                            ],
+                                          ),
 
-                                    NadalSwitchButton(value: provider.useParticipation, onChanged: (val){
-                                      if(provider.tag == "게임"){
-                                        DialogManager.showBasicDialog(title: '게임을 시작할 준비 중!', content: '게임을 시작하려면 참가자를 반드시 받아야 해요', confirmText: "확인");
-                                        return;
-                                      }
+                                          NadalSwitchButton(value: provider.useParticipation, onChanged: (val){
+                                            if(provider.tag == "게임"){
+                                              DialogManager.showBasicDialog(title: '게임을 시작할 준비 중!', content: '게임을 시작하려면 참가자를 반드시 받아야 해요', confirmText: "확인");
+                                              return;
+                                            }
 
-                                      if(val == false){ //참가기능 끌 경우
-                                        provider.setUseGenderLimit(false); //성별제한 동시 종료
-                                      }
+                                            if(val == false){ //참가기능 끌 경우
+                                              provider.setUseGenderLimit(false); //성별제한 동시 종료
+                                            }
 
-                                      provider.setUseParticipation(val);
-                                    })
-                                  ],
-                                ),
+                                            provider.setUseParticipation(val);
+                                          })
+                                        ],
+                                      ),
+                                    ],
 
                                if(provider.useParticipation && provider.roomId != null)
                                 Padding(

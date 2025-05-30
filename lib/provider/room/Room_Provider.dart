@@ -13,7 +13,8 @@ class RoomProvider extends ChangeNotifier{
   final int MAX_IMAGE_LENGTH = 5;
   final SocketManager socket = SocketManager();
 
-  socketListener({required bool isOn}){
+  void socketListener({required bool isOn}){
+    print("소켓리스너 상태: ${isOn}");
     if(isOn){
       socket.on('roomLog', _addRoomLog);
       socket.on('refreshMember', _fetchRoomMembers);
@@ -29,7 +30,7 @@ class RoomProvider extends ChangeNotifier{
     }
   }
 
-  _getAnnounce(dynamic data){
+  void _getAnnounce(dynamic data){
     _fetchLastAnnounce();
   }
 
@@ -72,10 +73,10 @@ class RoomProvider extends ChangeNotifier{
 
   Future setRoom(Map? initRoom) async{
     _room = initRoom;
+    socketListener(isOn: true);
     await _fetchRoomMembers(null);
     await _fetchRoomLogs();
     await _fetchLastAnnounce();
-    socketListener(isOn: true);
     notifyListeners();
   }
 
@@ -312,6 +313,7 @@ class RoomProvider extends ChangeNotifier{
     try {
       final uid = data['uid'];
       final auth = FirebaseAuth.instance;
+      print('updateLastRead!!!!!');
       if(uid != auth.currentUser!.uid){
         final lastRead = data['lastRead'];
         if (roomMembers[uid] != null) {

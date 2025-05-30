@@ -18,63 +18,81 @@ class _GameState1State extends State<GameState1> {
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      body: Stack(
+      body: Column(
         children: [
-          // 상단 그라데이션 배경
-          _buildHeaderBackground(context, colorScheme),
+          // 전체 스크롤 가능한 콘텐츠
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                children: [
+                  // 상단 그라데이션 배경 (스크롤과 함께 이동)
+                  _buildHeaderBackground(context, colorScheme),
 
-          // 메인 콘텐츠
-          SafeArea(
-            child: Column(
-              children: [
-                SizedBox(height: 70.h),
+                  SizedBox(height: 24.h),
 
-                // 게임 상태 카드
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24.w),
-                  child: _buildStatusCard(context, members),
-                ),
+                  // 게임 상태 카드
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24.w),
+                    child: _buildStatusCard(context, members),
+                  ),
 
-                // 참가자 카드
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.all(24.r),
+                  SizedBox(height: 24.h),
+
+                  // 참가자 카드 (스크롤 가능하게 확장)
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24.w),
                     child: _buildMembersCard(context, members),
                   ),
-                ),
 
-                // 하단 버튼 영역 (소유자이고 모집완료 상태일 때만)
-                if (isOwner && widget.scheduleProvider.currentState.index == 1)
-                  _buildActionButtons(context),
-              ],
+                  // 하단 여백 (버튼 영역을 위한 공간)
+                  SizedBox(height: isOwner && widget.scheduleProvider.currentState.index == 1 ? 100.h : 24.h),
+                ],
+              ),
             ),
           ),
         ],
       ),
+
+      // 하단 버튼 영역 (고정) - FloatingActionButton 대신 bottomNavigationBar 사용
+      bottomNavigationBar: isOwner && widget.scheduleProvider.currentState.index == 1
+          ? Container(
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: _buildActionButtons(context),
+        ),
+      )
+          : null,
     );
   }
 
   Widget _buildHeaderBackground(BuildContext context, ColorScheme colorScheme) {
-    return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
-      height: MediaQuery.of(context).size.height * 0.4,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              colorScheme.tertiary,
-              colorScheme.primary,
-            ],
-          ),
-          borderRadius: const BorderRadius.only(
-            bottomLeft: Radius.circular(40),
-            bottomRight: Radius.circular(40),
-          ),
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colorScheme.tertiary,
+            colorScheme.primary,
+          ],
         ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(40),
+          bottomRight: Radius.circular(40),
+        ),
+      ),
+      child: SafeArea(
         child: Stack(
           children: [
             // 배경 패턴
@@ -86,15 +104,28 @@ class _GameState1State extends State<GameState1> {
               ),
             ),
             // 타이틀
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 20,
-              left: 24,
-              child: Text(
-                widget.scheduleProvider.schedule?['title'] ?? '',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(24.w, 20.h, 24.w, 40.h),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.scheduleProvider.schedule?['title'] ?? '',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  SizedBox(height: 8.h),
+                  Text(
+                    '모든 참가자가 모였습니다',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.9),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -115,7 +146,7 @@ class _GameState1State extends State<GameState1> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: theme.shadowColor,
+            color: theme.shadowColor.withValues(alpha: 0.1),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -126,19 +157,19 @@ class _GameState1State extends State<GameState1> {
           Row(
             children: [
               Container(
-                width: 56,
-                height: 56,
+                width: 56.r,
+                height: 56.r,
                 decoration: BoxDecoration(
                   color: colorScheme.primary.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.check_circle_rounded,
-                  size: 28,
+                  size: 28.r,
                   color: colorScheme.primary,
                 ),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: 16.w),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -150,7 +181,7 @@ class _GameState1State extends State<GameState1> {
                         color: colorScheme.onSurface,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4.h),
                     Text(
                       '모든 참가자가 모였습니다',
                       style: theme.textTheme.bodyMedium?.copyWith(
@@ -162,14 +193,14 @@ class _GameState1State extends State<GameState1> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24.h),
           _buildInfoRow(
             context: context,
             icon: Icons.people_alt_rounded,
             label: '참가 인원',
             value: '${members.length}명',
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.h),
           _buildInfoRow(
             context: context,
             icon: Icons.timer_rounded,
@@ -197,7 +228,7 @@ class _GameState1State extends State<GameState1> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: theme.shadowColor,
+            color: theme.shadowColor.withValues(alpha: 0.1),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -213,21 +244,19 @@ class _GameState1State extends State<GameState1> {
               color: colorScheme.onSurface,
             ),
           ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: ListView.separated(
-              padding: EdgeInsets.zero,
-              itemCount: members.length,
-              separatorBuilder: (context, index) => Divider(
-                color: colorScheme.onSurface.withValues(alpha: 0.1),
-              ),
-              itemBuilder: (context, index) {
-                final member = members[index];
+          SizedBox(height: 16.h),
 
-                return ListTile(
+          // 참가자 목록을 스크롤 없이 전체 표시
+          ...List.generate(members.length, (index) {
+            final member = members[index];
+            return Column(
+              children: [
+                ListTile(
+                  onTap: ()=> context.push('/user/${member['uid']}'),
                   contentPadding: EdgeInsets.zero,
                   leading: NadalProfileFrame(
                     imageUrl: member['profileImage'],
+                    size: 44.r,
                   ),
                   title: Text(
                     member['name'] ?? member['nickName'] ?? '알수없음',
@@ -236,9 +265,7 @@ class _GameState1State extends State<GameState1> {
                     ),
                   ),
                   subtitle: Text(
-                    member['gender'] == null
-                        ? '익명 진행'
-                        : '${member['birthYear']}/${member['gender']}',
+                    member['roomName'] ?? '무소속',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
@@ -260,10 +287,14 @@ class _GameState1State extends State<GameState1> {
                       ),
                     ),
                   ),
-                );
-              },
-            ),
-          ),
+                ),
+                if (index < members.length - 1)
+                  Divider(
+                    color: colorScheme.onSurface.withValues(alpha: 0.1),
+                  ),
+              ],
+            );
+          }),
         ],
       ),
     );
@@ -282,10 +313,10 @@ class _GameState1State extends State<GameState1> {
       children: [
         Icon(
           icon,
-          size: 20,
+          size: 20.r,
           color: colorScheme.onSurface.withValues(alpha: 0.6),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: 8.w),
         Text(
           label,
           style: theme.textTheme.bodyMedium?.copyWith(
@@ -306,12 +337,9 @@ class _GameState1State extends State<GameState1> {
 
   Widget _buildActionButtons(BuildContext context) {
     return Padding(
-      padding:  EdgeInsets.only(
-        left: 24.w,
-        right: 24.w,
-        bottom: 24.h,
-      ),
+      padding: EdgeInsets.all(24.r),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           _buildPrimaryButton(
             context: context,
@@ -319,7 +347,7 @@ class _GameState1State extends State<GameState1> {
             icon: Icons.sports_tennis,
             onPressed: () => _showStartGameDialog(),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.h),
           _buildSecondaryButton(
             context: context,
             label: '모집 다시 시작',
@@ -352,13 +380,14 @@ class _GameState1State extends State<GameState1> {
 
     return SizedBox(
       width: double.infinity,
-      height: 56,
+      height: 56.h,
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: colorScheme.primary,
-          foregroundColor: colorScheme.onSurface,
-          elevation: 0,
+          foregroundColor: Colors.white,
+          elevation: 4,
+          shadowColor: colorScheme.primary.withValues(alpha: 0.3),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -366,13 +395,13 @@ class _GameState1State extends State<GameState1> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 20),
-            const SizedBox(width: 8),
+            Icon(icon, size: 20.r),
+            SizedBox(width: 8.w),
             Text(
               label,
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: colorScheme.onSurface,
+                color: Colors.white,
               ),
             ),
           ],
@@ -392,7 +421,7 @@ class _GameState1State extends State<GameState1> {
 
     return SizedBox(
       width: double.infinity,
-      height: 56,
+      height: 56.h,
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
@@ -405,8 +434,8 @@ class _GameState1State extends State<GameState1> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 20),
-            const SizedBox(width: 8),
+            Icon(icon, size: 20.r),
+            SizedBox(width: 8.w),
             Text(
               label,
               style: theme.textTheme.titleMedium?.copyWith(

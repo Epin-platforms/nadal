@@ -8,10 +8,10 @@ class GameManager{
   static final max_kdk_double_member = 30;
 
   static final min_tour_single_member = 4;
-  static final max_tour_single_member = 100;
+  static final max_tour_single_member = 64;
 
   static final min_tour_double_member = 2;
-  static final max_tour_double_member = 50;
+  static final max_tour_double_member = 32;
 
   //멤버를 팀 네임으로 만들어주는 함수
   static Map<String, List<String?>> groupTeams(Map data) {

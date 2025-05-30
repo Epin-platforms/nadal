@@ -21,6 +21,7 @@ class _NotificationPageState extends State<NotificationPage> {
   void initState() {
     _controller = ScrollController();
     WidgetsBinding.instance.addPostFrameCallback((_){
+      notificationProvider.fetchNotifications();
       _controller.addListener((){
         if(_controller.position.pixels >= _controller.position.maxScrollExtent - 100){
           notificationProvider.fetchNotifications();

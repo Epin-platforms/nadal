@@ -512,7 +512,7 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
                 decoration: BoxDecoration(
                   color: participationColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(16),
@@ -520,14 +520,14 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
                 child: Row(
                   children: [
                     Container(
-                      width: 8,
-                      height: 8,
+                      width: 8.r,
+                      height: 8.r,
                       decoration: BoxDecoration(
                         color: participationColor,
                         shape: BoxShape.circle,
                       ),
                     ),
-                    const SizedBox(width: 5),
+                    SizedBox(width: 5.w),
                     Text(
                       myParticipationStatus,
                       style: theme.textTheme.labelSmall?.copyWith(
@@ -540,7 +540,7 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16.h),
           Row(
             children: [
               Flexible(
@@ -552,7 +552,7 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
                   },
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
-                    height: 46,
+                    height: 46.h,
                     decoration: BoxDecoration(
                       color: theme.colorScheme.primary,
                       borderRadius: BorderRadius.circular(12),
@@ -593,7 +593,7 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
               if (widget.provider.schedule!['tag'] == "게임" &&
                   widget.provider.schedule!['state'] == 0 &&
                   widget.provider.isOwner) ...[
-                const SizedBox(width: 10),
+                    SizedBox(width: 10.w),
                 Flexible(
                   flex: 2,
                   child: InkWell(

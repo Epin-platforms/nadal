@@ -73,11 +73,12 @@ class ScheduleCreateProvider extends ChangeNotifier{
   Map? _account;
   Map? get account => _account;
 
-  setTag(int index){
+  void setTag(int index){
     if(index == -1){
         _tag = '개인';
         _isKDK = null;;
         _isSingle = null;
+        _useParticipation = false;
         notifyListeners();
     }else if(_tag != tags[index]){
       if(_tag == '게임' && tags[index] != "게임"){

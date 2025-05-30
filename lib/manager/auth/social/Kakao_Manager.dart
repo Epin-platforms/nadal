@@ -130,9 +130,6 @@ class KakaoManager {
         return;
       }
 
-      final params = {
-        'routing': item.routing
-      };
 
       final template = FeedTemplate(
         content: Content(
@@ -142,8 +139,12 @@ class KakaoManager {
           link: Link(
               webUrl: link,
               mobileWebUrl: link,
-              androidExecutionParams: params,
-              iosExecutionParams: params
+              androidExecutionParams: {
+                'routing': item.routing
+              },
+              iosExecutionParams: {
+                'routing': item.routing
+              }
           ),
         ),
         buttons: [
@@ -152,8 +153,12 @@ class KakaoManager {
             link: Link(
                 webUrl: link,
                 mobileWebUrl: link,
-                androidExecutionParams: params,
-                iosExecutionParams: params
+                androidExecutionParams: {
+                  'routing': item.routing
+                },
+                iosExecutionParams: {
+                  'routing': item.routing
+                }
             ),
           ),
         ],

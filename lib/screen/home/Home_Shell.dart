@@ -91,7 +91,6 @@ class _HomeShellState extends State<HomeShell> {
 
   void _handleUri(Uri uri) {
     final item = uri.queryParameters;
-
     if(item['routing'] != null){
       context.go('/my');
       context.push(item['routing']!);

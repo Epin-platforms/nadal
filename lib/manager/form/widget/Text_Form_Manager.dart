@@ -135,16 +135,16 @@ class TextFormManager{
 
 
   static String fromToDate(dynamic from, dynamic to, {bool isAllDay = false}){
-    DateTime fromDate = (from is String) ? DateTime.parse(from).toLocal() : from;
-    DateTime toDate = (to is String) ? DateTime.parse(to).toLocal() : to;
-
-    final String form = DateTime.now().year == fromDate.year ? 'M월 d일 (E) h:mm' : 'yyyy년 M월 d일 (E) h:mm';
-    final String allDayForm = DateTime.now().year == fromDate.year ? 'M월 d일 (E)' : 'yyyy년 M월 d일 (E)';
+    DateTime fromDate = (from is String) ? DateTime.parse(from) : from;
+    DateTime toDate = (to is String) ? DateTime.parse(to) : to;
 
     if(isAllDay){
+      final String allDayForm = DateTime.now().year == fromDate.year ? 'M월 d일 (E)' : 'yyyy년 M월 d일 (E)';
       return '${DateFormat(allDayForm, 'ko').format(fromDate)} 종일';
     }else{
-      return '${DateFormat(form, 'ko').format(fromDate)} ~ ${DateFormat(form, 'ko').format(toDate)}';
+      final String form = DateTime.now().year == fromDate.year ? 'M월 d일 (E) H:mm' : 'yyyy년 M월 d일 (E) H:mm';
+      final String toForm = fromDate.year == toDate.year && fromDate.month == toDate.month && fromDate.day == toDate.day ? 'H:mm' : form;
+      return '${DateFormat(form, 'ko').format(fromDate)} ~ ${DateFormat(toForm, 'ko').format(toDate)} ';
     }
   }
 
