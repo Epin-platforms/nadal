@@ -18,8 +18,6 @@ class ChatList extends StatefulWidget {
 class _ChatListState extends State<ChatList> {
   late ChatProvider chatProvider;
   final ScrollController _scrollController = ScrollController();
-
-  // GlobalKey 관리를 위한 맵 - 메모리 누수 방지를 위해 WeakReference 패턴 적용
   final Map<int, GlobalKey> _chatKeys = {};
 
   bool _hasMoreBefore = true;
@@ -27,7 +25,6 @@ class _ChatListState extends State<ChatList> {
   bool _isInitialized = false;
   int? _lastReadChatId;
 
-  // 스크롤 성능 최적화를 위한 디바운스
   Timer? _scrollDebouncer;
 
   @override
@@ -40,7 +37,6 @@ class _ChatListState extends State<ChatList> {
   void dispose() {
     _scrollController.dispose();
     _scrollDebouncer?.cancel();
-    // GlobalKey 맵 정리
     _chatKeys.clear();
     super.dispose();
   }
@@ -48,7 +44,6 @@ class _ChatListState extends State<ChatList> {
   void _onScroll() {
     if (chatProvider.socketLoading) return;
 
-    // 디바운스로 스크롤 성능 최적화
     _scrollDebouncer?.cancel();
     _scrollDebouncer = Timer(const Duration(milliseconds: 150), () {
       if (!mounted) return;
@@ -68,50 +63,55 @@ class _ChatListState extends State<ChatList> {
   Future<void> _loadMoreBefore() async {
     if (chatProvider.socketLoading) return;
 
-    final roomId = widget.roomProvider.room!['roomId'];
-    final hasMore = await chatProvider.loadChatsBefore(roomId);
+    try {
+      final roomId = widget.roomProvider.room?['roomId'] as int?;
+      if (roomId == null) return;
 
-    if (mounted && _hasMoreBefore != hasMore) {
-      setState(() {
+      final hasMore = await chatProvider.loadChatsBefore(roomId);
+
+      if (mounted && _hasMoreBefore != hasMore) {
         _hasMoreBefore = hasMore;
-      });
+        if (mounted) setState(() {});
+      }
+    } catch (e) {
+      print('이전 채팅 로드 오류: $e');
     }
   }
 
   Future<void> _loadMoreAfter() async {
     if (chatProvider.socketLoading) return;
 
-    final roomId = widget.roomProvider.room!['roomId'];
-    final hasMore = await chatProvider.loadChatsAfter(roomId);
-    if (mounted && _hasMoreAfter != hasMore) {
-      setState(() {
+    try {
+      final roomId = widget.roomProvider.room?['roomId'] as int?;
+      if (roomId == null) return;
+
+      final hasMore = await chatProvider.loadChatsAfter(roomId);
+
+      if (mounted && _hasMoreAfter != hasMore) {
         _hasMoreAfter = hasMore;
-      });
+        if (mounted) setState(() {});
+      }
+    } catch (e) {
+      print('이후 채팅 로드 오류: $e');
     }
   }
 
-  // GlobalKey 중복 방지를 위한 안전한 키 생성
   GlobalKey? _getChatKey(int chatId) {
-    // 이미 존재하는 키가 있고, 해당 키가 현재 위젯 트리에서 사용 중이 아닌 경우에만 재사용
     if (_chatKeys.containsKey(chatId)) {
       final existingKey = _chatKeys[chatId]!;
-      // 키가 현재 사용되고 있지 않은 경우에만 재사용
       if (existingKey.currentContext == null) {
         return existingKey;
       } else {
-        // 이미 사용 중인 키가 있다면 null 반환 (ValueKey 사용)
         return null;
       }
     }
 
-    // 새로운 키 생성
     final newKey = GlobalKey();
     _chatKeys[chatId] = newKey;
     return newKey;
   }
 
   void _scrollToChatId(int chatId) {
-    // 안전한 스크롤링을 위한 지연 실행
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
@@ -125,8 +125,7 @@ class _ChatListState extends State<ChatList> {
             alignment: 0.5,
           );
         } catch (e) {
-          // 스크롤 실패 시 무시
-          debugPrint('스크롤 실패: $e');
+          print('스크롤 실패: $e');
         }
       }
     });
@@ -135,35 +134,38 @@ class _ChatListState extends State<ChatList> {
   void _initializeIfNeeded() {
     if (_isInitialized) return;
 
-    final roomId = widget.roomProvider.room!['roomId'];
-    final chats = chatProvider.chat[roomId];
+    try {
+      final roomId = widget.roomProvider.room?['roomId'] as int?;
+      if (roomId == null) return;
 
-    if (chats == null || chats.isEmpty) return;
+      final chats = chatProvider.chat[roomId];
+      if (chats == null || chats.isEmpty) return;
 
-    _isInitialized = true;
-    _lastReadChatId = chatProvider.getLastReadChatId(roomId);
+      _isInitialized = true;
+      _lastReadChatId = chatProvider.getLastReadChatId(roomId);
 
-    final shouldShowMoreBefore = chats.length >= 20;
+      final shouldShowMoreBefore = chats.length >= 20;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
 
-      setState(() {
         _hasMoreBefore = shouldShowMoreBefore;
-      });
+        if (mounted) setState(() {});
 
-      // lastRead 위치로 스크롤 (안전하게)
-      if (_lastReadChatId != null && _lastReadChatId! > 0) {
-        final targetExists = chats.any((chat) => chat.chatId == _lastReadChatId);
-        if (targetExists) {
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (mounted) {
-              _scrollToChatId(_lastReadChatId!);
-            }
-          });
+        if (_lastReadChatId != null && _lastReadChatId! > 0) {
+          final targetExists = chats.any((chat) => chat.chatId == _lastReadChatId);
+          if (targetExists) {
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) {
+                _scrollToChatId(_lastReadChatId!);
+              }
+            });
+          }
         }
-      }
-    });
+      });
+    } catch (e) {
+      print('초기화 오류: $e');
+    }
   }
 
   bool _shouldShowLastReadDivider(Chat chat, int actualIndex, List<dynamic> chatList) {
@@ -171,24 +173,33 @@ class _ChatListState extends State<ChatList> {
     if (chat.chatId != _lastReadChatId) return false;
     if (actualIndex >= chatList.length - 1) return false;
 
-    final roomId = widget.roomProvider.room!['roomId'];
-    final chats = chatProvider.chat[roomId] ?? [];
+    try {
+      final roomId = widget.roomProvider.room?['roomId'] as int?;
+      if (roomId == null) return false;
 
-    if (chats.isEmpty) return false;
+      final chats = chatProvider.chat[roomId] ?? [];
+      if (chats.isEmpty) return false;
 
-    final unreadCount = chats.where((c) => c.chatId > _lastReadChatId!).length;
-    return unreadCount > 10;
+      final unreadCount = chats.where((c) => c.chatId > _lastReadChatId!).length;
+      return unreadCount > 10;
+    } catch (e) {
+      print('읽음 구분선 표시 확인 오류: $e');
+      return false;
+    }
   }
 
-  // 메모리 효율성을 위한 키 정리
   void _cleanupUnusedKeys(List<dynamic> currentChatList) {
-    final currentChatIds = currentChatList
-        .whereType<Chat>()
-        .map((chat) => chat.chatId)
-        .toSet();
+    try {
+      final currentChatIds = currentChatList
+          .whereType<Chat>()
+          .map((chat) => chat.chatId)
+          .toSet();
 
-    _chatKeys.removeWhere((chatId, key) =>
-    !currentChatIds.contains(chatId) && key.currentContext == null);
+      _chatKeys.removeWhere((chatId, key) =>
+      !currentChatIds.contains(chatId) && key.currentContext == null);
+    } catch (e) {
+      print('키 정리 오류: $e');
+    }
   }
 
   @override
@@ -202,35 +213,50 @@ class _ChatListState extends State<ChatList> {
         Expanded(
           child: Selector2<ChatProvider, RoomProvider, List<dynamic>>(
             selector: (context, chatProvider, roomProvider) {
-              final roomId = roomProvider.room!['roomId'];
-              var combinedList = [
-                ...chatProvider.chat[roomId] ?? [],
-                ...roomProvider.roomLog
-              ];
+              try {
+                final roomId = roomProvider.room?['roomId'] as int?;
+                if (roomId == null) return <dynamic>[];
 
-              combinedList.sort((a, b) {
-                final aDate = a.runtimeType == Chat ? (a as Chat).createAt : (a as RoomLog).createAt;
-                final bDate = b.runtimeType == Chat ? (b as Chat).createAt : (b as RoomLog).createAt;
-                return bDate.compareTo(aDate);
-              });
+                var combinedList = <dynamic>[
+                  ...chatProvider.chat[roomId] ?? [],
+                  ...roomProvider.roomLog
+                ];
 
-              return combinedList;
+                combinedList.sort((a, b) {
+                  try {
+                    final aDate = a.runtimeType == Chat
+                        ? (a as Chat).createAt
+                        : (a as RoomLog).createAt;
+                    final bDate = b.runtimeType == Chat
+                        ? (b as Chat).createAt
+                        : (b as RoomLog).createAt;
+                    return bDate.compareTo(aDate);
+                  } catch (e) {
+                    print('정렬 오류: $e');
+                    return 0;
+                  }
+                });
+
+                return combinedList;
+              } catch (e) {
+                print('채팅 목록 선택 오류: $e');
+                return <dynamic>[];
+              }
             },
             builder: (context, chatList, child) {
-              // 사용되지 않는 키 정리
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 _cleanupUnusedKeys(chatList);
               });
 
               if (chatList.isEmpty) {
-                return const Center(
+                return Center(
                   child: Padding(
-                    padding: EdgeInsets.all(20.0),
+                    padding: EdgeInsets.all(20.w),
                     child: Text(
                       '아직 채팅이 없어요\n첫 메시지를 보내보세요!',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 16.sp,
                         color: Colors.grey,
                       ),
                     ),
@@ -242,172 +268,47 @@ class _ChatListState extends State<ChatList> {
                 controller: _scrollController,
                 shrinkWrap: true,
                 reverse: true,
-                // 성능 최적화를 위한 캐싱
                 addAutomaticKeepAlives: false,
                 addRepaintBoundaries: true,
                 itemCount: chatList.length + (_hasMoreBefore ? 1 : 0) + (_hasMoreAfter ? 1 : 0),
                 itemBuilder: (context, index) {
-                  // 위쪽 로딩 인디케이터
-                  if (_hasMoreBefore && index == chatList.length) {
-                    return Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16.h),
-                      child: Center(child: NadalCircular(size: 30.r)),
-                    );
-                  }
-
-                  // 아래쪽 로딩 인디케이터
-                  if (_hasMoreAfter && index == chatList.length + (_hasMoreBefore ? 1 : 0)) {
-                    return Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16.h),
-                      child: Center(child: NadalCircular(size: 30.r)),
-                    );
-                  }
-
-                  final actualIndex = index - (_hasMoreAfter ? 1 : 0);
-                  final currentData = chatList[actualIndex];
-
-                  // 로그 데이터 처리
-                  if (currentData is RoomLog) {
-                    final roomLog = currentData;
-
-                    // 날짜 출력 여부 결정 (전체 리스트 기준)
-                    final cDate = DateTime(roomLog.createAt.year, roomLog.createAt.month, roomLog.createAt.day);
-
-                    DateTime? pDate;
-                    if (actualIndex < chatList.length - 1) {
-                      final prevItem = chatList[actualIndex + 1];
-                      final prevItemDate = prevItem.runtimeType == Chat
-                          ? (prevItem as Chat).createAt
-                          : (prevItem as RoomLog).createAt;
-                      pDate = DateTime(prevItemDate.year, prevItemDate.month, prevItemDate.day);
+                  try {
+                    // 위쪽 로딩 인디케이터
+                    if (_hasMoreBefore && index == chatList.length) {
+                      return Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16.h),
+                        child: Center(child: NadalCircular(size: 30.r)),
+                      );
                     }
 
-                    final showDate = (actualIndex == chatList.length - 1) || (cDate != pDate);
+                    // 아래쪽 로딩 인디케이터
+                    if (_hasMoreAfter && index == chatList.length + (_hasMoreBefore ? 1 : 0)) {
+                      return Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16.h),
+                        child: Center(child: NadalCircular(size: 30.r)),
+                      );
+                    }
 
-                    return Column(
-                      children: [
-                        // 날짜 구분선 표시
-                        if (showDate)
-                          DateDivider(
-                            key: ValueKey('date-${cDate.toIso8601String()}'),
-                            date: cDate,
-                          ),
+                    final actualIndex = index - (_hasMoreAfter ? 1 : 0);
+                    if (actualIndex < 0 || actualIndex >= chatList.length) {
+                      return SizedBox.shrink();
+                    }
 
-                        LogFrame(
-                          key: ValueKey('log-${roomLog.logId}'),
-                          roomLog: roomLog,
-                        ),
-                      ],
-                    );
+                    final currentData = chatList[actualIndex];
+
+                    // 로그 데이터 처리
+                    if (currentData is RoomLog) {
+                      return _buildLogItem(currentData, actualIndex, chatList);
+                    }
+
+                    // 채팅 데이터 처리
+                    final chat = currentData as Chat;
+                    return _buildChatItem(chat, actualIndex, chatList);
+
+                  } catch (e) {
+                    print('아이템 빌드 오류 (index: $index): $e');
+                    return SizedBox.shrink();
                   }
-
-                  // 채팅 데이터 처리
-                  final chat = currentData as Chat;
-
-                  // 이전 및 다음 데이터 참조
-                  final previousData = (actualIndex < chatList.length - 1 && chatList[actualIndex + 1] is Chat)
-                      ? chatList[actualIndex + 1] as Chat
-                      : null;
-
-                  final nextData = (actualIndex > 0 && chatList[actualIndex - 1] is Chat)
-                      ? chatList[actualIndex - 1] as Chat
-                      : null;
-
-                  // 날짜 출력 여부 결정 (전체 리스트 기준)
-                  final cDate = DateTime(chat.createAt.year, chat.createAt.month, chat.createAt.day);
-
-                  DateTime? pDate;
-                  if (actualIndex < chatList.length - 1) {
-                    final prevItem = chatList[actualIndex + 1];
-                    final prevItemDate = prevItem.runtimeType == Chat
-                        ? (prevItem as Chat).createAt
-                        : (prevItem as RoomLog).createAt;
-                    pDate = DateTime(prevItemDate.year, prevItemDate.month, prevItemDate.day);
-                  }
-
-                  final showDate = (actualIndex == chatList.length - 1) || (cDate != pDate);
-
-                  // 시간, 꼬리 출력 여부 결정
-                  bool timeVisible = nextData == null ||
-                      nextData.uid != chat.uid ||
-                      nextData.createAt.difference(chat.createAt).inMinutes > 5;
-
-                  bool tail = previousData == null ||
-                      previousData.uid != chat.uid ||
-                      chat.createAt.difference(previousData.createAt).inMinutes > 5;
-
-                  // 읽음 표시 계산
-                  int read = (widget.roomProvider.roomMembers.keys.length -
-                      widget.roomProvider.roomMembers.values.where((e) => e['lastRead'] > chat.chatId).length);
-
-                  // lastRead 구분선 표시 여부
-                  final showLastReadDivider = _shouldShowLastReadDivider(chat, actualIndex, chatList);
-
-                  // GlobalKey 또는 ValueKey 결정
-                  final chatKey = _getChatKey(chat.chatId);
-                  final useGlobalKey = chatKey != null && chat.chatId == _lastReadChatId;
-
-                  return Column(
-                    children: [
-                      // 날짜 구분선 표시
-                      if (showDate)
-                        DateDivider(
-                          key: ValueKey('date-${cDate.toIso8601String()}'),
-                          date: cDate,
-                        ),
-
-                      // lastRead 구분선 표시
-                      if (showLastReadDivider)
-                        Container(
-                          margin: EdgeInsets.symmetric(vertical: 8.h),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  height: 1,
-                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                                ),
-                              ),
-                              Container(
-                                margin: EdgeInsets.symmetric(horizontal: 8.w),
-                                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  '여기까지 읽음',
-                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: Theme.of(context).colorScheme.primary,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: Container(
-                                  height: 1,
-                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                      // 채팅 메시지 표시 - GlobalKey 중복 방지
-                      Container(
-                        key: useGlobalKey ? chatKey : ValueKey('chat-${chat.chatId}'),
-                        child: ChatFrame(
-                          key: ValueKey('frame-${chat.chatId}'),
-                          chat: chat,
-                          timeVisible: timeVisible,
-                          tail: tail,
-                          read: read,
-                          index: actualIndex,
-                          roomProvider: widget.roomProvider,
-                        ),
-                      ),
-                    ],
-                  );
                 },
                 separatorBuilder: (BuildContext context, int index) => SizedBox(height: 4.h),
               );
@@ -420,5 +321,165 @@ class _ChatListState extends State<ChatList> {
         ]
       ],
     );
+  }
+
+  Widget _buildLogItem(RoomLog roomLog, int actualIndex, List<dynamic> chatList) {
+    try {
+      final cDate = DateTime(roomLog.createAt.year, roomLog.createAt.month, roomLog.createAt.day);
+
+      DateTime? pDate;
+      if (actualIndex < chatList.length - 1) {
+        final prevItem = chatList[actualIndex + 1];
+        final prevItemDate = prevItem.runtimeType == Chat
+            ? (prevItem as Chat).createAt
+            : (prevItem as RoomLog).createAt;
+        pDate = DateTime(prevItemDate.year, prevItemDate.month, prevItemDate.day);
+      }
+
+      final showDate = (actualIndex == chatList.length - 1) || (cDate != pDate);
+
+      return Column(
+        children: [
+          if (showDate)
+            DateDivider(
+              key: ValueKey('date-${cDate.toIso8601String()}'),
+              date: cDate,
+            ),
+          LogFrame(
+            key: ValueKey('log-${roomLog.logId}'),
+            roomLog: roomLog,
+          ),
+        ],
+      );
+    } catch (e) {
+      print('로그 아이템 빌드 오류: $e');
+      return SizedBox.shrink();
+    }
+  }
+
+  Widget _buildChatItem(Chat chat, int actualIndex, List<dynamic> chatList) {
+    try {
+      // 이전 및 다음 데이터 참조 (안전하게)
+      Chat? previousData;
+      Chat? nextData;
+
+      if (actualIndex < chatList.length - 1 && chatList[actualIndex + 1] is Chat) {
+        previousData = chatList[actualIndex + 1] as Chat;
+      }
+
+      if (actualIndex > 0 && chatList[actualIndex - 1] is Chat) {
+        nextData = chatList[actualIndex - 1] as Chat;
+      }
+
+      // 날짜 출력 여부 결정
+      final cDate = DateTime(chat.createAt.year, chat.createAt.month, chat.createAt.day);
+
+      DateTime? pDate;
+      if (actualIndex < chatList.length - 1) {
+        final prevItem = chatList[actualIndex + 1];
+        final prevItemDate = prevItem.runtimeType == Chat
+            ? (prevItem as Chat).createAt
+            : (prevItem as RoomLog).createAt;
+        pDate = DateTime(prevItemDate.year, prevItemDate.month, prevItemDate.day);
+      }
+
+      final showDate = (actualIndex == chatList.length - 1) || (cDate != pDate);
+
+      // 시간, 꼬리 출력 여부 결정
+      bool timeVisible = nextData == null ||
+          nextData.uid != chat.uid ||
+          nextData.createAt.difference(chat.createAt).inMinutes > 5;
+
+      bool tail = previousData == null ||
+          previousData.uid != chat.uid ||
+          chat.createAt.difference(previousData.createAt).inMinutes > 5;
+
+      // 읽음 표시 계산 (안전하게)
+      int read = 0;
+      try {
+        final roomMembers = widget.roomProvider.roomMembers;
+        if (roomMembers.isNotEmpty) {
+          final totalMembers = roomMembers.keys.length;
+          final readMembers = roomMembers.values
+              .where((e) => (e['lastRead'] as int? ?? 0) > chat.chatId)
+              .length;
+          read = totalMembers - readMembers;
+        }
+      } catch (e) {
+        print('읽음 표시 계산 오류: $e');
+      }
+
+      // lastRead 구분선 표시 여부
+      final showLastReadDivider = _shouldShowLastReadDivider(chat, actualIndex, chatList);
+
+      // GlobalKey 또는 ValueKey 결정
+      final chatKey = _getChatKey(chat.chatId);
+      final useGlobalKey = chatKey != null && chat.chatId == _lastReadChatId;
+
+      return Column(
+        children: [
+          // 날짜 구분선 표시
+          if (showDate)
+            DateDivider(
+              key: ValueKey('date-${cDate.toIso8601String()}'),
+              date: cDate,
+            ),
+
+          // lastRead 구분선 표시
+          if (showLastReadDivider)
+            Container(
+              margin: EdgeInsets.symmetric(vertical: 8.h),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 1,
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  Container(
+                    margin: EdgeInsets.symmetric(horizontal: 8.w),
+                    padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '여기까지 읽음',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontSize: 11.sp,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      height: 1,
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // 채팅 메시지 표시
+          Container(
+            key: useGlobalKey ? chatKey : ValueKey('chat-${chat.chatId}'),
+            child: ChatFrame(
+              key: ValueKey('frame-${chat.chatId}'),
+              chat: chat,
+              timeVisible: timeVisible,
+              tail: tail,
+              read: read,
+              index: actualIndex,
+              roomProvider: widget.roomProvider,
+            ),
+          ),
+        ],
+      );
+    } catch (e) {
+      print('채팅 아이템 빌드 오류: $e');
+      return SizedBox.shrink();
+    }
   }
 }

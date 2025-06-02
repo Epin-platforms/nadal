@@ -20,19 +20,15 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
   late ChatProvider chatProvider;
   late RoomProvider provider;
 
+  bool _isInitializing = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
     WidgetsBinding.instance.addPostFrameCallback((_){
-      if(widget.roomId == -1){
-        context.pop();
-        DialogManager.errorHandler('올바른 접근이 아닙니다');
-        return;
-      }
-
-      _roomSetting();
+      _validateAndInitialize();
     });
   }
 
@@ -48,21 +44,27 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    // 백그라운드에서 포그라운드로 복귀할 때 데이터 새로고침
     if (state == AppLifecycleState.resumed) {
       _refreshFromBackground();
     }
   }
 
+  void _validateAndInitialize() {
+    if (widget.roomId <= 0) {
+      if (mounted) {
+        context.pop();
+        DialogManager.errorHandler('올바른 접근이 아닙니다');
+      }
+      return;
+    }
+
+    _roomSetting();
+  }
+
   void _refreshFromBackground() async {
     try {
-      // 채팅 데이터 새로고침
       await chatProvider.refreshRoomFromBackground(widget.roomId);
-
-      // 방 데이터 새로고침
       await provider.refreshRoomFromBackground();
-
-      // 읽음 상태 업데이트
       await chatProvider.updateMyLastReadInServer(widget.roomId);
       await chatProvider.enterRoomUpdateLastRead(widget.roomId);
     } catch (e) {
@@ -71,17 +73,21 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
   }
 
   void _roomSetting() async{
+    if (_isInitializing) return;
+    _isInitializing = true;
+
     try {
       // 방정보 업데이트
       await roomsProvider.updateRoom(widget.roomId);
 
-      // 조인이 안되어있다면 조인 및 기타 내용 설정
+      // 조인이 안되어있다면 조인
       if(!chatProvider.isJoined(widget.roomId)){
         await chatProvider.joinRoom(widget.roomId);
       }
 
       // 방 데이터가 없다면 프리뷰로 이동
-      if(chatProvider.my[widget.roomId] == null){
+      final myData = chatProvider.my[widget.roomId];
+      if(myData == null){
         await chatProvider.removeRoom(widget.roomId);
         if (mounted) {
           context.pushReplacement('/previewRoom/${widget.roomId}');
@@ -91,8 +97,11 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
 
       // 룸데이터 룸 프로바이더에 세팅하기
       if(provider.room == null){
-        final initRoom = roomsProvider.rooms![widget.roomId];
-        await provider.setRoom(initRoom);
+        final rooms = roomsProvider.rooms;
+        if (rooms != null && rooms.containsKey(widget.roomId)) {
+          final initRoom = rooms[widget.roomId];
+          await provider.setRoom(initRoom);
+        }
       }
 
       // 읽은 메시지 업데이트
@@ -100,6 +109,12 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
       await chatProvider.enterRoomUpdateLastRead(widget.roomId);
     } catch (e) {
       print('방 설정 오류: $e');
+      if (mounted) {
+        context.pop();
+        DialogManager.errorHandler('방 정보를 불러오는데 실패했습니다');
+      }
+    } finally {
+      _isInitializing = false;
     }
   }
 
@@ -109,7 +124,8 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
     chatProvider = Provider.of<ChatProvider>(context);
     provider = Provider.of<RoomProvider>(context);
 
-    if(provider.room == null){
+    // 로딩 상태 처리
+    if(provider.room == null || _isInitializing){
       return Scaffold(
         body: Center(
           child: NadalCircular(),
@@ -117,19 +133,21 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
       );
     }
 
+    final roomName = provider.room?['roomName']?.toString() ?? '채팅방';
+
     return IosPopGesture(
       child: Scaffold(
           key: _globalKey,
           appBar: NadalAppbar(
             centerTitle: false,
-            title: provider.room?['roomName'] ?? '',
+            title: roomName,
             actions: [
               NadalIconButton(
                 onTap: ()=> context.push('/room/${widget.roomId}/schedule'),
                 icon: BootstrapIcons.calendar2,
-                size: 22,
+                size: 22.r,
               ),
-              SizedBox(width: 8,),
+              SizedBox(width: 8.w,),
               NadalIconButton(
                 onTap: ()=> context.push('/room/${widget.roomId}/information'),
                 icon: BootstrapIcons.list,

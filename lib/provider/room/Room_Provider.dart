@@ -33,32 +33,43 @@ class RoomProvider extends ChangeNotifier{
     _fetchLastAnnounce();
   }
 
-  _addRoomLog(dynamic data){
-    if(data != null && data.length > 0){
-      try {
+  void _addRoomLog(dynamic data){
+    try {
+      if(data != null && data is List && data.isNotEmpty){
         final log = RoomLog.fromJson(data[0]);
-        if(_roomLog.where((e)=> e.logId == log.logId).isEmpty){
+        final existingLogIndex = _roomLog.indexWhere((e) => e.logId == log.logId);
+        if(existingLogIndex == -1){
           _roomLog.add(log);
           notifyListeners();
         }
-      } catch (e) {
-        print('룸 로그 추가 오류: $e');
       }
+    } catch (e) {
+      print('룸 로그 추가 오류: $e');
     }
   }
 
-  _gradeHandler(dynamic data){
+  void _gradeHandler(dynamic data){
     try {
-      final myUid = FirebaseAuth.instance.currentUser!.uid;
-      final roomId = data['roomId'];
-      final grade = data['grade'];
-      final uid = data['uid'];
+      if (data == null) return;
+
+      final myUid = FirebaseAuth.instance.currentUser?.uid;
+      if (myUid == null) return;
+
+      final roomId = data['roomId'] as int?;
+      final grade = data['grade'] as int?;
+      final uid = data['uid'] as String?;
+
+      if (roomId == null || grade == null || uid == null) return;
+
+      final context = AppRoute.context;
+      if (context?.mounted != true) return;
 
       if(myUid == uid){
-        AppRoute.context!.read<ChatProvider>().changedMyGrade(roomId, grade);
+        context!.read<ChatProvider>().changedMyGrade(roomId, grade);
       }else{
-        if (_roomMembers[uid] != null) {
-          _roomMembers[uid]!['grade'] = grade;
+        final member = _roomMembers[uid];
+        if (member != null) {
+          member['grade'] = grade;
           notifyListeners();
         }
       }
@@ -71,12 +82,16 @@ class RoomProvider extends ChangeNotifier{
   Map? get room => _room;
 
   Future setRoom(Map? initRoom) async{
-    _room = initRoom;
-    socketListener(isOn: true);
-    await _fetchRoomMembers(null);
-    await _fetchRoomLogs();
-    await _fetchLastAnnounce();
-    notifyListeners();
+    try {
+      _room = initRoom;
+      socketListener(isOn: true);
+      await _fetchRoomMembers(null);
+      await _fetchRoomLogs();
+      await _fetchLastAnnounce();
+      notifyListeners();
+    } catch (e) {
+      print('방 설정 오류: $e');
+    }
   }
 
   List<RoomLog> _roomLog = [];
@@ -89,13 +104,17 @@ class RoomProvider extends ChangeNotifier{
 
   Future<void> _fetchRoomMembers(dynamic data) async {
     try {
-      final res = await serverManager.get('roomMember/${_room!['roomId']}');
+      final roomId = _room?['roomId'] as int?;
+      if (roomId == null) return;
 
-      if (res.statusCode == 200) {
+      final res = await serverManager.get('roomMember/$roomId');
+
+      if (res.statusCode == 200 && res.data != null) {
         final data = List<Map<String, dynamic>>.from(res.data);
         final updated = <String, Map>{};
+
         for (final member in data) {
-          final uid = member['uid'];
+          final uid = member['uid'] as String?;
           if (uid != null) {
             updated[uid] = member;
           }
@@ -110,41 +129,47 @@ class RoomProvider extends ChangeNotifier{
   }
 
   Future<void> _fetchRoomLogs() async{
-    if (_room == null || _room!['roomId'] == null) return;
-    try{
-      final res = await serverManager.get('room/log?roomId=${_room!['roomId']}');
+    try {
+      final roomId = _room?['roomId'] as int?;
+      if (roomId == null) return;
+
+      final res = await serverManager.get('room/log?roomId=$roomId');
 
       if (res.statusCode == 200 && res.data != null) {
-        _roomLog = List<RoomLog>.from(res.data.map((e)=> RoomLog.fromJson(e)));
+        final logsData = res.data as List;
+        _roomLog = logsData
+            .map((e) => RoomLog.fromJson(e))
+            .toList();
         notifyListeners();
       }
-    }catch(e){
-      print('로그 불러오기 오류 $e');
+    } catch (e) {
+      print('로그 불러오기 오류: $e');
     }
   }
 
   Future<void> _fetchLastAnnounce() async {
-    if (_room == null || _room!['roomId'] == null) return;
-
-    _lastAnnounce = {};
-    notifyListeners();
-
     try {
-      final res = await serverManager.get('room/lastAnnounce?roomId=${_room!['roomId']}');
+      final roomId = _room?['roomId'] as int?;
+      if (roomId == null) return;
+
+      _lastAnnounce = {};
+      notifyListeners();
+
+      final res = await serverManager.get('room/lastAnnounce?roomId=$roomId');
 
       if (res.statusCode == 200 && res.data != null) {
-        _lastAnnounce = res.data;
+        _lastAnnounce = Map<String, dynamic>.from(res.data);
         notifyListeners();
       }
     } catch (e) {
-      debugPrint('최근 공지 불러오기 실패: $e');
+      print('최근 공지 불러오기 실패: $e');
     }
   }
 
   int? _reply;
   int? get reply => _reply;
 
-  setReply(int? value){
+  void setReply(int? value){
     _reply = value;
     notifyListeners();
   }
@@ -159,8 +184,11 @@ class RoomProvider extends ChangeNotifier{
       _sending = true;
       notifyListeners();
 
+      final roomId = _room?['roomId'] as int?;
+      if (roomId == null) return;
+
       final chat = {
-        'roomId' : _room!['roomId'],
+        'roomId' : roomId,
         'contents' : text.trim(),
         'type' : 0,
         'reply' : _reply
@@ -219,17 +247,24 @@ class RoomProvider extends ChangeNotifier{
       if(images.isEmpty) return;
 
       if(images.length > MAX_IMAGE_LENGTH){
-        DialogManager.showBasicDialog(title: '앗 이런...', content: '이미지는 최대 5장까지만 가능해요', confirmText: '확인');
+        DialogManager.showBasicDialog(
+            title: '앗 이런...',
+            content: '이미지는 최대 5장까지만 가능해요',
+            confirmText: '확인'
+        );
         return;
       }
 
       _sendingImage = images;
       notifyListeners();
 
+      final roomId = _room?['roomId'] as int?;
+      if (roomId == null) return;
+
       final formData = FormData();
 
       formData.fields.addAll([
-        MapEntry('roomId', _room!['roomId'].toString()),
+        MapEntry('roomId', roomId.toString()),
         MapEntry('type', '1'),
       ]);
 
@@ -237,7 +272,10 @@ class RoomProvider extends ChangeNotifier{
         formData.files.add(
           MapEntry(
             'image',
-            await MultipartFile.fromFile(image.path, filename: image.path.split('/').last),
+            await MultipartFile.fromFile(
+                image.path,
+                filename: image.path.split('/').last
+            ),
           ),
         );
       }
@@ -261,17 +299,23 @@ class RoomProvider extends ChangeNotifier{
       _sendingImage.add(image);
       notifyListeners();
 
+      final roomId = _room?['roomId'] as int?;
+      if (roomId == null) return;
+
       final formData = FormData();
 
       formData.fields.addAll([
-        MapEntry('roomId', _room!['roomId'].toString()),
+        MapEntry('roomId', roomId.toString()),
         MapEntry('type', '1'),
       ]);
 
       formData.files.add(
         MapEntry(
           'image',
-          await MultipartFile.fromFile(image.path, filename: image.path.split('/').last),
+          await MultipartFile.fromFile(
+              image.path,
+              filename: image.path.split('/').last
+          ),
         ),
       );
 
@@ -287,17 +331,30 @@ class RoomProvider extends ChangeNotifier{
   Future<String> switchAlarm(bool alarm) async{
     AppRoute.pushLoading();
     String result = '';
+
     try{
-      final res = await serverManager.put('roomMember/alarm', data: {'alarm' : !alarm, 'roomId' : room!['roomId']});
+      final roomId = _room?['roomId'] as int?;
+      if (roomId == null) {
+        result = '방 정보를 찾을 수 없어요';
+        return result;
+      }
+
+      final res = await serverManager.put('roomMember/alarm', data: {
+        'alarm' : !alarm,
+        'roomId' : roomId
+      });
 
       if(res.statusCode == 201){
-        if(alarm){
-          result = '이제 알람이 울리지 않아요';
-        }else{
-          result = '이제부터 알림이 울려요';
-        }
+        result = alarm ? '이제 알람이 울리지 않아요' : '이제부터 알림이 울려요';
 
-        AppRoute.context?.read<ChatProvider>().myMemberUpdate(roomId: room!['roomId'], field: 'alarm', data: !alarm ? 1 : 0);
+        final context = AppRoute.context;
+        if (context?.mounted == true) {
+          context!.read<ChatProvider>().myMemberUpdate(
+              roomId: roomId,
+              field: 'alarm',
+              data: !alarm ? 1 : 0
+          );
+        }
       }
     } catch (e) {
       print('알람 설정 변경 오류: $e');
@@ -310,15 +367,20 @@ class RoomProvider extends ChangeNotifier{
 
   void _updateLastRead(dynamic data){
     try {
-      final uid = data['uid'];
+      if (data == null) return;
+
+      final uid = data['uid'] as String?;
       final auth = FirebaseAuth.instance;
-      print('updateLastRead!!!!!');
-      if(uid != auth.currentUser!.uid){
-        final lastRead = data['lastRead'];
-        if (roomMembers[uid] != null) {
-          roomMembers[uid]!['lastRead'] = lastRead;
-          notifyListeners();
-        }
+
+      if(uid == null || uid == auth.currentUser?.uid) return;
+
+      final lastRead = data['lastRead'] as int?;
+      if (lastRead == null) return;
+
+      final member = _roomMembers[uid];
+      if (member != null) {
+        member['lastRead'] = lastRead;
+        notifyListeners();
       }
     } catch (e) {
       print('읽음 상태 업데이트 오류: $e');
@@ -327,16 +389,23 @@ class RoomProvider extends ChangeNotifier{
 
   Future<void> deleteRoom(BuildContext context) async{
     AppRoute.pushLoading();
+
     try{
       final chatProvider = context.read<ChatProvider>();
       final router = GoRouter.of(context);
-      final roomId = _room!['roomId']!;
+      final roomId = _room?['roomId'] as int?;
+
+      if (roomId == null) return;
+
       final res = await serverManager.delete('room/$roomId');
 
       if(res.statusCode == 200){
         await chatProvider.removeRoom(roomId);
         router.go('/my');
-        SnackBarManager.showCleanSnackBar(AppRoute.context!, '방이 깔끔하게 정리되었어요.\n다음 만남도 기대할게요!');
+        SnackBarManager.showCleanSnackBar(
+            AppRoute.context!,
+            '방이 깔끔하게 정리되었어요.\n다음 만남도 기대할게요!'
+        );
       }
     }catch(e){
       print('방 삭제 오류: $e');
@@ -347,16 +416,23 @@ class RoomProvider extends ChangeNotifier{
 
   Future<void> exitRoom(BuildContext context) async{
     AppRoute.pushLoading();
+
     try{
       final chatProvider = context.read<ChatProvider>();
       final router = GoRouter.of(context);
-      final roomId = _room!['roomId']!;
+      final roomId = _room?['roomId'] as int?;
+
+      if (roomId == null) return;
+
       final res = await serverManager.delete('roomMember/exit/$roomId');
 
       if(res.statusCode == 200){
         await chatProvider.removeRoom(roomId);
         router.go('/my');
-        SnackBarManager.showCleanSnackBar(AppRoute.context!, '방에서 성공적으로 나왔어요\n다음 만남도 기대할게요!');
+        SnackBarManager.showCleanSnackBar(
+            AppRoute.context!,
+            '방에서 성공적으로 나왔어요\n다음 만남도 기대할게요!'
+        );
       }
     }catch(e){
       print('방 나가기 오류: $e');
@@ -365,16 +441,20 @@ class RoomProvider extends ChangeNotifier{
     }
   }
 
-  Future<void> onChangedMemberGrade(uid, grade) async{
+  Future<void> onChangedMemberGrade(String uid, int grade) async{
     AppRoute.pushLoading();
+
     try {
-      final roomId = _room!['roomId']!;
+      final roomId = _room?['roomId'] as int?;
+      if (roomId == null) return;
+
       final data = {
         'targetUid' : uid,
         'roomId' : roomId,
         'grade' : grade
       };
-      await serverManager.put('roomMember/grade', data:  data);
+
+      await serverManager.put('roomMember/grade', data: data);
     } catch (e) {
       print('멤버 등급 변경 오류: $e');
     } finally {
@@ -383,12 +463,15 @@ class RoomProvider extends ChangeNotifier{
   }
 
   List<String> filterInviteAbleUsers(List<String> uid){
-    return uid.where((e)=> !roomMembers.keys.contains(e)).toList();
+    try {
+      return uid.where((e) => !_roomMembers.keys.contains(e)).toList();
+    } catch (e) {
+      print('초대 가능한 사용자 필터링 오류: $e');
+      return [];
+    }
   }
 
-  // 백그라운드에서 복귀 시 방 데이터 새로고침
   Future<void> refreshRoomFromBackground() async {
-    if (_room == null) return;
     try {
       await _fetchRoomMembers(null);
       await _fetchRoomLogs();
