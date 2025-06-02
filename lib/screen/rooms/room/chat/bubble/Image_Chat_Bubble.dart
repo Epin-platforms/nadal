@@ -148,7 +148,9 @@ class _ImageBubbleOneState extends State<ImageBubbleOne> {
   @override
   void initState() {
     super.initState();
-    _fetchImageSize();
+    WidgetsBinding.instance.addPostFrameCallback((_){
+      _fetchImageSize();
+    });
   }
 
   void _fetchImageSize() {

@@ -22,8 +22,8 @@ class _ChatListState extends State<ChatList> {
   // GlobalKey 관리를 위한 맵 - 메모리 누수 방지를 위해 WeakReference 패턴 적용
   final Map<int, GlobalKey> _chatKeys = {};
 
-  bool _hasMoreBefore = false;
-  bool _hasMoreAfter = false;
+  bool _hasMoreBefore = true;
+  bool _hasMoreAfter = true;
   bool _isInitialized = false;
   int? _lastReadChatId;
 
@@ -83,7 +83,6 @@ class _ChatListState extends State<ChatList> {
 
     final roomId = widget.roomProvider.room!['roomId'];
     final hasMore = await chatProvider.loadChatsAfter(roomId);
-
     if (mounted && _hasMoreAfter != hasMore) {
       setState(() {
         _hasMoreAfter = hasMore;

@@ -83,7 +83,7 @@ class _NotificationPageState extends State<NotificationPage> {
 
     // 키를 날짜 순으로 정렬
     final sortedKeys = grouped.keys.toList()
-      ..sort((a, b) => b.compareTo(a)); // 최신 날짜가 먼저 오도록
+      ..sort((a, b) => a.compareTo(b)); // 최신 날짜가 먼저 오도록
 
     return IosPopGesture(
         child: Scaffold(
@@ -95,16 +95,17 @@ class _NotificationPageState extends State<NotificationPage> {
             child: sortedKeys.isNotEmpty ?
             ListView.builder(
                 controller: _controller,
-                padding: const EdgeInsets.only(top: 8, bottom: 24),
+                padding:  EdgeInsets.only(top: 8.h, bottom: 24.h),
                 itemCount: sortedKeys.length,
                 itemBuilder: (context, index){
                   final dateKey = sortedKeys[index];
                   final notificationGroup = grouped[dateKey]!;
+
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                        padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 8.h),
                         child: Text(
                           dateKey,
                           style: Theme.of(context).textTheme.labelLarge!.copyWith(
@@ -113,10 +114,7 @@ class _NotificationPageState extends State<NotificationPage> {
                         ),
                       ),
                       ...notificationGroup.map((notification) =>
-                          FadeInUp(
-                            duration: Duration(milliseconds: 300),
-                            child: NotificationItem(notification: notification, provider: notificationProvider,),
-                          )
+                          NotificationItem(notification: notification, provider: notificationProvider,)
                       ),
                     ],
                   );

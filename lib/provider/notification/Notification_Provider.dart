@@ -159,10 +159,9 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   Future<bool> readNotification(int notificationId) async {
-    final notificationIndex = _notifications?.indexWhere(
-            (e) => e.notificationId == notificationId
-    );
-
+    final notificationIndex = _notifications?.indexWhere((e) => e.notificationId == notificationId);
+    print(notificationId);
+    print(notificationIndex);
     if (notificationIndex == null || notificationIndex == -1) {
       return false;
     }
@@ -189,38 +188,6 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> markAllAsRead() async {
-    if (_notifications == null || _notifications!.isEmpty) {
-      return true;
-    }
-
-    try {
-      final unreadNotifications = _notifications!
-          .where((notification) => !notification.isRead)
-          .toList();
-
-      if (unreadNotifications.isEmpty) {
-        return true;
-      }
-
-      final res = await serverManager.put(
-          'notification/read-all',
-          data: {}
-      );
-
-      if (res.statusCode == 200) {
-        for (var notification in _notifications!) {
-          notification.isRead = true;
-        }
-        notifyListeners();
-        return true;
-      }
-      return false;
-    } catch (e) {
-      print('모든 알림 읽음 처리 오류: $e');
-      return false;
-    }
-  }
 
   // FCM 관련 코드
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;

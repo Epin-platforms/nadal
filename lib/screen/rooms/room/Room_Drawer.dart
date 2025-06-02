@@ -32,6 +32,7 @@ class _RoomDrawerState extends State<RoomDrawer> {
         return;
       }
       roomsProvider.updateRoom(widget.roomId);
+      provider.refreshRoomFromBackground();
     });
     super.initState();
   }
@@ -117,7 +118,9 @@ class _RoomDrawerState extends State<RoomDrawer> {
                 child: Column(
                   children: [
                     SizedBox(height: 40.h,),
-                    Center(child: NadalRoomFrame(size: 80.r, imageUrl: room['roomImage'])),
+                    Center(child: GestureDetector(
+                        onTap: ()=> context.push('/image?url=${room['roomImage']}'),
+                        child: NadalRoomFrame(size: 80.r, imageUrl: room['roomImage']))),
                     SizedBox(height: 12.h,),
                     Padding(
                         padding: EdgeInsets.symmetric(horizontal: 20.w),

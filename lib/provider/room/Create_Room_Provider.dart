@@ -123,20 +123,23 @@ class CreateRoomProvider extends ChangeNotifier{
       confirmText: "만들기",
       onConfirm: () async{
         int? roomId;
+        int? code;
         AppRoute.pushLoading();
         try{
           final response = await serverManager.post('room/create', data: toMap());
 
+          code = response.statusCode;
           if(response.statusCode == 200){
             roomId = response.data['roomId'];
             return;
           }else if(response.statusCode == 202){
-            DialogManager.showBasicDialog(title: '동일한 클럽명이 이미 존재해요', content: '같은 지역에서는 같은 이름의 채팅방을 만들 수 없어요.', confirmText: '확인');
             return;
           }
         }finally{
           AppRoute.popLoading();
-          if(roomId != null){
+          if(code == 202){
+            DialogManager.showBasicDialog(title: '동일한 클럽명이 이미 존재해요', content: '같은 지역에서는 같은 이름의\n채팅방을 만들 수 없어요.', confirmText: '확인');
+          } else if(roomId != null){
             AppRoute.context?.pushReplacement('/room/$roomId');
           }
         }
@@ -149,7 +152,7 @@ class CreateRoomProvider extends ChangeNotifier{
     DialogManager.showBasicDialog(title: title, content: '확인하고 다시 입력해 주세요!', confirmText: '확인');
   }
 
-  toMap(){
+  Map<String, Object> toMap(){
     return {
       'roomName' : _roomNameController.text,
       'local' : _local,

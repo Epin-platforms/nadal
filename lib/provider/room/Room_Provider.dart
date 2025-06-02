@@ -14,7 +14,6 @@ class RoomProvider extends ChangeNotifier{
   final SocketManager socket = SocketManager();
 
   void socketListener({required bool isOn}){
-    print("소켓리스너 상태: ${isOn}");
     if(isOn){
       socket.on('roomLog', _addRoomLog);
       socket.on('refreshMember', _fetchRoomMembers);
@@ -390,7 +389,6 @@ class RoomProvider extends ChangeNotifier{
   // 백그라운드에서 복귀 시 방 데이터 새로고침
   Future<void> refreshRoomFromBackground() async {
     if (_room == null) return;
-
     try {
       await _fetchRoomMembers(null);
       await _fetchRoomLogs();

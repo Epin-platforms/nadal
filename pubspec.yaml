@@ -80,6 +80,7 @@ dependencies:
   firebase_messaging: ^15.2.5
   flutter_local_notifications: ^19.1.0
   app_links: ^6.4.0
+  app_badge_plus: ^1.1.2
 
   #앱정보
   package_info_plus: ^8.3.0

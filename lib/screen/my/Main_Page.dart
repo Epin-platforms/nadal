@@ -15,10 +15,21 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
+  late UserProvider userProvider;
+  late RoomsProvider roomsProvider;
+
+  Future<void> _refresh() async{
+    roomsProvider.roomInitialize();
+    userProvider.fetchUserData();
+    userProvider.fetchMySchedules(DateTime.now(), force: true);
+  }
+
 
   @override
   Widget build(BuildContext context) {
     final notificationProvider = Provider.of<NotificationProvider>(context);
+    userProvider = Provider.of<UserProvider>(context);
+    roomsProvider = Provider.of<RoomsProvider>(context);
     final pallet = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: NadalAppbar(
@@ -30,11 +41,11 @@ class _MainPageState extends State<MainPage> {
                   onTap: ()=> context.push('/notification'),
                   icon: CupertinoIcons.bell,
               ),
-              if(notificationProvider.notifications != null && notificationProvider.notifications!.where((e)=> !e.isRead).isNotEmpty)
+              if(notificationProvider.notifications != null && notificationProvider.notifications!.where((e)=> e.isRead).isNotEmpty)
               Positioned(
                   top: 0, right: 0,
                   child: Container(
-                    height: 8, width: 8,
+                    height: 8.r, width: 8.r,
                     decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: pallet.primary
@@ -46,16 +57,19 @@ class _MainPageState extends State<MainPage> {
         ],
       ),
       body: SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(child: MyProfileListCard()),
-              SliverToBoxAdapter(child: _homeDivider()),
-              SliverToBoxAdapter(
-                child: MyScheduleCalendar(),
-              ),
-              SliverToBoxAdapter(child: _homeDivider()),
-              SliverToBoxAdapter(child: MyRooms()),
-            ],
+          child: RefreshIndicator(
+            onRefresh: ()=> _refresh(),
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(child: MyProfileListCard()),
+                SliverToBoxAdapter(child: _homeDivider()),
+                SliverToBoxAdapter(
+                  child: MyScheduleCalendar(),
+                ),
+                SliverToBoxAdapter(child: _homeDivider()),
+                SliverToBoxAdapter(child: MyRooms()),
+              ],
+            ),
           )
       )
     );

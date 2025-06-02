@@ -1,3 +1,4 @@
+import 'package:app_badge_plus/app_badge_plus.dart';
 import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
 import '../../manager/project/Import_Manager.dart';
 import '../../manager/server/Socket_Manager.dart';
@@ -62,7 +63,12 @@ class ChatProvider extends ChangeNotifier{
 
   List<Chat> getMessages(int roomId) => _chat[roomId] ?? [];
 
-  Chat? latestChatTime(int roomId) => _chat[roomId]?.reduce((a, b) => a.createAt.isAfter(b.createAt) ? a : b);
+  // ✅ 수정된 코드 (한 줄)
+  Chat? latestChatTime(int roomId) =>
+      (_chat[roomId]?.isNotEmpty == true)
+          ? _chat[roomId]!.reduce((a, b) => a.createAt.isAfter(b.createAt) ? a : b)
+          : null;
+
 
   // lastRead 채팅 ID 반환
   int? getLastReadChatId(int roomId) => _lastReadChatId[roomId];
@@ -74,30 +80,134 @@ class ChatProvider extends ChangeNotifier{
     socket.on("kicked", _kickedHandler);
   }
 
-  void _kickedHandler(dynamic data){
-    final roomId = data['roomId'];
-    final room = data['room'];
+  void _kickedHandler(dynamic data) {
+    try {
+      print('🔥 kicked 이벤트 수신: $data');
 
-    _chat.remove(roomId);
-    _my.remove(roomId);
-    _lastReadChatId.remove(roomId);
-    _loadedChatIds.remove(roomId);
+      // ✅ 1. 데이터 검증
+      if (data == null) {
+        print('❌ kicked 데이터가 null입니다');
+        return;
+      }
 
-    final state = GoRouter.of(AppRoute.context!).state;
+      final roomId = data['roomId'];
+      final room = data['room'];
 
-    if(state.path == '/room/:roomId' && state.pathParameters['roomId'] == roomId.toString()){
-      AppRoute.context!.go('/my');
+      if (roomId == null) {
+        print('❌ roomId가 null입니다');
+        return;
+      }
+
+      print('✅ 방 $roomId에서 추방 처리 시작');
+
+      // ✅ 2. 안전한 데이터 제거
+      _chat.remove(roomId);
+      _my.remove(roomId);
+      _lastReadChatId.remove(roomId);
+
+      // ✅ 3. 안전한 라우터 접근
+      final context = AppRoute.context;
+      if (context == null) {
+        print('❌ AppRoute.context가 null입니다');
+        notifyListeners();
+        return;
+      }
+
+      // ✅ 4. 안전한 현재 경로 확인
+      final router = GoRouter.of(context);
+      final state = router.state;
+
+      bool isInKickedRoom = false;
+      try {
+        if (state.path == '/room/:roomId' &&
+            state.pathParameters['roomId'] == roomId.toString()) {
+          isInKickedRoom = true;
+        }
+      } catch (e) {
+        print('❌ 라우터 상태 확인 오류: $e');
+      }
+
+      // ✅ 5. 안전한 네비게이션 (다음 프레임에서 실행)
+      if (isInKickedRoom) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) {
+            try {
+              context.go('/my');
+              print('✅ 메인 페이지로 이동');
+            } catch (e) {
+              print('❌ 네비게이션 오류: $e');
+            }
+          }
+        });
+      }
+
+      // ✅ 6. 안전한 다이얼로그 표시 (다음 프레임에서)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          _showKickedDialog(room);
+        }
+      });
+
+      // ✅ 7. 안전한 방 목록 새로고침
+      _refreshRoomsData(context);
+
+      // ✅ 8. 상태 변경 알림
+      notifyListeners();
+
+      print('✅ 추방 처리 완료');
+
+    } catch (e, stackTrace) {
+      print('❌ _kickedHandler 오류: $e');
+      print('📍 스택 트레이스: $stackTrace');
+
+      // 에러 발생해도 기본적인 정리는 수행
+      notifyListeners();
     }
-
-    DialogManager.showBasicDialog(
-      title: '방에서 추방되었습니다',
-      content: '${room['local']} 지역의 "${room['roomName']}" 채팅방에서\n추방되었어요. 다음에 더 좋은 인연으로 만나요!',
-      confirmText: '확인',
-    );
-
-    AppRoute.context!.read<RoomsProvider>().roomInitialize();
-    notifyListeners();
   }
+
+  void _showKickedDialog(Map<String, dynamic>? room) {
+    try {
+      final roomName = room?['roomName']?.toString() ?? '알 수 없는 방';
+      final local = room?['local']?.toString() ?? '알 수 없는 지역';
+
+      DialogManager.showBasicDialog(
+        title: '방에서 추방되었습니다',
+        content: '$local 지역의 "$roomName" 채팅방에서\n추방되었어요. 다음에 더 좋은 인연으로 만나요!',
+        confirmText: '확인',
+        onConfirm: () {
+          print('✅ 추방 안내 확인됨');
+        },
+      );
+    } catch (e) {
+      print('❌ 추방 다이얼로그 오류: $e');
+
+      // 폴백 다이얼로그
+      DialogManager.showBasicDialog(
+        title: '방에서 추방되었습니다',
+        content: '채팅방에서 추방되었습니다.',
+        confirmText: '확인',
+      );
+    }
+  }
+
+  void _refreshRoomsData(BuildContext context) {
+    try {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          try {
+            final roomsProvider = context.read<RoomsProvider>();
+            roomsProvider.roomInitialize();
+            print('✅ 방 목록 새로고침 시작');
+          } catch (e) {
+            print('❌ 방 목록 새로고침 오류: $e');
+          }
+        }
+      });
+    } catch (e) {
+      print('❌ _refreshRoomsData 오류: $e');
+    }
+  }
+
 
   _removeChatHandler(data){
     final roomId = data['roomId'];
@@ -125,23 +235,27 @@ class ChatProvider extends ChangeNotifier{
     final state = AppRoute.context != null ? GoRouter.of(AppRoute.context!).state : null;
 
     if(state?.path != null && state!.uri.toString().contains('/room/$roomId')){
-      updateMyLastReadInServer(roomId, chat.chatId);
+      updateMyLastReadInServer(roomId);
     }else{
       _my[roomId]?['unreadCount']++;
+      setBadge();
     }
 
     notifyListeners();
   }
 
-  Future<void> updateMyLastReadInServer(int roomId, int? lastRead) async{
+  Future<void> updateMyLastReadInServer(int roomId) async{
     try {
-      final lr = lastRead ?? chat[roomId]?.lastOrNull?.chatId ?? 0;
-      await serverManager.put('roomMember/lastread/$roomId?lastRead=$lr');
+      final lr = chat[roomId]?.lastOrNull?.chatId;
+      print(lr);
+      if(lr != null){
+        await serverManager.put('roomMember/lastread/$roomId?lastRead=$lr');
 
-      // 로컬 lastRead도 업데이트
-      if (_my[roomId] != null) {
-        _my[roomId]!['lastRead'] = lr;
-        _lastReadChatId[roomId] = lr;
+        // 로컬 lastRead도 업데이트
+        if (_my[roomId] != null) {
+          _my[roomId]!['lastRead'] = lr;
+          _lastReadChatId[roomId] = lr;
+        }
       }
     } catch (e) {
       print('lastRead 업데이트 오류: $e');
@@ -161,7 +275,7 @@ class ChatProvider extends ChangeNotifier{
       if (response.statusCode == 200) {
         final chatsData = response.data['chats'] as List;
         final lastReadChatId = response.data['lastReadChatId'] as int?;
-
+        final unreadCount = response.data['unreadCount'] as int?;
         _lastReadChatId[roomId] = lastReadChatId;
 
         final newChats = List<Chat>.from(
@@ -172,7 +286,7 @@ class ChatProvider extends ChangeNotifier{
 
         // 로드된 채팅 ID 추적
         _loadedChatIds[roomId] = newChats.map((chat) => chat.chatId).toSet();
-
+        _my[roomId]!['unreadCount'] = unreadCount;
         notifyListeners();
         return newChats.isNotEmpty;
       }
@@ -344,15 +458,19 @@ class ChatProvider extends ChangeNotifier{
 
   Future<void> onReconnectChat(int roomId) async{
     try {
-      final lastChatId = _chat[roomId]?.lastOrNull?.chatId;
+      final lastChatId = _my[roomId]!['lastRead'];
+      print('마지막으로 읽은 챗아이디 ${lastChatId}');
       final response = await serverManager.get('chat/reconnect?roomId=$roomId&lastChatId=$lastChatId');
 
       if (response.statusCode == 200) {
-        final chatsData = response.data as List;
+        final data = response.data;
+        final chatsData = data['data'] as List;
+        final unreadCount = data['unreadCount'];
         final newChats = List<Chat>.from(chatsData.map((e) => Chat.fromJson(json: e)));
 
         _loadedChatIds.putIfAbsent(roomId, () => <int>{});
         _chat[roomId] ??= [];
+        _my[roomId]?['unreadCount'] = unreadCount;
 
         for (Chat chat in newChats) {
           if (!_loadedChatIds[roomId]!.contains(chat.chatId)) {
@@ -403,5 +521,19 @@ class ChatProvider extends ChangeNotifier{
     } catch (e) {
       print('백그라운드 복귀 새로고침 오류 (roomId: $roomId): $e');
     }
+  }
+
+  void readReset(int roomId){
+    if(my[roomId] != null){
+      my[roomId]!['unreadCount'] = 0;
+    }
+    setBadge();
+  }
+
+  void setBadge(){
+    final badge = my.entries.fold<int>(
+        0,(sum, entry) => sum + (entry.value['unreadCount'] as int? ?? 0)
+    );
+    AppBadgePlus.updateBadge(badge);
   }
 }

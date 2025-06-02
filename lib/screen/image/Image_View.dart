@@ -131,6 +131,7 @@ class _ImageViewState extends State<ImageView> {
     return Scaffold(
       appBar: NadalAppbar(
         actions: [
+          if(widget.imageUrl.startsWith('http'))
           NadalIconButton(
               onTap: () async{
                 _download();
@@ -161,30 +162,32 @@ class _ImageViewState extends State<ImageView> {
                     child: NadalCircular(),
                   ),
                   errorWidget: (context, url, error){
-                    return Container(
-                      width: 200.w,
-                      height: 200.h,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.withAlpha(20),
-                        borderRadius: BorderRadius.circular(8.r),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.image_not_supported_outlined,
-                            color: Colors.white.withAlpha(50),
-                            size: 48.sp,
+                    return Padding(
+                      padding: EdgeInsetsGeometry.only(bottom: 60.h),
+                      child: Center(
+                        child: Container(
+                          width: 200.w,
+                          height: 200.h,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.withAlpha(20),
+                            borderRadius: BorderRadius.circular(8.r),
                           ),
-                          SizedBox(height: 8.h),
-                          Text(
-                            '이미지를 불러올 수 없습니다',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.7),
-                              fontSize: 12.sp,
-                            ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.image_not_supported_outlined,
+                                color: Theme.of(context).hintColor,
+                                size: 48.sp,
+                              ),
+                              SizedBox(height: 8.h),
+                              Text(
+                                '이미지를 불러올 수 없습니다',
+                                style: Theme.of(context).textTheme.labelMedium
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     );
                   },

@@ -70,7 +70,7 @@ class MyRooms extends StatelessWidget {
                   final roomEntry = roomsProvider.getRoomsList(context)[index];
                   final roomData = roomEntry.value;
                   final chats = chatProvider.chat[roomData['roomId']];
-                  final latestChat = chats?.reduce((a, b) => a.chatId > b.chatId ? a : b);
+                  final latestChat = chats == null || chats.isEmpty ? null : chats.reduce((a, b) => a.chatId > b.chatId ? a : b);
                   final chatText = latestChat == null ? '' : latestChat.type == ChatType.text ? latestChat.contents : latestChat.type == ChatType.image ? '사진' : latestChat.type == ChatType.schedule ? '일정' : '삭제된 메시지 입니다';
                   final unread = chatProvider.my[roomData['roomId']]?['unreadCount'];
                   return ListTile(

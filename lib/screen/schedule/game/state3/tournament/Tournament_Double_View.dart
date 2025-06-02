@@ -189,6 +189,7 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
     final isOwner = uid == widget.scheduleProvider.schedule?['uid'];
     final isLastRound = _lastRound == _currentRound;
     final rounds = gameTable.isEmpty ? 0 : gameTable.map((e) => e['tableId'] ~/ 1000).toSet().length;
+    _calculateCurrentRound();
 
     if (_roundList.isEmpty) {
       return SafeArea(
@@ -209,7 +210,7 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
                   boundaryMargin: EdgeInsets.all(100.r),
                   child: IntrinsicHeight(
                     child: Row(
-                      children: List.generate(_roundList.length + 1, (round) {
+                      children: List.generate(rounds + 1, (round) {
                         final roundTables = gameTable.where((e) => e['tableId'] ~/ 1000 == round + 1).toList();
                         return AbsorbPointer(
                           absorbing: !isProgress,
@@ -338,7 +339,7 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
 
                                                         final score1 = await GameManager.scoreInput(finalScore, game['score1']);
 
-                                                        if (score1 == game['score1']) {
+                                                        if (score1 == game['score2']) {
                                                           DialogManager.showBasicDialog(title: '잠깐만요!', content: '토너먼트에서 동점기입은 불가해요', confirmText: '알겠어요');
                                                           return;
                                                         }
@@ -424,7 +425,7 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
 
                                                         final score2 = await GameManager.scoreInput(finalScore, game['score2']);
 
-                                                        if (score2 == game['score2']) {
+                                                        if (score2 == game['score1']) {
                                                           DialogManager.showBasicDialog(title: '잠깐만요!', content: '토너먼트에서 동점기입은 불가해요', confirmText: '알겠어요');
                                                           return;
                                                         }
@@ -520,8 +521,11 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
                       cancelText: '잠깐만요!');
                 } else {
                   DialogManager.showBasicDialog(
-                      onConfirm: () {
-                        widget.scheduleProvider.nextRound(_currentRound);
+                      onConfirm: () async{
+                        final result = await widget.scheduleProvider.nextRound(_currentRound);
+                        if(result){
+                          Future.delayed(const Duration(milliseconds: 300), ()=> _calculateCurrentRound());
+                        }
                       },
                       title: '이 라운드 확정해도 괜찮을까요?',
                       content: '한 번 확정하면 수정은 어렵습니다!',

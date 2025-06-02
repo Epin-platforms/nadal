@@ -68,15 +68,20 @@ class _TournamentTeamReorderListState
     });
 
     // 전체 슬롯 생성 (1부터 totalSlots까지)
+// 팀 슬롯 생성 시
     teamSlots = List.generate(totalSlots, (i) {
       final index = i + 1;
       if (indexToTeam.containsKey(index)) {
         // 실제 팀이 있는 슬롯
-        return indexToTeam[index]!;
+        return {
+          ...indexToTeam[index]!,
+          'originalIndex': index, // 원래 위치 저장
+        };
       } else {
         // 빈 슬롯 (부전승)
         return {
           'memberIndex': index,
+          'originalIndex': index, // 원래 위치 저장
           'isBye': true,
           'byeOpponent': _getByeOpponentTeam(index, indexToTeam),
         };
@@ -148,8 +153,9 @@ class _TournamentTeamReorderListState
 
   void _checkChanges() {
     var changed = false;
-    for (var i = 0; i < teamSlots.length; i++) {
-      if (teamSlots[i]['memberIndex'] != i + 1) {
+    for (var i = 0; i < teamSlots.length; i++) {  // teamSlots 사용
+      // 원래 memberIndex와 현재 위치 비교
+      if (teamSlots[i]['originalIndex'] != (i + 1)) {
         changed = true;
         break;
       }
@@ -707,7 +713,7 @@ class _TournamentTeamReorderListState
     final opponent = team['byeOpponent'];
 
     return Container(
-      height: 72.h,
+      height: 76.h,
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
       decoration: BoxDecoration(
         color: isWinner

@@ -40,6 +40,7 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     provider.socketListener(isOn: false);
+    chatProvider.readReset(widget.roomId);
     super.dispose();
   }
 
@@ -62,7 +63,7 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
       await provider.refreshRoomFromBackground();
 
       // 읽음 상태 업데이트
-      await chatProvider.updateMyLastReadInServer(widget.roomId, null);
+      await chatProvider.updateMyLastReadInServer(widget.roomId);
       await chatProvider.enterRoomUpdateLastRead(widget.roomId);
     } catch (e) {
       print('백그라운드 복귀 새로고침 오류: $e');
@@ -95,7 +96,7 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
       }
 
       // 읽은 메시지 업데이트
-      await chatProvider.updateMyLastReadInServer(widget.roomId, null);
+      await chatProvider.updateMyLastReadInServer(widget.roomId);
       await chatProvider.enterRoomUpdateLastRead(widget.roomId);
     } catch (e) {
       print('방 설정 오류: $e');

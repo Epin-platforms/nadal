@@ -92,7 +92,19 @@ class _GameState4State extends State<GameState4> {
               widget.scheduleProvider.gameType == GameType.kdkDouble)
             KdkResult(
               scheduleProvider: widget.scheduleProvider,
-            ),
+            )
+          else
+            SizedBox(
+              height: 150.h,
+              child: Center(
+                child : TextButton.icon(
+                    onPressed: (){
+                      widget.scheduleProvider.setCurrentStateView(3);
+                    }, icon: Icon(Icons.info_outline, size: 24.r,  color: Theme.of(context).colorScheme.primary,),
+                    label: Text('자세히보기', style: Theme.of(context).textTheme.titleMedium,),
+                )
+              ),
+            )
         ],
       ),
     );

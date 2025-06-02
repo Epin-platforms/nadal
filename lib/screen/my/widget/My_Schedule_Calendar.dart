@@ -259,7 +259,7 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
                       'yyyy년 M월 d일' : 'M월 d일'
                   ).format(_selectedDay)} (${TextFormManager.returnWeek(date: _selectedDay)})', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),),
                 ),
-                SizedBox(height: 16,),
+                SizedBox(height: 16.h,),
                 if(_getEventsForDay(_selectedDay, userProvider.schedules).isNotEmpty)
                 ListView.builder(
                     shrinkWrap: true,

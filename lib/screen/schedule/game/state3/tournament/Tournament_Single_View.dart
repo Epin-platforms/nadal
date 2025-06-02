@@ -23,8 +23,9 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
   void initState() {
     super.initState();
     _initializeRoundData();
-    _setupScheduleListener();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _calculateCurrentRound());
+    WidgetsBinding.instance.addPostFrameCallback((_){
+      _setupScheduleListener();
+    });
   }
 
   void _initializeRoundData() {
@@ -180,15 +181,14 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     final gameTable = widget.scheduleProvider.gameTables?.entries.map((e) => e.value).toList() ?? [];
     gameTable.sort((a, b) => a['tableId'].compareTo(b['tableId']));
-
+    _calculateCurrentRound();
     final isProgress = widget.scheduleProvider.schedule?['state'] == 3;
     final uid = context.read<UserProvider>().user?['uid'];
     final isOwner = uid == widget.scheduleProvider.schedule?['uid'];
     final isLastRound = _lastRound == _currentRound;
-    final rounds = gameTable.isEmpty ? 0 : gameTable.map((e) => e['tableId'] ~/ 1000).toSet().length;
+    final rounds = gameTable.isEmpty ? 0 : gameTable.map((e){return e['tableId'] ~/ 1000;}).toSet().length;
 
     if (_roundList.isEmpty) {
       return SafeArea(
@@ -209,7 +209,7 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                   boundaryMargin: EdgeInsets.all(100.r),
                   child: IntrinsicHeight(
                     child: Row(
-                      children: List.generate(_roundList.length, (round) {
+                      children: List.generate(rounds+1, (round) {
                         final roundTables = gameTable.where((e) => e['tableId'] ~/ 1000 == round + 1).toList();
                         return AbsorbPointer(
                           absorbing: !isProgress,
@@ -338,7 +338,7 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
 
                                                         final score1 = await GameManager.scoreInput(finalScore, game['score1']);
 
-                                                        if (score1 == game['score1']) {
+                                                        if (score1 == game['score2']) {
                                                           DialogManager.showBasicDialog(title: '잠깐만요!', content: '토너먼트에서 동점기입은 불가해요', confirmText: '알겠어요');
                                                           return;
                                                         }
@@ -424,7 +424,7 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
 
                                                         final score2 = await GameManager.scoreInput(finalScore, game['score2']);
 
-                                                        if (score2 == game['score2']) {
+                                                        if (score2 == game['score1']) {
                                                           DialogManager.showBasicDialog(title: '잠깐만요!', content: '토너먼트에서 동점기입은 불가해요', confirmText: '알겠어요');
                                                           return;
                                                         }
@@ -520,7 +520,7 @@ class _TournamentSingleViewState extends State<TournamentSingleView> {
                       cancelText: '잠깐만요!');
                 } else {
                   DialogManager.showBasicDialog(
-                      onConfirm: () {
+                      onConfirm: () async{
                         widget.scheduleProvider.nextRound(_currentRound);
                       },
                       title: '이 라운드 확정해도 괜찮을까요?',

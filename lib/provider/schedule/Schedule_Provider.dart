@@ -742,13 +742,18 @@ class ScheduleProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> nextRound(int currentRound) async {
+  Future nextRound(int currentRound) async {
     try {
       AppRoute.pushLoading();
-      await serverManager.put('game/nextRound', data: {
+      final res = await serverManager.put('game/nextRound', data: {
         'scheduleId': _scheduleId,
-        'round': currentRound
+        'round': currentRound,
+        'isSingle' : _schedule?['isSingle'] == 1
       });
+
+      if(res.statusCode == 200){
+        return true;
+      }
     } catch (e) {
       _setError('다음 라운드 진행 실패: $e');
     } finally {

@@ -11,7 +11,7 @@ class MemberEdit extends StatelessWidget {
     final provider = Provider.of<RoomProvider>(context);
     final room = provider.room!;
     final my = context.read<ChatProvider>().my[room['roomId']];
-    final double size = 45;
+    final double size = 45.r;
     final theme = Theme.of(context);
 
     return IosPopGesture(
@@ -23,18 +23,15 @@ class MemberEdit extends StatelessWidget {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  SizedBox(height: 24,),
+                  SizedBox(height: 24.h,),
                   Builder(
                       builder: (context) {
                         final user = context.read<UserProvider>().user!;
                         return ListTile(
-                          onTap: (){
-
-                          },
-                          minTileHeight: 45,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          minTileHeight: 45.h,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                           leading: NadalProfileFrame(imageUrl: user['profileImage'], size: size,),
-                          trailing: NadalMeTag(size: 18,),
+                          trailing: NadalMeTag(size: 18.r,),
                           title: Text(TextFormManager.profileText(user['nickName'] , user['name'], user['birthYear'], user['gender'], useNickname: room['useNickname'] == 1),
                               style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
                           subtitle: Text(GraderFormManager.intToGrade(my!['grade']), style: theme.textTheme.labelSmall?.copyWith(height: 1)),
@@ -95,7 +92,15 @@ class MemberEdit extends StatelessWidget {
                                           'uid' : member['uid'],
                                           'roomId' : member['roomId']
                                         };
-                                        await serverManager.post('roomMember/kick', data: data);
+                                        final res = await serverManager.post('roomMember/kick', data: data);
+
+                                        if(res.statusCode == 200){
+                                          await provider.refreshRoomFromBackground();
+                                          SnackBarManager.showCleanSnackBar(context, '성공적으로 추방되었습니다');
+                                        }else{
+                                          SnackBarManager.showCleanSnackBar(context, '해당 사용자를 추방하는데 실패했습니다');
+                                        }
+
                                       }
                                     );
                                     }, child: Text('추방', style: theme.textTheme.bodyLarge,))

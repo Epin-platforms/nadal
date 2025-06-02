@@ -61,7 +61,9 @@ class ScheduleChatBubble extends StatelessWidget {
         : Colors.black.withValues(alpha: 0.06));
 
     // 날짜 포맷 설정
-    final formatter = DateFormat('M월 d일 (E) HH:mm', 'ko_KR');
+    final formatter = startDate.year == endDate.year && startDate.month == endDate.month && startDate.day == endDate.day && startDate.hour == 6 && endDate.hour == 23 ?
+    '하루종일' :
+    DateFormat('M월 d일 (E) HH:mm', 'ko_KR');
 
     // 말풍선 모양 설정 (꼬리 유무에 따라)
     final borderRadius = BorderRadius.only(
@@ -136,7 +138,9 @@ class ScheduleChatBubble extends StatelessWidget {
                 SizedBox(width: 4.w),
                 Expanded(
                   child: Text(
-                    '${formatter.format(startDate)} ~ ${formatter.format(endDate)}',
+                    formatter is DateFormat ?
+                    '${formatter.format(startDate)} ~ ${formatter.format(endDate)}' :
+                    formatter.toString(),
                     style: TextStyle(
                       fontSize: 12.sp,
                       color: secondaryColor,
