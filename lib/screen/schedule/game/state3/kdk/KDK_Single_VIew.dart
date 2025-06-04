@@ -78,8 +78,8 @@ class _KdkSingleViewViewState extends State<KdkSingleView> with SingleTickerProv
                     HapticFeedback.mediumImpact();
                     context.push('/live-match-view'); // 적절한 라우트로 변경
                   },
-                  icon: Icon(Icons.live_tv_rounded, size: 16.r),
-                  label: Text('실시간 보기' , style: theme.textTheme.labelMedium,),
+                  icon: Icon(BootstrapIcons.trophy_fill, size: 16.r, color: theme.colorScheme.onSurface,),
+                  label: Text('실시간 결과' , style: theme.textTheme.labelMedium,),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.colorScheme.primary,
                     foregroundColor: Colors.white,

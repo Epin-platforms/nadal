@@ -25,7 +25,7 @@ class NotificationModel{
         subTitle: json['subTitle'],
         routing: json['routing'],
         createAt: DateTime.parse(json['createAt']).toLocal(),
-        isRead: json['isRead'] == 1 ? true : false,
+        isRead: json['readState'] == 1 ? true : false,
     );
   }
 }

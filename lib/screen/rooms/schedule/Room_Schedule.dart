@@ -90,7 +90,10 @@ class _RoomScheduleState extends State<RoomSchedule> {
                           itemCount: provider.getEventsForDay(provider.selectedDay).length,
                           itemBuilder: (context, index){
                             final item = provider.getEventsForDay(provider.selectedDay)[index];
-                            return NadalSimpleScheduleList(schedule: item);
+                            return NadalSimpleScheduleList(schedule: item, onTap: () async{
+                              await context.push('/schedule/${item['scheduleId']}');
+                              provider.updateSchedule(scheduleId: item['scheduleId']);
+                            },);
                           }, separatorBuilder: (BuildContext context, int index)=> Divider(height: 0.5, color: Theme.of(context).highlightColor,),
                       )
                   ],

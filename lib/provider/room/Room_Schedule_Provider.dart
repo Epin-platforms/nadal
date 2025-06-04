@@ -30,6 +30,26 @@ class RoomScheduleProvider extends ChangeNotifier{
     notifyListeners();
   }
 
+  void updateSchedule({required int scheduleId}) async{
+    if(schedules != null){ //널 방지
+      final index = _schedules!.indexWhere((e)=> e['scheduleId'] == scheduleId);
+      final schedule = _schedules![index];
+
+      final response = await serverManager.get('schedule/update-where-room?updateAt=${schedule['updateAt']}&scheduleId=$scheduleId&scheduleMemberCount=${schedule['scheduleMemberCount']}');
+
+      if(response.statusCode == 200){
+        _schedules![index] = response.data;
+        notifyListeners();
+      }else if(response.statusCode == 202){
+        _schedules!.removeAt(index);
+        notifyListeners();
+      }else if(response.statusCode == 203){
+        _schedules![index]['scheduleMemberCount'] = response.data;
+        notifyListeners();
+      }
+    }
+  }
+
   //캘린더 위젯 조절
   DateTime get focusedDay => _focusedDay;
   DateTime get selectedDay => _selectedDay;
@@ -38,7 +58,7 @@ class RoomScheduleProvider extends ChangeNotifier{
   DateTime _selectedDay = DateTime.now();
 
 
-  setDate({required DateTime focusDay, required DateTime selectDay}){
+  void setDate({required DateTime focusDay, required DateTime selectDay}){
     _focusedDay = focusDay;
     _selectedDay = selectDay;
     notifyListeners();

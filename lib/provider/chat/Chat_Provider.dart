@@ -254,7 +254,7 @@ class ChatProvider extends ChangeNotifier{
       final chats = _chat[roomId];
       if (chats == null || chats.isEmpty) return;
 
-      final lastChat = chats.lastOrNull;
+      final lastChat = chats.firstOrNull;
       if (lastChat?.chatId == null) return;
 
       final lastReadId = lastChat!.chatId;
@@ -291,6 +291,7 @@ class ChatProvider extends ChangeNotifier{
             .map((e) => Chat.fromJson(json: e))
             .toList();
 
+        // 빈 리스트라도 설정해야 초기화 완료 처리됨
         _chat[roomId] = newChats;
         _loadedChatIds[roomId] = newChats.map((chat) => chat.chatId).toSet();
 
@@ -300,7 +301,7 @@ class ChatProvider extends ChangeNotifier{
         }
 
         notifyListeners();
-        return newChats.isNotEmpty;
+        return true; // 채팅 데이터 로드 성공 (빈 리스트여도 성공으로 처리)
       }
     } catch (e) {
       print('채팅 로드 오류: $e');
@@ -326,7 +327,8 @@ class ChatProvider extends ChangeNotifier{
       final response = await serverManager.get('chat/chatsBefore?roomId=$roomId&lastChatId=$oldestChatId');
 
       if (response.statusCode == 200 && response.data is List) {
-        final chatsData = response.data as List;
+        print(response.data);
+        final chatsData = List.from(response.data);
         final newChats = chatsData
             .map((e) => Chat.fromJson(json: e))
             .toList();

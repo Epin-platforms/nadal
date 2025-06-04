@@ -44,9 +44,14 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> {
     m['memberIndex'] != null && m['memberIndex'] is int && m['memberIndex'] > 0);
     if (!allHaveIndex) return;
 
-    // memberIndex 순으로 정렬
+    // memberIndex 순으로 정렬하고 originalIndex 추가
     members = map.values
-        .map((m) => Map<String, dynamic>.from(m))
+        .map((m) {
+      final memberData = Map<String, dynamic>.from(m);
+      // originalIndex를 현재 memberIndex로 설정 (초기 위치 저장)
+      memberData['originalIndex'] = memberData['memberIndex'];
+      return memberData;
+    })
         .toList()
       ..sort((a, b) => (a['memberIndex'] as int)
           .compareTo(b['memberIndex'] as int));
@@ -78,8 +83,13 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> {
 
   void _checkChanges() {
     bool changed = false;
+
+    // 각 멤버의 원래 위치(originalIndex)와 현재 위치(i+1) 비교
     for (var i = 0; i < members.length; i++) {
-      if (members[i]['memberIndex'] != (i + 1)) {
+      final originalIndex = members[i]['originalIndex'] as int?;
+      final currentPosition = i + 1;
+
+      if (originalIndex != currentPosition) {
         changed = true;
         break;
       }
@@ -106,6 +116,11 @@ class _NadalKDKReorderListState extends State<NadalKDKReorderList> {
       // KDK는 모든 멤버가 실제 플레이어이므로 그대로 전달
       final res = await widget.scheduleProvider.updateMemberIndex(members);
       if (res?.statusCode == 200) {
+        // 성공 시 originalIndex를 현재 memberIndex로 업데이트
+        for (var i = 0; i < members.length; i++) {
+          members[i]['originalIndex'] = members[i]['memberIndex'];
+        }
+
         _isChanged = false;
         if (mounted) {
           setState(() {});

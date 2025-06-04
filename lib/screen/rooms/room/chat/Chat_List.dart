@@ -26,6 +26,8 @@ class _ChatListState extends State<ChatList> {
   int? _lastReadChatId;
 
   Timer? _scrollDebouncer;
+  bool _isLoadingBefore = false;
+  bool _isLoadingAfter = false;
 
   @override
   void initState() {
@@ -42,7 +44,7 @@ class _ChatListState extends State<ChatList> {
   }
 
   void _onScroll() {
-    if (chatProvider.socketLoading) return;
+    if (chatProvider.socketLoading || _isLoadingBefore || _isLoadingAfter) return;
 
     _scrollDebouncer?.cancel();
     _scrollDebouncer = Timer(const Duration(milliseconds: 150), () {
@@ -50,49 +52,72 @@ class _ChatListState extends State<ChatList> {
 
       final position = _scrollController.position;
 
-      if (position.pixels <= 50 && _hasMoreBefore) {
+      // reverse ListView에서는 조건이 반대
+      // 위로 스크롤 (이전 채팅) - maxScrollExtent 근처
+      if (position.pixels >= position.maxScrollExtent - 100.h && _hasMoreBefore && !_isLoadingBefore) {
+        print('Loading more before - pixels: ${position.pixels}, maxScrollExtent: ${position.maxScrollExtent}');
         _loadMoreBefore();
       }
 
-      if (position.pixels >= position.maxScrollExtent - 50 && _hasMoreAfter) {
+      // 아래로 스크롤 (이후 채팅) - 0 근처
+      if (position.pixels <= 100.h && _hasMoreAfter && !_isLoadingAfter) {
+        print('Loading more after - pixels: ${position.pixels}');
         _loadMoreAfter();
       }
     });
   }
 
   Future<void> _loadMoreBefore() async {
-    if (chatProvider.socketLoading) return;
+    if (_isLoadingBefore || chatProvider.socketLoading) return;
 
     try {
+      _isLoadingBefore = true;
+      print('_loadMoreBefore 시작');
+
       final roomId = widget.roomProvider.room?['roomId'] as int?;
-      if (roomId == null) return;
+      if (roomId == null) {
+        print('roomId is null');
+        return;
+      }
 
       final hasMore = await chatProvider.loadChatsBefore(roomId);
+      print('_loadMoreBefore 결과: $hasMore');
 
-      if (mounted && _hasMoreBefore != hasMore) {
+      if (mounted) {
         _hasMoreBefore = hasMore;
-        if (mounted) setState(() {});
+        if (mounted) notifyListeners();
       }
     } catch (e) {
       print('이전 채팅 로드 오류: $e');
+    } finally {
+      _isLoadingBefore = false;
     }
   }
 
   Future<void> _loadMoreAfter() async {
-    if (chatProvider.socketLoading) return;
+    if (_isLoadingAfter || chatProvider.socketLoading) return;
 
     try {
+      _isLoadingAfter = true;
+      print('_loadMoreAfter 시작');
+
       final roomId = widget.roomProvider.room?['roomId'] as int?;
-      if (roomId == null) return;
+      if (roomId == null) {
+        print('roomId is null');
+        return;
+      }
 
       final hasMore = await chatProvider.loadChatsAfter(roomId);
+      print('_loadMoreAfter 결과: $hasMore');
 
-      if (mounted && _hasMoreAfter != hasMore) {
+      if (mounted) {
         _hasMoreAfter = hasMore;
-        if (mounted) setState(() {});
+        if (mounted) notifyListeners();
       }
     } catch (e) {
       print('이후 채팅 로드 오류: $e');
+    } finally {
+      _isLoadingAfter = false;
     }
   }
 
@@ -150,7 +175,7 @@ class _ChatListState extends State<ChatList> {
         if (!mounted) return;
 
         _hasMoreBefore = shouldShowMoreBefore;
-        if (mounted) setState(() {});
+        if (mounted) notifyListeners();
 
         if (_lastReadChatId != null && _lastReadChatId! > 0) {
           final targetExists = chats.any((chat) => chat.chatId == _lastReadChatId);
@@ -202,6 +227,12 @@ class _ChatListState extends State<ChatList> {
     }
   }
 
+  void notifyListeners() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     chatProvider = Provider.of<ChatProvider>(context);
@@ -217,9 +248,25 @@ class _ChatListState extends State<ChatList> {
                 final roomId = roomProvider.room?['roomId'] as int?;
                 if (roomId == null) return <dynamic>[];
 
+                final chats = chatProvider.chat[roomId] ?? [];
+
+                // 채팅이 없으면 빈 리스트 반환
+                if (chats.isEmpty) return <dynamic>[];
+
+                // 현재 로드된 채팅들의 날짜 범위 계산
+                final chatDates = chats.map((chat) => chat.createAt).toList();
+                final oldestChatDate = chatDates.reduce((a, b) => a.isBefore(b) ? a : b);
+                final newestChatDate = chatDates.reduce((a, b) => a.isAfter(b) ? a : b);
+
+                // 해당 날짜 범위에 속하는 로그만 필터링
+                final filteredLogs = roomProvider.roomLog.where((log) {
+                  return log.createAt.isAfter(oldestChatDate.subtract(const Duration(hours: 1))) &&
+                      log.createAt.isBefore(newestChatDate.add(const Duration(hours: 1)));
+                }).toList();
+
                 var combinedList = <dynamic>[
-                  ...chatProvider.chat[roomId] ?? [],
-                  ...roomProvider.roomLog
+                  ...chats,
+                  ...filteredLogs
                 ];
 
                 combinedList.sort((a, b) {
@@ -273,16 +320,16 @@ class _ChatListState extends State<ChatList> {
                 itemCount: chatList.length + (_hasMoreBefore ? 1 : 0) + (_hasMoreAfter ? 1 : 0),
                 itemBuilder: (context, index) {
                   try {
-                    // 위쪽 로딩 인디케이터
-                    if (_hasMoreBefore && index == chatList.length) {
+                    // 위쪽 로딩 인디케이터 (reverse에서는 실제로는 아래쪽)
+                    if (_hasMoreAfter && index == 0) {
                       return Padding(
                         padding: EdgeInsets.symmetric(vertical: 16.h),
                         child: Center(child: NadalCircular(size: 30.r)),
                       );
                     }
 
-                    // 아래쪽 로딩 인디케이터
-                    if (_hasMoreAfter && index == chatList.length + (_hasMoreBefore ? 1 : 0)) {
+                    // 아래쪽 로딩 인디케이터 (reverse에서는 실제로는 위쪽)
+                    if (_hasMoreBefore && index == chatList.length + (_hasMoreAfter ? 1 : 0)) {
                       return Padding(
                         padding: EdgeInsets.symmetric(vertical: 16.h),
                         child: Center(child: NadalCircular(size: 30.r)),

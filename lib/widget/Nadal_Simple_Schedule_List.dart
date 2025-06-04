@@ -2,8 +2,9 @@ import 'package:intl/intl.dart';
 import '../manager/project/Import_Manager.dart';
 
 class NadalSimpleScheduleList extends StatelessWidget {
-  const NadalSimpleScheduleList({super.key, required this.schedule});
+  const NadalSimpleScheduleList({super.key, required this.schedule, required this.onTap});
   final Map schedule;
+  final VoidCallback onTap;
   @override
   Widget build(BuildContext context) {
     final isAllDay = schedule['isAllDay'] == 1;
@@ -13,7 +14,7 @@ class NadalSimpleScheduleList extends StatelessWidget {
     final timeFormat = DateFormat('HH:mm');
     
     return InkWell(
-      onTap: ()=> context.push('/schedule/${schedule['scheduleId']}'),
+      onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(

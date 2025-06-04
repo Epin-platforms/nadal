@@ -32,7 +32,7 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-            padding: EdgeInsets.fromLTRB(16,24,16,24),
+            padding: EdgeInsets.fromLTRB(16.w,24.h,16.w,24.h),
             child: GestureDetector(
               onTap: (){
                 //여기에 월 선택
@@ -114,43 +114,66 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                          color: Theme.of(context).colorScheme.primary,
-                          width: 1.3
-                      ),
+                        color: Theme.of(context).colorScheme.primary,
+                      )
                     ),
-                    padding: EdgeInsets.symmetric(horizontal: 3),
-                    child: Center(
-                      child: IntrinsicWidth(
-                        child: Column(
-                          children: [
-                            Container(
-                              padding: EdgeInsets.all(1),
-                              decoration: BoxDecoration(
-                                  color:  today2 == today ? ThemeManager.successColor : null,
-                                  borderRadius: BorderRadius.circular(3)
-                              ),
-                              child: Text(DateFormat('d').format(day), style: Theme.of(context).textTheme.labelMedium?.copyWith(color:
-                              today2 == today ? const Color(0xfff1f1f1) :
-                              day.weekday == 6 ? CupertinoColors.activeBlue :
-                              day.weekday == 7 ? CupertinoColors.destructiveRed :
-                              Theme.of(context).colorScheme.onSurface, fontWeight: today2 == today ? FontWeight.w600 : FontWeight.w400),),
+                    padding:  EdgeInsets.symmetric(horizontal: 3.w),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // 날짜 표시 부분은 그대로
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.all(1),
+                            decoration: BoxDecoration(
+                              color: today2 == today ? CupertinoColors.activeGreen : null,
+                              borderRadius: BorderRadius.circular(3),
                             ),
-                            if(events.isNotEmpty)
-                              Expanded(
-                                child: Center(
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                        color: Theme.of(context).colorScheme.secondary,
-                                        borderRadius: BorderRadius.circular(3)
-                                    ),
-                                    padding: EdgeInsets.all(3),
-                                    child: Text(events.first['title'], style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onPrimary,overflow: TextOverflow.ellipsis, fontWeight: FontWeight.w500, fontSize: 8),),
+                            child: Text(
+                              DateFormat('d').format(day),
+                              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                color: today2 == today
+                                    ? const Color(0xfff1f1f1)
+                                    : day.weekday == 6
+                                    ? CupertinoColors.activeBlue
+                                    : day.weekday == 7
+                                    ? CupertinoColors.destructiveRed
+                                    : Theme.of(context).colorScheme.onSurface,
+                                fontWeight:
+                                today2 == today ? FontWeight.w600 : FontWeight.w400,
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (events.isNotEmpty)
+                          Expanded(
+                            child: Center(
+                              child: Container(
+                                // Cell 전체 폭을 채우기 위해 width: double.infinity
+                                width: double.infinity,
+                                // 세로로는 원하는 높이만큼 주면 됩니다.
+                                padding: EdgeInsets.symmetric(vertical: 3.h, horizontal: 2.w),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.secondary,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: Text(
+                                  events.first['title'],
+                                  textAlign: TextAlign.center,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelMedium
+                                      ?.copyWith(
+                                      color: const Color(0xfff1f1f1),
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 10.sp
                                   ),
                                 ),
-                              )
-                          ],
-                        ),
-                      ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   );
                 },
@@ -165,37 +188,63 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  padding: EdgeInsets.symmetric(horizontal: 3),
-                  child: IntrinsicWidth(
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: EdgeInsets.all(1),
+                  padding:  EdgeInsets.symmetric(horizontal: 3.w),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // 날짜 표시 부분은 그대로
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(1),
                           decoration: BoxDecoration(
-                            color:  today2 == today ? CupertinoColors.activeGreen : null,
-                            borderRadius: BorderRadius.circular(3)
+                            color: today2 == today ? CupertinoColors.activeGreen : null,
+                            borderRadius: BorderRadius.circular(3),
                           ),
-                          child: Text(DateFormat('d').format(day), style: Theme.of(context).textTheme.labelMedium?.copyWith(color:
-                                    today2 == today ? const Color(0xfff1f1f1) :
-                                    day.weekday == 6 ? CupertinoColors.activeBlue :
-                                    day.weekday == 7 ? CupertinoColors.destructiveRed :
-                                    Theme.of(context).colorScheme.onSurface, fontWeight: today2 == today ? FontWeight.w600 : FontWeight.w400),),
+                          child: Text(
+                            DateFormat('d').format(day),
+                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                              color: today2 == today
+                                  ? const Color(0xfff1f1f1)
+                                  : day.weekday == 6
+                                  ? CupertinoColors.activeBlue
+                                  : day.weekday == 7
+                                  ? CupertinoColors.destructiveRed
+                                  : Theme.of(context).colorScheme.onSurface,
+                              fontWeight:
+                              today2 == today ? FontWeight.w600 : FontWeight.w400,
+                            ),
+                          ),
                         ),
-                        if(events.isNotEmpty)
+                      ),
+                      if (events.isNotEmpty)
                         Expanded(
                           child: Center(
                             child: Container(
+                              // Cell 전체 폭을 채우기 위해 width: double.infinity
+                              width: double.infinity,
+                              // 세로로는 원하는 높이만큼 주면 됩니다.
+                              padding: EdgeInsets.symmetric(vertical: 3.h, horizontal: 2.w),
                               decoration: BoxDecoration(
                                 color: Theme.of(context).colorScheme.secondary,
-                                borderRadius: BorderRadius.circular(3)
+                                borderRadius: BorderRadius.circular(3),
                               ),
-                              padding: EdgeInsets.all(3),
-                              child: Text(events.first['title'], style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onPrimary, overflow: TextOverflow.ellipsis, fontWeight: FontWeight.w800, fontSize: 10),),
+                              child: Text(
+                                events.first['title'],
+                                textAlign: TextAlign.center,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelMedium
+                                    ?.copyWith(
+                                  color: const Color(0xfff1f1f1),
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 10.sp
+                                ),
+                              ),
                             ),
                           ),
-                        )
-                      ],
-                    ),
+                        ),
+                    ],
                   ),
                 );
               },
@@ -209,11 +258,12 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    padding: EdgeInsets.symmetric(horizontal: 3),
-                    child: IntrinsicWidth(
-                      child: Column(
-                        children: [
-                          Container(
+                    padding: EdgeInsets.symmetric(horizontal: 3.w),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Center(
+                          child: Container(
                             padding: EdgeInsets.all(1),
                             decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(3)
@@ -223,21 +273,36 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
                             day.weekday == 7 ? CupertinoColors.destructiveRed :
                             Theme.of(context).colorScheme.onSurface),),
                           ),
-                          if(events.isNotEmpty)
-                            Expanded(
-                              child: Center(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                      color: Theme.of(context).colorScheme.secondary,
-                                      borderRadius: BorderRadius.circular(3)
+                        ),
+                        if(events.isNotEmpty)
+                          Expanded(
+                            child: Center(
+                              child: Container(
+                                // Cell 전체 폭을 채우기 위해 width: double.infinity
+                                width: double.infinity,
+                                // 세로로는 원하는 높이만큼 주면 됩니다.
+                                padding: EdgeInsets.symmetric(vertical: 3.h),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.secondary,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: Text(
+                                  events.first['title'],
+                                  textAlign: TextAlign.center,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelMedium
+                                      ?.copyWith(
+                                      color: const Color(0xfff1f1f1),
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 10.sp
                                   ),
-                                  padding: EdgeInsets.all(3),
-                                  child: Text(events.first['title'], style: Theme.of(context).textTheme.labelMedium?.copyWith(color: const Color(0xfff1f1f1),overflow: TextOverflow.ellipsis, fontWeight: FontWeight.w800, fontSize: 10),),
                                 ),
                               ),
-                            )
-                        ],
-                      ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 );
@@ -267,7 +332,10 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
                     itemCount: _getEventsForDay(_selectedDay, userProvider.schedules).length,
                     itemBuilder: (context, index){
                       final schedule = _getEventsForDay(_selectedDay, userProvider.schedules)[index];
-                      return NadalSimpleScheduleList(schedule: schedule);
+                      return NadalSimpleScheduleList(schedule: schedule, onTap: () async{
+                        await context.push('/schedule/${schedule['scheduleId']}');
+                        userProvider.updateSchedule(scheduleId: schedule['scheduleId']);
+                      },);
                     })
                 else
                   SizedBox(

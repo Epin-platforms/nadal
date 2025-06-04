@@ -1,7 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:my_sports_calendar/main.dart';
 import 'package:my_sports_calendar/manager/auth/social/Apple_Manager.dart';
 import 'package:my_sports_calendar/manager/auth/social/Google_Manager.dart';
 import 'package:my_sports_calendar/manager/auth/social/Kakao_Manager.dart';
@@ -420,6 +419,28 @@ class UserProvider extends ChangeNotifier {
 
     // 실제로 제거된 경우에만 notifyListeners 호출
     if (_schedules.length != removedCount) {
+      notifyListeners();
+    }
+  }
+
+  //특정 스케줄 업데이트 들어갔을때 상태변경 감지 대응
+  void updateSchedule({required int scheduleId}) async{
+    //해당 함수는 해당 아이템을 클릭했을때 실행 (존재 무결성이 보장됨)
+    final index = _schedules.indexWhere((schedule)=>  schedule['scheduleId'] == scheduleId);
+    final schedule = _schedules[index];
+
+    final response = await serverManager.get('schedule/update-where-my?updateAt=${schedule['updateAt']}&scheduleId=$scheduleId&participationCount=${schedule['participationCount']}');
+
+    //서버측에서 스케줄 아이디의 updateAt (디비에서 상태변경시 자동 업데이트)을 비교
+    //서버측에서 상태가 바뀌었다면 200반환, upddateAt이 동일하다면 (상태변화가없음) - 201 반환,  삭제되었다면 202반환, 사용자 수만 변경되었다면 203
+    if(response.statusCode == 200){
+      _schedules[index] = response.data;
+      notifyListeners();
+    }else if(response.statusCode == 202){
+      _schedules.removeAt(index);
+      notifyListeners();
+    }else if(response.statusCode == 203){
+      _schedules[index]['participationCount'] = response.data;
       notifyListeners();
     }
   }

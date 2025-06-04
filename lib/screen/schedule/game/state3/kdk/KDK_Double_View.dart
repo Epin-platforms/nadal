@@ -86,8 +86,8 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                   onPressed: () {
                     context.push('/live-match-view'); // 적절한 라우트로 변경
                   },
-                  icon: Icon(Icons.live_tv_rounded, size: 16.r),
-                  label: const Text('실시간 결과'),
+                  icon: Icon(BootstrapIcons.trophy_fill, size: 16.r, color: theme.colorScheme.onSurface,),
+                  label: Text('실시간 결과' , style: theme.textTheme.labelMedium,),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.colorScheme.primary,
                     foregroundColor: Colors.white,
