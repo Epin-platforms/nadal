@@ -116,7 +116,7 @@ class ImageChatBubble extends StatelessWidget {
       imageUrl: url,
       imageBuilder: (context, imageProvider) => GestureDetector(
         onTap: (){
-            context.push('/image?url=$url');
+          context.push('/image?url=$url');
         },
         child: Container(
           height: height,
@@ -132,6 +132,7 @@ class ImageChatBubble extends StatelessWidget {
   }
 }
 
+// 개선된 ImageBubbleOne - setState 제거 및 안전성 강화
 class ImageBubbleOne extends StatefulWidget {
   final String? imageUrl;
   final double maxWidth;
@@ -144,73 +145,150 @@ class ImageBubbleOne extends StatefulWidget {
 
 class _ImageBubbleOneState extends State<ImageBubbleOne> {
   double? _imageHeight;
+  ImageStreamListener? _listener;
+  ImageStream? _stream;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_){
+    if (widget.imageUrl != null) {
       _fetchImageSize();
-    });
+    }
+  }
+
+  @override
+  void dispose() {
+    // 안전하게 listener 제거
+    _cleanupImageStream();
+    super.dispose();
+  }
+
+  void _cleanupImageStream() {
+    if (_stream != null && _listener != null) {
+      try {
+        _stream!.removeListener(_listener!);
+      } catch (e) {
+        // 이미 제거된 경우 무시
+      }
+    }
+    _stream = null;
+    _listener = null;
   }
 
   void _fetchImageSize() {
-    if(widget.imageUrl == null){
-      return;
-    }
+    if (widget.imageUrl == null || !mounted) return;
 
-    final ImageProvider imageProvider = CachedNetworkImageProvider(widget.imageUrl!);
+    try {
+      final ImageProvider imageProvider = CachedNetworkImageProvider(widget.imageUrl!);
+      _stream = imageProvider.resolve(const ImageConfiguration());
 
-    // Fetch the image's actual size using ImageStream
-    ImageStream stream = imageProvider.resolve(const ImageConfiguration());
-    ImageStreamListener? listener;
+      _listener = ImageStreamListener((ImageInfo info, bool _) {
+        // mounted 체크로 안전성 확보
+        if (!mounted) {
+          _cleanupImageStream();
+          return;
+        }
 
-    listener = ImageStreamListener((ImageInfo info, bool _) {
-      final double imageAspectRatio = info.image.width / info.image.height;
+        try {
+          final double imageAspectRatio = info.image.width / info.image.height;
+          final double newHeight = widget.maxWidth / imageAspectRatio;
 
-      setState(() {
-        // Set the image height based on the image's aspect ratio
-        _imageHeight = widget.maxWidth / imageAspectRatio;
+          // setState 대신 더 안전한 방식 사용
+          if (mounted && _imageHeight != newHeight) {
+            setState(() {
+              _imageHeight = newHeight;
+            });
+          }
+        } catch (e) {
+          // 에러 발생 시 기본 정사각형으로 설정
+          if (mounted && _imageHeight == null) {
+            setState(() {
+              _imageHeight = widget.maxWidth;
+            });
+          }
+        }
+
+        // 완료 후 listener 정리
+        _cleanupImageStream();
+      }, onError: (exception, stackTrace) {
+        // 에러 발생 시 기본값 설정 및 정리
+        if (mounted && _imageHeight == null) {
+          setState(() {
+            _imageHeight = widget.maxWidth;
+          });
+        }
+        _cleanupImageStream();
       });
 
-      // Remove the listener to prevent memory leaks
-      stream.removeListener(listener!);
-    });
-
-    stream.addListener(listener);
+      if (mounted) {
+        _stream!.addListener(_listener!);
+      }
+    } catch (e) {
+      // 초기화 실패 시 기본값 설정
+      if (mounted && _imageHeight == null) {
+        setState(() {
+          _imageHeight = widget.maxWidth;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return
-      widget.imageUrl == null ?
-      SizedBox(
+    // 이미지 URL이 없는 경우
+    if (widget.imageUrl == null) {
+      return Container(
         width: widget.maxWidth,
-        height: widget.maxWidth, // Initially square placeholder
-        child: Container(
-          color: Theme.of(context).highlightColor,
-          alignment: Alignment.center,
-          child: Icon(Icons.image_not_supported_outlined, size: widget.maxWidth * 0.6, color: Theme.of(context).hintColor,),
-        ),
-      ) :
-      _imageHeight == null
-          ? SizedBox(
-        width: widget.maxWidth,
-        height: widget.maxWidth, // Initially square placeholder
-        child: Container(
-          color: Theme.of(context).highlightColor,
-        ),
-      )
-          : Container(
-        width: widget.maxWidth,
-        height: _imageHeight!,
+        height: widget.maxWidth,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(15),
-          image: DecorationImage(
-            image: CachedNetworkImageProvider(widget.imageUrl!),
-            fit: BoxFit.cover,
+          borderRadius: BorderRadius.circular(15.r),
+          color: Theme.of(context).highlightColor,
+        ),
+        alignment: Alignment.center,
+        child: Icon(
+          Icons.image_not_supported_outlined,
+          size: widget.maxWidth * 0.6,
+          color: Theme.of(context).hintColor,
+        ),
+      );
+    }
+
+    // 이미지 높이가 아직 계산되지 않은 경우 (로딩 상태)
+    if (_imageHeight == null) {
+      return Container(
+        width: widget.maxWidth,
+        height: widget.maxWidth, // 초기 정사각형 placeholder
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(15.r),
+          color: Theme.of(context).highlightColor,
+        ),
+        child: CachedNetworkImage(
+          imageUrl: widget.imageUrl!,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            color: Theme.of(context).highlightColor,
+          ),
+          errorWidget: (context, url, error) => Icon(
+            Icons.image_not_supported_outlined,
+            size: widget.maxWidth * 0.6,
+            color: Theme.of(context).hintColor,
           ),
         ),
       );
+    }
+
+    // 정상적인 이미지 표시
+    return Container(
+      width: widget.maxWidth,
+      height: _imageHeight!,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15.r),
+        image: DecorationImage(
+          image: CachedNetworkImageProvider(widget.imageUrl!),
+          fit: BoxFit.cover,
+        ),
+      ),
+    );
   }
 }
 
@@ -245,14 +323,14 @@ class SendingImagesPlaceHolder extends StatelessWidget {
               return Column(
                 children: [
                   Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildImageCache(images[0], height, width),
-                      const SizedBox(width: 2,),
-                      _buildImageCache(images[1], height, width),
-                      const SizedBox(height: 2,),
-                      _buildImageCache(images[2], height, width),
-                  ])
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildImageCache(images[0], height, width),
+                        const SizedBox(width: 2,),
+                        _buildImageCache(images[1], height, width),
+                        const SizedBox(height: 2,),
+                        _buildImageCache(images[2], height, width),
+                      ])
                 ],
               );
             }else if(images.length == 4){
@@ -307,11 +385,11 @@ class SendingImagesPlaceHolder extends StatelessWidget {
                         ),
                         const SizedBox(width: 2,),
                         Flexible(
-                          child: _buildImageCache(images[3], height, width)
+                            child: _buildImageCache(images[3], height, width)
                         ),
                         const SizedBox(width: 2,),
                         Flexible(
-                          child: _buildImageCache(images[4], height, width)
+                            child: _buildImageCache(images[4], height, width)
                         ),
                       ],
                     ),
@@ -348,9 +426,7 @@ class SendingImagesPlaceHolder extends StatelessWidget {
           alignment: Alignment.center,
           child: NadalCircular(size: 24.r,),
         ),
-
       ],
     );
   }
 }
-
