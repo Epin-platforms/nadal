@@ -44,80 +44,107 @@ class _ChatListState extends State<ChatList> {
   }
 
   void _onScroll() {
-    if (chatProvider.socketLoading || _isLoadingBefore || _isLoadingAfter) return;
+    if (chatProvider.socketLoading || _isLoadingBefore || _isLoadingAfter) {
+      print('스크롤 무시: socketLoading=${chatProvider.socketLoading}, loadingBefore=$_isLoadingBefore, loadingAfter=$_isLoadingAfter');
+      return;
+    }
 
     _scrollDebouncer?.cancel();
     _scrollDebouncer = Timer(const Duration(milliseconds: 150), () {
       if (!mounted) return;
 
       final position = _scrollController.position;
+      print('스크롤 위치: pixels=${position.pixels.toStringAsFixed(2)}, maxScrollExtent=${position.maxScrollExtent.toStringAsFixed(2)}');
+      print('hasMoreBefore=$_hasMoreBefore, hasMoreAfter=$_hasMoreAfter');
 
       // reverse ListView에서는 조건이 반대
       // 위로 스크롤 (이전 채팅) - maxScrollExtent 근처
-      if (position.pixels >= position.maxScrollExtent - 100.h && _hasMoreBefore && !_isLoadingBefore) {
-        print('Loading more before - pixels: ${position.pixels}, maxScrollExtent: ${position.maxScrollExtent}');
+      if (position.pixels >= position.maxScrollExtent - 200.h && _hasMoreBefore && !_isLoadingBefore) {
+        print('✅ 이전 채팅 로드 트리거: pixels=${position.pixels}, threshold=${position.maxScrollExtent - 200.h}');
         _loadMoreBefore();
       }
 
       // 아래로 스크롤 (이후 채팅) - 0 근처
-      if (position.pixels <= 100.h && _hasMoreAfter && !_isLoadingAfter) {
-        print('Loading more after - pixels: ${position.pixels}');
+      if (position.pixels <= 200.h && _hasMoreAfter && !_isLoadingAfter) {
+        print('✅ 이후 채팅 로드 트리거: pixels=${position.pixels}');
         _loadMoreAfter();
       }
     });
   }
 
   Future<void> _loadMoreBefore() async {
-    if (_isLoadingBefore || chatProvider.socketLoading) return;
+    if (_isLoadingBefore || chatProvider.socketLoading) {
+      print('❌ _loadMoreBefore 중단: 이미 로딩 중');
+      return;
+    }
 
     try {
       _isLoadingBefore = true;
-      print('_loadMoreBefore 시작');
+      print('🔄 _loadMoreBefore 시작');
 
       final roomId = widget.roomProvider.room?['roomId'] as int?;
       if (roomId == null) {
-        print('roomId is null');
+        print('❌ roomId is null');
         return;
       }
 
+      final currentChats = chatProvider.chat[roomId] ?? [];
+      print('현재 채팅 수: ${currentChats.length}');
+
+      if (currentChats.isNotEmpty) {
+        // 서버 로직에 맞게 chatId 기준으로 가장 오래된 채팅 찾기
+        final sortedByIdChats = [...currentChats]..sort((a, b) => a.chatId.compareTo(b.chatId));
+        print('가장 오래된 채팅: ID=${sortedByIdChats.first.chatId}, createAt=${sortedByIdChats.first.createAt}');
+      }
+
       final hasMore = await chatProvider.loadChatsBefore(roomId);
-      print('_loadMoreBefore 결과: $hasMore');
+      print('✅ _loadMoreBefore 결과: hasMore=$hasMore');
+
+      final newChats = chatProvider.chat[roomId] ?? [];
+      print('로드 후 채팅 수: ${newChats.length}');
 
       if (mounted) {
         _hasMoreBefore = hasMore;
+        print('_hasMoreBefore 업데이트: $_hasMoreBefore');
         if (mounted) notifyListeners();
       }
     } catch (e) {
-      print('이전 채팅 로드 오류: $e');
+      print('❌ 이전 채팅 로드 오류: $e');
     } finally {
       _isLoadingBefore = false;
+      print('🔄 _loadMoreBefore 완료');
     }
   }
 
   Future<void> _loadMoreAfter() async {
-    if (_isLoadingAfter || chatProvider.socketLoading) return;
+    if (_isLoadingAfter || chatProvider.socketLoading) {
+      print('❌ _loadMoreAfter 중단: 이미 로딩 중');
+      return;
+    }
 
     try {
       _isLoadingAfter = true;
-      print('_loadMoreAfter 시작');
+      print('🔄 _loadMoreAfter 시작');
 
       final roomId = widget.roomProvider.room?['roomId'] as int?;
       if (roomId == null) {
-        print('roomId is null');
+        print('❌ roomId is null');
         return;
       }
 
       final hasMore = await chatProvider.loadChatsAfter(roomId);
-      print('_loadMoreAfter 결과: $hasMore');
+      print('✅ _loadMoreAfter 결과: hasMore=$hasMore');
 
       if (mounted) {
         _hasMoreAfter = hasMore;
+        print('_hasMoreAfter 업데이트: $_hasMoreAfter');
         if (mounted) notifyListeners();
       }
     } catch (e) {
-      print('이후 채팅 로드 오류: $e');
+      print('❌ 이후 채팅 로드 오류: $e');
     } finally {
       _isLoadingAfter = false;
+      print('🔄 _loadMoreAfter 완료');
     }
   }
 
@@ -164,21 +191,63 @@ class _ChatListState extends State<ChatList> {
       if (roomId == null) return;
 
       final chats = chatProvider.chat[roomId];
-      if (chats == null || chats.isEmpty) return;
+      if (chats == null || chats.isEmpty) {
+        print('🔍 초기화 대기: 채팅 없음');
+        return;
+      }
 
       _isInitialized = true;
       _lastReadChatId = chatProvider.getLastReadChatId(roomId);
 
-      final shouldShowMoreBefore = chats.length >= 20;
+      print('🚀 채팅 리스트 초기화');
+      print('- 총 채팅 수: ${chats.length}');
+      print('- lastReadChatId: $_lastReadChatId');
+
+      if (chats.isNotEmpty) {
+        // 서버는 chatId 기준으로 정렬하므로 chatId 기준으로 분석
+        final sortedByIdChats = [...chats]..sort((a, b) => a.chatId.compareTo(b.chatId));
+        print('- chatId 기준 가장 오래된 채팅: ID=${sortedByIdChats.first.chatId}, createAt=${sortedByIdChats.first.createAt}');
+        print('- chatId 기준 가장 최신 채팅: ID=${sortedByIdChats.last.chatId}, createAt=${sortedByIdChats.last.createAt}');
+      }
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
 
-        _hasMoreBefore = shouldShowMoreBefore;
+        // hasMoreBefore: 더 오래된 채팅(chatId가 더 작은)이 있는가?
+        // 서버 로직: getChatsBefore에서 c.chatId < lastChatId 조건으로 20개씩 가져옴
+        // 초기 로딩에서 읽은 채팅 10개만 가져오므로, 채팅 수가 적으면 더 있을 가능성
+        _hasMoreBefore = chats.length < 60; // 서버에서 최대 60개(안읽은50+읽은10) 가져오는데 그보다 적으면 더 있음
+
+        // hasMoreAfter: 더 최신 채팅(chatId가 더 큰)이 있는가?
+        // 서버 로직: getChatsAfter에서 c.chatId > lastChatId 조건으로 20개씩 가져옴
+        // 초기 로딩에서 안읽은 채팅을 최대 50개 가져오는데, 그보다 적으면 더 없을 가능성
+        if (_lastReadChatId != null && chats.isNotEmpty) {
+          final sortedByIdChats = [...chats]..sort((a, b) => a.chatId.compareTo(b.chatId));
+          final oldestChatId = sortedByIdChats.first.chatId;
+          final newestChatId = sortedByIdChats.last.chatId;
+          final unreadChatsInList = chats.where((c) => c.chatId > _lastReadChatId!).length;
+
+          // 안읽은 채팅이 50개 미만이면 더 최신 채팅이 없을 가능성 높음
+          _hasMoreAfter = unreadChatsInList >= 50;
+
+          print('🔍 hasMoreAfter 판단:');
+          print('- oldestChatId: $oldestChatId');
+          print('- newestChatId: $newestChatId');
+          print('- lastReadChatId: $_lastReadChatId');
+          print('- unreadChatsInList: $unreadChatsInList');
+          print('- hasMoreAfter: $_hasMoreAfter');
+        } else {
+          _hasMoreAfter = false;
+        }
+
+        print('_hasMoreBefore 초기값: $_hasMoreBefore (채팅 수: ${chats.length})');
+        print('_hasMoreAfter 초기값: $_hasMoreAfter');
+
         if (mounted) notifyListeners();
 
         if (_lastReadChatId != null && _lastReadChatId! > 0) {
           final targetExists = chats.any((chat) => chat.chatId == _lastReadChatId);
+          print('lastRead 스크롤 타겟 존재: $targetExists');
           if (targetExists) {
             Future.delayed(const Duration(milliseconds: 500), () {
               if (mounted) {
@@ -189,7 +258,7 @@ class _ChatListState extends State<ChatList> {
         }
       });
     } catch (e) {
-      print('초기화 오류: $e');
+      print('❌ 초기화 오류: $e');
     }
   }
 
@@ -311,6 +380,8 @@ class _ChatListState extends State<ChatList> {
                 );
               }
 
+              print('📋 채팅 리스트 렌더링: ${chatList.length}개 아이템 (hasMoreBefore: $_hasMoreBefore, hasMoreAfter: $_hasMoreAfter)');
+
               return ListView.separated(
                 controller: _scrollController,
                 shrinkWrap: true,
@@ -322,6 +393,7 @@ class _ChatListState extends State<ChatList> {
                   try {
                     // 위쪽 로딩 인디케이터 (reverse에서는 실제로는 아래쪽)
                     if (_hasMoreAfter && index == 0) {
+                      print('🔄 이후 채팅 로딩 인디케이터 표시');
                       return Padding(
                         padding: EdgeInsets.symmetric(vertical: 16.h),
                         child: Center(child: NadalCircular(size: 30.r)),
@@ -330,6 +402,7 @@ class _ChatListState extends State<ChatList> {
 
                     // 아래쪽 로딩 인디케이터 (reverse에서는 실제로는 위쪽)
                     if (_hasMoreBefore && index == chatList.length + (_hasMoreAfter ? 1 : 0)) {
+                      print('🔄 이전 채팅 로딩 인디케이터 표시 (index: $index)');
                       return Padding(
                         padding: EdgeInsets.symmetric(vertical: 16.h),
                         child: Center(child: NadalCircular(size: 30.r)),

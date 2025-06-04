@@ -159,6 +159,10 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
                 children: [
                   Column(
                     children: [
+                      if(provider.lastAnnounce.isNotEmpty)
+                        SizedBox(
+                          height: 60,
+                        ),
                       Expanded(
                           child: ChatList(
                             roomProvider: provider,

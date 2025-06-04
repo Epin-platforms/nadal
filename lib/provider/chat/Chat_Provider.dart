@@ -271,13 +271,18 @@ class ChatProvider extends ChangeNotifier{
   }
 
   Future<bool> setChats(int roomId) async {
-    if (_socketLoading) return false;
+    if (_socketLoading) {
+      print('❌ setChats 중단: 이미 로딩 중');
+      return false;
+    }
 
     _socketLoading = true;
     notifyListeners();
+    print('🚀 setChats 시작 (roomId: $roomId)');
 
     try {
       final response = await serverManager.get('chat/chat?roomId=$roomId');
+      print('📡 서버 응답: ${response.statusCode}');
 
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data as Map<String, dynamic>;
@@ -285,11 +290,21 @@ class ChatProvider extends ChangeNotifier{
         final lastReadChatId = data['lastReadChatId'] as int?;
         final unreadCount = data['unreadCount'] as int? ?? 0;
 
+        print('📊 초기 데이터:');
+        print('- 채팅 수: ${chatsData.length}');
+        print('- lastReadChatId: $lastReadChatId');
+        print('- unreadCount: $unreadCount');
+
         _lastReadChatId[roomId] = lastReadChatId;
 
         final newChats = chatsData
             .map((e) => Chat.fromJson(json: e))
             .toList();
+
+        if (newChats.isNotEmpty) {
+          print('- 가장 오래된 채팅: ID=${newChats.first.chatId}, createAt=${newChats.first.createAt}');
+          print('- 가장 최신 채팅: ID=${newChats.last.chatId}, createAt=${newChats.last.createAt}');
+        }
 
         // 빈 리스트라도 설정해야 초기화 완료 처리됨
         _chat[roomId] = newChats;
@@ -301,104 +316,181 @@ class ChatProvider extends ChangeNotifier{
         }
 
         notifyListeners();
+        print('✅ setChats 성공');
         return true; // 채팅 데이터 로드 성공 (빈 리스트여도 성공으로 처리)
+      } else {
+        print('❌ 서버 응답 오류: ${response.statusCode}');
       }
     } catch (e) {
-      print('채팅 로드 오류: $e');
+      print('❌ setChats 오류: $e');
     } finally {
       _socketLoading = false;
       notifyListeners();
+      print('🔄 setChats 완료');
     }
 
     return false;
   }
 
   Future<bool> loadChatsBefore(int roomId) async {
-    if (_socketLoading) return false;
+    if (_socketLoading) {
+      print('❌ loadChatsBefore 중단: 이미 로딩 중');
+      return false;
+    }
 
     final currentChats = _chat[roomId];
-    if (currentChats == null || currentChats.isEmpty) return false;
+    if (currentChats == null || currentChats.isEmpty) {
+      print('❌ loadChatsBefore 중단: 현재 채팅 없음');
+      return false;
+    }
 
     try {
       _socketLoading = true;
       notifyListeners();
+      print('🚀 loadChatsBefore 시작 (roomId: $roomId)');
 
       final oldestChatId = currentChats.first.chatId;
+      print('📋 현재 상태:');
+      print('- 현재 채팅 수: ${currentChats.length}');
+      print('- 가장 오래된 chatId: $oldestChatId');
+      print('- 가장 오래된 채팅 시간: ${currentChats.first.createAt}');
+
       final response = await serverManager.get('chat/chatsBefore?roomId=$roomId&lastChatId=$oldestChatId');
+      print('📡 서버 응답: ${response.statusCode}');
 
       if (response.statusCode == 200 && response.data is List) {
-        print(response.data);
         final chatsData = List.from(response.data);
+        print('📊 새로 받은 데이터: ${chatsData.length}개');
+
         final newChats = chatsData
             .map((e) => Chat.fromJson(json: e))
             .toList();
 
         if (newChats.isNotEmpty) {
+          print('- 새 채팅 범위: ${newChats.first.chatId} ~ ${newChats.last.chatId}');
+          print('- 새 채팅 시간 범위: ${newChats.first.createAt} ~ ${newChats.last.createAt}');
+
           _loadedChatIds.putIfAbsent(roomId, () => <int>{});
           final filteredChats = newChats.where((chat) =>
           !_loadedChatIds[roomId]!.contains(chat.chatId)
           ).toList();
+
+          print('- 중복 제거 후: ${filteredChats.length}개');
 
           if (filteredChats.isNotEmpty) {
             currentChats.insertAll(0, filteredChats);
             for (final chat in filteredChats) {
               _loadedChatIds[roomId]!.add(chat.chatId);
             }
+
+            print('✅ 채팅 추가 완료');
+            print('- 총 채팅 수: ${currentChats.length}');
+            print('- 새로운 가장 오래된 채팅: ID=${currentChats.first.chatId}, createAt=${currentChats.first.createAt}');
+
             notifyListeners();
-            return chatsData.length >= 20;
+
+            // 20개 가져왔으면 더 있을 가능성, 그보다 적으면 마지막일 가능성
+            final hasMore = chatsData.length >= 20;
+            print('🔍 hasMore 판단: $hasMore (받은 데이터 수: ${chatsData.length})');
+            return hasMore;
+          } else {
+            print('⚠️ 모든 채팅이 중복됨');
           }
+        } else {
+          print('⚠️ 새 채팅 없음');
         }
+      } else {
+        print('❌ 서버 응답 오류: ${response.statusCode}');
       }
     } catch (e) {
-      print('이전 채팅 로드 오류: $e');
+      print('❌ loadChatsBefore 오류: $e');
     } finally {
       _socketLoading = false;
       notifyListeners();
+      print('🔄 loadChatsBefore 완료');
     }
 
     return false;
   }
 
   Future<bool> loadChatsAfter(int roomId) async {
-    if (_socketLoading) return false;
+    if (_socketLoading) {
+      print('❌ loadChatsAfter 중단: 이미 로딩 중');
+      return false;
+    }
 
     final currentChats = _chat[roomId];
-    if (currentChats == null || currentChats.isEmpty) return false;
+    if (currentChats == null || currentChats.isEmpty) {
+      print('❌ loadChatsAfter 중단: 현재 채팅 없음');
+      return false;
+    }
 
     try {
       _socketLoading = true;
       notifyListeners();
+      print('🚀 loadChatsAfter 시작 (roomId: $roomId)');
 
-      final newestChatId = currentChats.last.chatId;
+      // 시간순으로 정렬해서 가장 최신 채팅 찾기
+      final sortedChats = [...currentChats]..sort((a, b) => a.createAt.compareTo(b.createAt));
+      final newestChatId = sortedChats.last.chatId;
+
+      print('📋 현재 상태:');
+      print('- 현재 채팅 수: ${currentChats.length}');
+      print('- 가장 최신 chatId: $newestChatId');
+      print('- 가장 최신 채팅 시간: ${sortedChats.last.createAt}');
+
       final response = await serverManager.get('chat/chatsAfter?roomId=$roomId&lastChatId=$newestChatId');
+      print('📡 서버 응답: ${response.statusCode}');
 
       if (response.statusCode == 200 && response.data is List) {
         final chatsData = response.data as List;
+        print('📊 새로 받은 데이터: ${chatsData.length}개');
+
         final newChats = chatsData
             .map((e) => Chat.fromJson(json: e))
             .toList();
 
         if (newChats.isNotEmpty) {
+          print('- 새 채팅 범위: ${newChats.first.chatId} ~ ${newChats.last.chatId}');
+          print('- 새 채팅 시간 범위: ${newChats.first.createAt} ~ ${newChats.last.createAt}');
+
           _loadedChatIds.putIfAbsent(roomId, () => <int>{});
           final filteredChats = newChats.where((chat) =>
           !_loadedChatIds[roomId]!.contains(chat.chatId)
           ).toList();
 
+          print('- 중복 제거 후: ${filteredChats.length}개');
+
           if (filteredChats.isNotEmpty) {
-            currentChats.addAll(filteredChats);
+            currentChats.insertAll(0, filteredChats);
             for (final chat in filteredChats) {
               _loadedChatIds[roomId]!.add(chat.chatId);
             }
+
+            print('✅ 채팅 추가 완료');
+            print('- 총 채팅 수: ${currentChats.length}');
+
             notifyListeners();
-            return chatsData.length >= 20;
+
+            // 20개 가져왔으면 더 있을 가능성, 그보다 적으면 마지막일 가능성
+            final hasMore = chatsData.length >= 20;
+            print('🔍 hasMore 판단: $hasMore (받은 데이터 수: ${chatsData.length})');
+            return hasMore;
+          } else {
+            print('⚠️ 모든 채팅이 중복됨');
           }
+        } else {
+          print('⚠️ 새 채팅 없음');
         }
+      } else {
+        print('❌ 서버 응답 오류: ${response.statusCode}');
       }
     } catch (e) {
-      print('이후 채팅 로드 오류: $e');
+      print('❌ loadChatsAfter 오류: $e');
     } finally {
       _socketLoading = false;
       notifyListeners();
+      print('🔄 loadChatsAfter 완료');
     }
 
     return false;
