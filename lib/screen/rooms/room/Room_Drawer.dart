@@ -4,6 +4,7 @@ import 'package:my_sports_calendar/manager/form/room/Grader_Form_Manger.dart';
 import 'package:my_sports_calendar/model/share/Share_Parameter.dart';
 import 'package:my_sports_calendar/provider/notification/Notification_Provider.dart';
 import 'package:my_sports_calendar/provider/room/Room_Provider.dart';
+import 'package:my_sports_calendar/util/handler/Deep_Link_Handler.dart';
 import 'package:my_sports_calendar/widget/Nadal_Room_Frame.dart';
 import '../../../manager/project/Import_Manager.dart';
 import '../../../widget/Share_Bottom_Sheet.dart';
@@ -54,18 +55,7 @@ class _RoomDrawerState extends State<RoomDrawer> {
           actions: [
             NadalIconButton(
               onTap: () {
-                showModalBottomSheet(
-                  context: context,
-                  backgroundColor: Colors.transparent,
-                  isScrollControlled: true,
-                  builder: (context) => ShareBottomSheet(shareParameter: ShareParameter(
-                      title: '${room['roomName']}',
-                      link: null,
-                      imageUrl: room['roomImage'] ?? 'https://cdn.imweb.me/thumbnail/20250520/d0cc0303965c0.png',
-                      subTitle: '지금 바로 커뮤니티를 구경해볼까요?',
-                      routing: '/room/${widget.roomId}'
-                  ),),
-                );
+                shareRoom(context, widget.roomId, room['roomName'], room['roomImage']);
               },
               icon: CupertinoIcons.share
             ),

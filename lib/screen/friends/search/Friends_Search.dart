@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:my_sports_calendar/model/share/Share_Parameter.dart';
 import 'package:my_sports_calendar/provider/friends/Friend_Provider.dart';
+import 'package:my_sports_calendar/util/handler/Deep_Link_Handler.dart';
 import 'package:my_sports_calendar/widget/Share_Bottom_Sheet.dart';
 
 import '../../../manager/project/Import_Manager.dart';
@@ -54,18 +55,7 @@ class _FriendsSearchState extends State<FriendsSearch> {
                   actions: [
                     NadalIconButton(
                         onTap: () {
-                          showModalBottomSheet(
-                            context: context,
-                            backgroundColor: Colors.transparent,
-                            isScrollControlled: true,
-                            builder: (context) => ShareBottomSheet(shareParameter: ShareParameter(
-                                title: '나달에서 초대장이 도착했습니다',
-                                link: null,
-                                imageUrl: null,
-                                subTitle: '지금 바로 확인해볼까요?',
-                                routing: '/my'
-                            ),),
-                          );
+                          shareApp(context);
                         },
                         icon: CupertinoIcons.share
                     ),

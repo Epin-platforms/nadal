@@ -1,4 +1,3 @@
-import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
 import 'package:my_sports_calendar/provider/notification/Notification_Provider.dart';
 import 'package:my_sports_calendar/screen/notification/Notification_Item.dart';
@@ -15,18 +14,11 @@ class NotificationPage extends StatefulWidget {
 
 class _NotificationPageState extends State<NotificationPage> {
   late NotificationProvider notificationProvider;
-  late ScrollController _controller;
 
   @override
   void initState() {
-    _controller = ScrollController();
     WidgetsBinding.instance.addPostFrameCallback((_){
       notificationProvider.fetchNotifications();
-      _controller.addListener((){
-        if(_controller.position.pixels >= _controller.position.maxScrollExtent - 100.h){
-          notificationProvider.fetchNotifications();
-        }
-      });
     });
     super.initState();
   }
@@ -64,12 +56,6 @@ class _NotificationPageState extends State<NotificationPage> {
       default:
         return 5; // 과거 월들
     }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 
   @override
@@ -125,7 +111,6 @@ class _NotificationPageState extends State<NotificationPage> {
             SafeArea(
               child: sortedKeys.isNotEmpty ?
               ListView.builder(
-                  controller: _controller,
                   padding:  EdgeInsets.only(top: 8.h, bottom: 24.h),
                   itemCount: sortedKeys.length,
                   itemBuilder: (context, index){

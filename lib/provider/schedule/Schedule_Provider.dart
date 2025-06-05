@@ -236,7 +236,7 @@ class ScheduleProvider extends ChangeNotifier {
         !_scheduleMembers!.containsKey(currentUid) &&
         AppRoute.context!.read<RoomsProvider>().rooms?.containsKey(roomId) ==
             false) {
-      AppRoute.context?.pushReplacement('/room/preview/$roomId');
+      AppRoute.context?.pushReplacement('/previewRoom/$roomId');
     }
   }
 
@@ -388,12 +388,13 @@ class ScheduleProvider extends ChangeNotifier {
         'scheduleId': _schedule!['scheduleId'],
         'gender': AppRoute.context?.read<UserProvider>().user?['gender']
       };
+
       await serverManager.post('schedule/participation', data: data);
+      AppRoute.popLoading();
       return 'complete';
     } catch (e) {
-      return 'error';
-    } finally {
       AppRoute.popLoading();
+      return 'error';
     }
   }
 
@@ -432,7 +433,7 @@ class ScheduleProvider extends ChangeNotifier {
         'teamId': teamId
       };
       final res =
-      await serverManager.post('schedule/participation/team', data: data);
+      await serverManager.post('schedule/participation-team', data: data);
       if (res.statusCode == 204) return 'exist';
       return 'complete';
     } catch (e) {
@@ -447,6 +448,7 @@ class ScheduleProvider extends ChangeNotifier {
       AppRoute.pushLoading();
       final res = await serverManager
           .delete('schedule/participationCancel/${_schedule!['scheduleId']}');
+
       if (res.statusCode == 200) {
         _scheduleMembers?.remove(_auth.currentUser!.uid);
         AppRoute.context
@@ -465,7 +467,7 @@ class ScheduleProvider extends ChangeNotifier {
     try {
       AppRoute.pushLoading();
       final res = await serverManager
-          .delete('schedule/participationCancel/team/${_schedule!['scheduleId']}');
+          .delete('schedule/participationCancel-team/${_schedule!['scheduleId']}');
       if (res.statusCode == 200) await updateMembers();
     } catch (e) {
       _setError('팀 참가 취소 실패: $e');

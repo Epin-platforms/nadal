@@ -136,43 +136,43 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   // 프로필 및 이름
-                  Row(
-                    children: [
-                      Hero(
-                        tag: 'profile-${post['uid']}',
-                        child: NadalProfileFrame(
+                  GestureDetector(
+                    onTap: ()=> context.push('/user/${post['uid']}'),
+                    child: Row(
+                      children: [
+                        NadalProfileFrame(
                           imageUrl: post['profileImage'],
                           size: 42.r,
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            TextFormManager.profileText(
-                              post['nickName'],
-                              post['name'],
-                              post['birthYear'],
-                              post['gender'],
-                              useNickname: post['name'] == null,
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              TextFormManager.profileText(
+                                post['nickName'],
+                                post['name'],
+                                post['birthYear'],
+                                post['gender'],
+                                useNickname: post['name'] == null,
+                              ),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15.sp,
+                              ),
                             ),
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15.sp,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            TextFormManager.timeAgo(item: post['createAt']),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.hintColor,
-                              height: 1,
-                            ),
-                          )
-                        ],
-                      ),
-                    ],
+                            const SizedBox(height: 2),
+                            Text(
+                              TextFormManager.timeAgo(item: post['createAt']),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.hintColor,
+                                height: 1,
+                              ),
+                            )
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
 
                   // 태그
@@ -184,8 +184,7 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
                 ],
               ),
 
-              SizedBox(height: 24.h),
-
+              SizedBox(height: 16.h),
               // 제목
               Text(
                 post['title'] ?? '제목 없음',
@@ -195,6 +194,40 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
                   height: 1.3,
                 ),
               ),
+              // 방 이름 정보 (제목 바로 아래에 위치)
+              if (post['roomName'] != null && post['roomName'].toString().isNotEmpty) ...[
+                SizedBox(height: 8.h),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(20.r),
+                    border: Border.all(
+                      color: theme.dividerColor.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.meeting_room_rounded,
+                        size: 16.r,
+                        color: theme.colorScheme.secondary.withValues(alpha: 0.8),
+                      ),
+                      SizedBox(width: 6.w),
+                      Text(
+                        '${post['roomName']} 방',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w500,
+                          color: theme.colorScheme.secondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
 
               // 설명
               if (post['description'] != null && post['description'].toString().isNotEmpty) ...[

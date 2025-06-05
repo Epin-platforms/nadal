@@ -1,11 +1,10 @@
 import 'package:flutter/cupertino.dart';
-import 'package:my_sports_calendar/model/share/Share_Parameter.dart';
 import 'package:my_sports_calendar/screen/schedule/Schedule_Main.dart';
 import 'package:my_sports_calendar/screen/schedule/game/state1/Game_State_1.dart';
 import 'package:my_sports_calendar/screen/schedule/widget/Schedule_Step_Selector.dart';
+import 'package:my_sports_calendar/util/handler/Deep_Link_Handler.dart';
 import '../../manager/project/Import_Manager.dart';
 import '../../provider/notification/Notification_Provider.dart';
-import '../../widget/Share_Bottom_Sheet.dart';
 import 'game/block/Game_Block.dart';
 import 'game/state2/Game_State_2.dart';
 import 'game/state3/Game_State_3.dart';
@@ -59,22 +58,6 @@ class _ScheduleState extends State<Schedule> {
     super.dispose();
   }
 
-  void _shareSchedule() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => ShareBottomSheet(
-        shareParameter: ShareParameter(
-            title: '${scheduleProvider.schedule!['title']}',
-            link: null,
-            imageUrl: null,
-            subTitle: '지금 일정에 참여해볼까요?',
-            routing: '/schedule/${scheduleProvider.schedule!['scheduleId']}'
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -197,7 +180,7 @@ class _ScheduleState extends State<Schedule> {
             CupertinoActionSheetAction(
               onPressed: () {
                 nav.pop();
-                _shareSchedule();
+                shareSchedule(context, scheduleProvider.schedule!['scheduleId'], scheduleProvider.schedule!['title']);
               },
               child: Text(
                 '공유',

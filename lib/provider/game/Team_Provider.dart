@@ -44,11 +44,11 @@ class TeamProvider extends ChangeNotifier{
   bool _loading = false;
   bool _hasMore = true;
 
-  fetchRoomMember() async{
+  Future<void> fetchRoomMember() async{
     if(_loading || !_hasMore) return; //로딩일 경우에는 무시
     _loading = true;
     try{
-      final res = await serverManager.get('schedule/team/init?roomId=$_roomId&scheduleId=$_scheduleId&offset=$_offset');
+      final res = await serverManager.get('schedule/team-init?roomId=$_roomId&scheduleId=$_scheduleId&offset=$_offset');
 
       _members = [];
       if(res.statusCode == 200){
@@ -107,7 +107,7 @@ class TeamProvider extends ChangeNotifier{
         _lastValue = value;
       }
 
-      final res = await serverManager.get('schedule/team/search?roomId=$_roomId&offset=$_resultOffset&scheduleId=$_scheduleId&query=$value');
+      final res = await serverManager.get('schedule/team-search?roomId=$_roomId&offset=$_resultOffset&scheduleId=$_scheduleId&query=$value');
 
       if(res.statusCode == 200){
           final list = List.from(res.data);

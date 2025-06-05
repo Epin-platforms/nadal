@@ -66,9 +66,7 @@ class UserProfileProvider extends ChangeNotifier{
         }
 
         for(var game in list){
-          if(_games!.where((e)=> e['scheduleId'] == game['scheduleId'] && e['tableId'] == game['tableId']).isEmpty){
-            _games!.add(game);
-          }
+          _games!.add(game);
         }
       }
     }catch(error){

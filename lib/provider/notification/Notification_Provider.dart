@@ -37,10 +37,6 @@ class NotificationProvider extends ChangeNotifier {
   List<NotificationModel>? _notifications;
   List<NotificationModel>? get notifications => _notifications;
 
-  int _offset = 0;
-  bool _hasMore = true;
-  bool get hasMore => _hasMore;
-
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
@@ -67,28 +63,20 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   Future<void> fetchNotifications() async {
-    if (_isLoading || !_hasMore) return;
+    if (_isLoading) return;
 
     try {
       _isLoading = true;
 
       if (_notifications != null) notifyListeners();
 
-      final res = await serverManager.get('notification?offset=$_offset');
+      final res = await serverManager.get('notification');
 
       _notifications ??= [];
 
       if (res.statusCode == 200) {
         final List<dynamic> newNotifications = List.from(res.data);
-        _notifications!.addAll(
-            newNotifications.map((e) => NotificationModel.fromJson(json: e))
-        );
-
-        if (newNotifications.length < 20) {
-          _hasMore = false;
-        } else {
-          _offset++;
-        }
+        _notifications = newNotifications.map((e) => NotificationModel.fromJson(json: e)).toList();
         notifyListeners();
       } else {
         print('알림 데이터 가져오기 실패: ${res.statusCode}');

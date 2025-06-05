@@ -41,7 +41,7 @@ class _MainPageState extends State<MainPage> {
                   onTap: ()=> context.push('/notification'),
                   icon: CupertinoIcons.bell,
               ),
-              if(notificationProvider.notifications != null && notificationProvider.notifications!.where((e)=> e.isRead).isNotEmpty)
+              if(notificationProvider.notifications != null && notificationProvider.notifications!.where((e)=> !e.isRead).isNotEmpty)
               Positioned(
                   top: 0, right: 0,
                   child: Container(

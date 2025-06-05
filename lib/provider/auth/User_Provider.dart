@@ -28,6 +28,41 @@ class UserProvider extends ChangeNotifier {
   bool _firstLoading = false;
 
   // ============================================
+  // 스케줄 관리 (메모리 효율화)
+  // ============================================
+  final Map<String, List<Map>> _schedulesCache = {};
+  final Set<String> _fetchedMonths = {};
+
+  List<Map> get schedules {
+    final allSchedules = <Map>[];
+    for (final monthSchedules in _schedulesCache.values) {
+      allSchedules.addAll(monthSchedules);
+    }
+    // 중복 제거 및 정렬
+    final uniqueSchedules = <Map>[];
+    final seenIds = <int>{};
+
+    for (final schedule in allSchedules) {
+      final id = schedule['scheduleId'] as int?;
+      if (id != null && !seenIds.contains(id)) {
+        seenIds.add(id);
+        uniqueSchedules.add(schedule);
+      }
+    }
+
+    uniqueSchedules.sort((a, b) {
+      final aDate = DateTime.tryParse(a['startDate'] ?? '');
+      final bDate = DateTime.tryParse(b['startDate'] ?? '');
+      if (aDate == null || bDate == null) return 0;
+      return aDate.compareTo(bDate);
+    });
+
+    return uniqueSchedules;
+  }
+
+  List<String> get fetchCached => _fetchedMonths.toList();
+
+  // ============================================
   // 초기화
   // ============================================
   void userProviderInit() {
@@ -55,9 +90,9 @@ class UserProvider extends ChangeNotifier {
   void _handleLoggedOut() {
     _state = UserProviderState.loggedOut;
     _user = null;
+    _clearScheduleCache();
     notifyListeners();
 
-    // 안전한 네비게이션
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (AppRoute.context != null) {
         AppRoute.context!.go('/login');
@@ -102,13 +137,10 @@ class UserProvider extends ChangeNotifier {
 
   Future<void> _processLoginResponse(dynamic response) async {
     if (response.statusCode == 201) {
-      // 신규 사용자 - 가입 페이지로 이동
       _navigateToRegister();
-    }else if (response.statusCode == 205) {
-      // 디바이스 충돌 - 다른 기기에서 로그인 중
+    } else if (response.statusCode == 205) {
       await _handleDeviceConflict(response);
-    }else if (response.statusCode != null && (response.statusCode! ~/ 100) == 2) {
-      // 기존 사용자 - 로그인 성공
+    } else if (response.statusCode != null && (response.statusCode! ~/ 100) == 2) {
       await _handleSuccessfulLogin(response);
     }
   }
@@ -123,7 +155,7 @@ class UserProvider extends ChangeNotifier {
 
   Future<void> _handleSuccessfulLogin(dynamic response) async {
     _state = UserProviderState.loggedIn;
-    _user = response.data;
+    _user = Map.from(response.data ?? {});
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (AppRoute.context != null) {
@@ -131,7 +163,6 @@ class UserProvider extends ChangeNotifier {
       }
     });
 
-    // 사용자 제재 상태 확인
     await _checkUserBanStatus(response);
   }
 
@@ -140,15 +171,15 @@ class UserProvider extends ChangeNotifier {
 
     try {
       final banType = _user?['banType'];
-      final startBlock = DateTime.tryParse(_user?['startBlock'])?.toLocal();
-      final endBlock = DateTime.tryParse(_user?['endBlock'])?.toLocal(); // 수정: 'startBlock' -> 'endBlock'
-      final lastLogin = DateTime.tryParse(response.data['lastLogin'])?.toLocal();
+      final startBlock = DateTime.tryParse(_user?['startBlock'] ?? '')?.toLocal();
+      final endBlock = DateTime.tryParse(_user?['endBlock'] ?? '')?.toLocal();
+      final lastLogin = DateTime.tryParse(response.data?['lastLogin'] ?? '')?.toLocal();
 
       if (lastLogin != null && startBlock != null && endBlock != null) {
         final isBanActive = lastLogin.isAfter(startBlock);
 
         if (isBanActive) {
-          final until = DateFormat('MM월 dd일 HH시 mm분').format(endBlock); // 수정: 'hh' -> 'HH'
+          final until = DateFormat('MM월 dd일 HH시 mm분').format(endBlock);
           final banMessage = _getBanMessage(banType);
 
           await DialogManager.showBasicDialog(
@@ -249,7 +280,6 @@ class UserProvider extends ChangeNotifier {
 
       final provider = _auth.currentUser?.providerData;
 
-      // Provider 정보가 없는 경우 처리
       if (provider?.isEmpty ?? true) {
         await _simpleLogout();
         return;
@@ -261,16 +291,13 @@ class UserProvider extends ChangeNotifier {
         throw Exception("소셜 로그인 정보를 찾을 수 없습니다");
       }
 
-      // 재인증 진행
       final result = await reCertification(social);
       if (!result) {
         throw Exception("재인증에 실패했습니다");
       }
 
-      // 소셜 링크 해제
       await _unlinkSocialAccount(social);
 
-      // 사용자 삭제 또는 로그아웃 처리
       if (removeUser) {
         await _deleteUser();
       } else {
@@ -304,11 +331,9 @@ class UserProvider extends ChangeNotifier {
         case "google.com":
           await GoogleManager().unLink();
           break;
-      // Apple은 unlink 기능이 없으므로 생략
       }
     } catch (e) {
       print('소셜 계정 연결 해제 실패: $e');
-      // 에러가 발생해도 로그아웃은 계속 진행
     }
   }
 
@@ -317,7 +342,6 @@ class UserProvider extends ChangeNotifier {
       await _auth.currentUser!.delete();
     } catch (e) {
       if (e is FirebaseAuthException && e.code == 'requires-recent-login') {
-        // 재인증 후 다시 시도
         await _auth.currentUser!.delete();
       } else {
         rethrow;
@@ -348,11 +372,11 @@ class UserProvider extends ChangeNotifier {
   Future<void> updateProfile() async {
     try {
       final res = await serverManager.post('user/my', data: {
-        'updateAt': user!['updateAt']
+        'updateAt': user?['updateAt']
       });
 
-      if (res.statusCode == 200) {
-        _user = Map.of(res.data);
+      if (res.statusCode == 200 && res.data != null) {
+        _user = Map.from(res.data);
         notifyListeners();
       }
     } catch (e) {
@@ -362,14 +386,8 @@ class UserProvider extends ChangeNotifier {
   }
 
   // ============================================
-  // 사용자 스케줄 관리
+  // 스케줄 관리 (개선된 메모리 효율성)
   // ============================================
-  List<Map> _schedules = [];
-  List<Map> get schedules => _schedules;
-
-  List<String> _fetchCached = [];
-  List<String> get fetchCached => _fetchCached;
-
   Future<void> fetchMySchedules(
       DateTime date, {
         bool force = false,
@@ -377,23 +395,23 @@ class UserProvider extends ChangeNotifier {
       }) async {
     try {
       if (reFetch) {
-        _fetchCached.clear();
-        _schedules.clear();
+        _clearScheduleCache();
       }
 
+      final monthKey = '${date.year}-${date.month.toString().padLeft(2, '0')}';
       final from = DateTime(date.year, date.month, 1).toIso8601String();
       final to = DateTime(date.year, date.month + 1, 0, 23, 59, 59).toIso8601String();
 
-      // 이미 캐시된 데이터가 있고 강제 새로고침이 아닌 경우 스킵
-      if (!force && fetchCached.contains(from)) {
+      if (!force && _fetchedMonths.contains(monthKey)) {
         return;
       }
 
       final res = await serverManager.get('schedule/my?from=$from&to=$to');
 
-      if (res.statusCode == 200) {
-        _processScheduleResponse(res.data);
-        _fetchCached.add(from);
+      if (res.statusCode == 200 && res.data != null) {
+        _processScheduleResponse(res.data, monthKey);
+        _fetchedMonths.add(monthKey);
+        notifyListeners();
       }
 
     } catch (e) {
@@ -402,62 +420,110 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  void _processScheduleResponse(dynamic data) {
-    final newSchedules = List<Map>.from(data);
-    final existingIds = _schedules.map((e) => e['scheduleId']).toSet();
-    final filtered = newSchedules
-        .where((schedule) => !existingIds.contains(schedule['scheduleId']))
-        .toList();
+  void _processScheduleResponse(dynamic data, String monthKey) {
+    if (data == null) return;
 
-    _schedules.addAll(filtered);
-    notifyListeners();
+    final schedules = List<Map>.from(data);
+
+    // 안전한 데이터 검증
+    final validSchedules = schedules.where((schedule) {
+      return schedule is Map &&
+          schedule['scheduleId'] != null &&
+          schedule['startDate'] != null;
+    }).map((schedule) => Map<String, dynamic>.from(schedule)).toList();
+
+    _schedulesCache[monthKey] = validSchedules;
   }
 
   void removeScheduleById(int id) {
-    final removedCount = _schedules.length;
-    _schedules.removeWhere((schedule) => schedule['scheduleId'] == id);
+    bool wasRemoved = false;
 
-    // 실제로 제거된 경우에만 notifyListeners 호출
-    if (_schedules.length != removedCount) {
+    for (final monthKey in _schedulesCache.keys.toList()) {
+      final originalLength = _schedulesCache[monthKey]?.length ?? 0;
+      _schedulesCache[monthKey]?.removeWhere((schedule) => schedule['scheduleId'] == id);
+
+      if ((_schedulesCache[monthKey]?.length ?? 0) != originalLength) {
+        wasRemoved = true;
+      }
+    }
+
+    if (wasRemoved) {
       notifyListeners();
     }
   }
 
-  //특정 스케줄 업데이트 들어갔을때 상태변경 감지 대응
-  void updateSchedule({required int scheduleId}) async{
-    //해당 함수는 해당 아이템을 클릭했을때 실행 (존재 무결성이 보장됨)
-    final index = _schedules.indexWhere((schedule)=>  schedule['scheduleId'] == scheduleId);
-    final schedule = _schedules[index];
+  Future<void> updateSchedule({required int scheduleId}) async {
+    try {
+      // 해당 스케줄 찾기
+      Map<String, dynamic>? targetSchedule;
+      String? targetMonthKey;
 
-    final response = await serverManager.get('schedule/update-where-my?updateAt=${schedule['updateAt']}&scheduleId=$scheduleId&participationCount=${schedule['participationCount']}');
+      for (final monthKey in _schedulesCache.keys) {
+        final schedules = _schedulesCache[monthKey] ?? [];
+        final index = schedules.indexWhere((s) => s['scheduleId'] == scheduleId);
+        if (index != -1) {
+          final schedule = schedules[index];
+          if (schedule is Map) {
+            targetSchedule = Map<String, dynamic>.from(schedule);
+            targetMonthKey = monthKey;
+            break;
+          }
+        }
+      }
 
-    //서버측에서 스케줄 아이디의 updateAt (디비에서 상태변경시 자동 업데이트)을 비교
-    //서버측에서 상태가 바뀌었다면 200반환, upddateAt이 동일하다면 (상태변화가없음) - 201 반환,  삭제되었다면 202반환, 사용자 수만 변경되었다면 203
-    if(response.statusCode == 200){
-      _schedules[index] = response.data;
-      notifyListeners();
-    }else if(response.statusCode == 202){
-      _schedules.removeAt(index);
-      notifyListeners();
-    }else if(response.statusCode == 203){
-      _schedules[index]['participationCount'] = response.data;
-      notifyListeners();
+      if (targetSchedule == null || targetMonthKey == null) return;
+
+      final response = await serverManager.get(
+          'schedule/update-where-my?updateAt=${targetSchedule['updateAt']}&scheduleId=$scheduleId&participationCount=${targetSchedule['participationCount']}'
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        // 스케줄 업데이트 - 안전한 타입 변환
+        final schedules = _schedulesCache[targetMonthKey] ?? [];
+        final index = schedules.indexWhere((s) => s['scheduleId'] == scheduleId);
+        if (index != -1) {
+          final responseData = response.data;
+          if (responseData is Map) {
+            schedules[index] = Map<String, dynamic>.from(responseData);
+            notifyListeners();
+          }
+        }
+      } else if (response.statusCode == 202) {
+        // 스케줄 삭제됨
+        removeScheduleById(scheduleId);
+      } else if (response.statusCode == 203 && response.data != null) {
+        // 참가자 수만 변경 - 안전한 타입 변환
+        final schedules = _schedulesCache[targetMonthKey] ?? [];
+        final index = schedules.indexWhere((s) => s['scheduleId'] == scheduleId);
+        if (index != -1) {
+          final participationCount = response.data;
+          if (participationCount is int || participationCount is String) {
+            schedules[index]['participationCount'] = participationCount;
+            notifyListeners();
+          }
+        }
+      }
+    } catch (e) {
+      print('스케줄 업데이트 실패: $e');
     }
   }
 
   // ============================================
   // 캐시 관리
   // ============================================
+  void _clearScheduleCache() {
+    _fetchedMonths.clear();
+    _schedulesCache.clear();
+  }
+
   void clearCache() {
-    _fetchCached.clear();
-    _schedules.clear();
+    _clearScheduleCache();
     notifyListeners();
   }
 
   void clearUserData() {
     _user = null;
-    _schedules.clear();
-    _fetchCached.clear();
+    _clearScheduleCache();
     _state = UserProviderState.none;
     notifyListeners();
   }

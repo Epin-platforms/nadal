@@ -96,11 +96,6 @@ class _ChatFrameState extends State<ChatFrame> {
     final user = context.read<UserProvider>().user;
     final isSender = user != null && (widget.chat.uid == user['uid']);
 
-    // 메모리 누수 방지를 위한 조건부 렌더링
-    if (widget.chat.type == ChatType.removed) {
-      return _buildRemovedBubble(isSender, theme, colorScheme);
-    }
-
     // 발신자 메시지 (오른쪽 정렬)
     if (isSender) {
       return _buildSenderMessage(theme, colorScheme, now);
@@ -111,16 +106,6 @@ class _ChatFrameState extends State<ChatFrame> {
     }
   }
 
-// 분리된 빌드 메서드들
-  Widget _buildRemovedBubble(bool isSender, ThemeData theme, ColorScheme colorScheme) {
-    return Align(
-      alignment: isSender ?  Alignment.centerRight : Alignment.centerLeft,
-      child: RemovedChatBubble(
-        isSender: isSender,
-        tail: widget.tail,
-      ),
-    );
-  }
 
   Widget _buildSenderMessage(ThemeData theme, ColorScheme colorScheme, DateTime now) {
     return RepaintBoundary( // 렌더링 최적화

@@ -20,99 +20,225 @@ class _HomeShellState extends State<HomeShell> {
   late NotificationProvider notificationProvider;
   final AppLinks _appLinks = AppLinks();
 
+  // 딥링크 처리 상태 관리
+  bool _isInitialized = false;
+  String? _pendingRoute;
+
   @override
   void initState() {
-    WidgetsBinding.instance.addPostFrameCallback((_){
-      setCommunity();
-    });
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeApp();
+    });
   }
 
-  void setCommunity() async{
-    final roomsProvider = context.read<RoomsProvider>();
-    final chatProvider = context.read<ChatProvider>();
-    final userProvider = context.read<UserProvider>();
-    await roomsProvider.roomInitialize();
-    chatProvider.initializeSocket(); //소켓 연결하면 자동으로 채팅 데이터 불러와줌
-    userProvider.fetchMySchedules(DateTime.now()); //스케줄 init
-    _initStep();
+  // 앱 초기화 프로세스 순차 실행
+  void _initializeApp() async {
+    try {
+      // 1. 커뮤니티 설정
+      await _setCommunity();
+
+      // 2. 딥링크 초기화 (앱 완전 초기화 후)
+      await _initDeepLinks();
+
+      // 3. 기타 초기화
+      await _initStep();
+
+      // 4. 초기화 완료 후 대기 중인 라우팅 처리
+      _processPendingRoute();
+
+    } catch (e) {
+      print('앱 초기화 오류: $e');
+    }
   }
 
-  void _initStep() async{
-    //알림 초기화
-    notificationProvider.initialize();
-    //권한 체크
-    _checkPermissions();
-    //마케팅 체크
-    //await _marketingCheck();
-    //푸쉬메시지로 접속했는지 체크
-    _checkPush();
-    //딥링크로 접속했는지 체크
-    _initDeepLinks();
+  Future<void> _setCommunity() async {
+    try {
+      final roomsProvider = context.read<RoomsProvider>();
+      final chatProvider = context.read<ChatProvider>();
+      final userProvider = context.read<UserProvider>();
+
+      await roomsProvider.roomInitialize();
+      chatProvider.initializeSocket();
+      userProvider.fetchMySchedules(DateTime.now());
+
+      print('커뮤니티 초기화 완료');
+    } catch (e) {
+      print('커뮤니티 초기화 오류: $e');
+    }
+  }
+
+  Future<void> _initStep() async {
+    try {
+      // 알림 초기화
+      notificationProvider.initialize();
+
+      // 권한 체크
+      await _checkPermissions();
+
+      // 푸시메시지 체크
+      _checkPush();
+
+      _isInitialized = true;
+      print('앱 초기화 단계 완료');
+    } catch (e) {
+      print('초기화 단계 오류: $e');
+    }
   }
 
   Future<void> _checkPermissions() async {
-    // 홈 화면에서 권한 요청
-    await PermissionManager.checkAndShowPermissions(context);
+    try {
+      await PermissionManager.checkAndShowPermissions(context);
+    } catch (e) {
+      print('권한 체크 오류: $e');
+    }
   }
 
-  //푸시 메시지로 들어왔으면
   void _checkPush() {
-    final nav =  GoRouter.of(context);
-    FirebaseMessaging.instance.getInitialMessage().then((msg) {
-      if (msg != null) {
-        Future.microtask(() {
-          if (msg.data['routing'] != null) {
-            nav.go('/my');
-            nav.push(msg.data['routing']);
-          }
-        });
-      }
-    });
+    try {
+      final nav = GoRouter.of(context);
+      FirebaseMessaging.instance.getInitialMessage().then((msg) {
+        if (msg != null && msg.data['routing'] != null) {
+          print('푸시 메시지 라우팅: ${msg.data['routing']}');
+          Future.microtask(() {
+            _navigateToRoute(msg.data['routing']!);
+          });
+        }
+      });
+    } catch (e) {
+      print('푸시 메시지 체크 오류: $e');
+    }
   }
-  
-  //카카오 공유하기로 접속한 경우
+
+  // 딥링크 초기화 개선
   Future<void> _initDeepLinks() async {
-    print('딥링크 실행');
-    _appLinks.getInitialLink();
-    // Handle links
-    // ✅ 최초 1회 딥링크 처리
-    final initialUri = await _appLinks.getInitialLink();
+    try {
+      print('딥링크 초기화 시작');
 
-    if (initialUri != null) {
-      _handleUri(initialUri);
+      // 초기 링크 처리 (앱이 종료된 상태에서 실행된 경우)
+      final initialUri = await _appLinks.getInitialLink();
+      if (initialUri != null) {
+        print('초기 딥링크 감지: $initialUri');
+        await _handleDeepLink(initialUri);
+      }
+
+      // 런타임 링크 처리 (앱이 실행 중일 때)
+      _appLinks.uriLinkStream.listen(
+              (uri) async {
+            print('런타임 딥링크 감지: $uri');
+            await _handleDeepLink(uri);
+          },
+          onError: (err) {
+            print('딥링크 스트림 오류: $err');
+          }
+      );
+
+      print('딥링크 초기화 완료');
+    } catch (e) {
+      print('딥링크 초기화 오류: $e');
     }
-
-    // ✅ 이후의 링크 처리
-    _appLinks.uriLinkStream.listen((uri) {
-      _handleUri(uri);
-    });
   }
 
-  void _handleUri(Uri uri) {
-    final item = uri.queryParameters;
-    if(item['routing'] != null){
-      context.go('/my');
-      context.push(item['routing']!);
+  // 딥링크 처리 로직 개선
+  Future<void> _handleDeepLink(Uri uri) async {
+    try {
+      print('딥링크 처리 시작: $uri');
+      print('딥링크 쿼리 파라미터: ${uri.queryParameters}');
+
+      final params = uri.queryParameters;
+      final routing = params['routing'];
+
+      if (routing == null || routing.isEmpty) {
+        print('라우팅 정보가 없습니다');
+        return;
+      }
+
+      print('추출된 라우팅: $routing');
+
+      // 앱이 초기화되지 않았으면 대기
+      if (!_isInitialized) {
+        print('앱 초기화 대기 중, 라우팅 보류: $routing');
+        _pendingRoute = routing;
+        return;
+      }
+
+      // 즉시 라우팅 실행
+      await _navigateToRoute(routing);
+
+    } catch (e) {
+      print('딥링크 처리 오류: $e');
     }
+  }
+
+  // 안전한 라우팅 처리
+  Future<void> _navigateToRoute(String routing) async {
+    try {
+      if (!mounted) return;
+
+      print('라우팅 실행 시작: $routing');
+
+      // 홈으로 이동 후 잠시 대기
+      context.go('/my');
+
+      // 라우팅 실행 전 짧은 지연
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      if (!mounted) return;
+
+      // 타겟 라우팅 실행
+      context.push(routing);
+
+      print('라우팅 실행 완료: $routing');
+
+    } catch (e) {
+      print('라우팅 실행 오류: $e');
+      // 오류 시 홈으로 fallback
+      if (mounted) {
+        context.go('/my');
+      }
+    }
+  }
+
+  // 대기 중인 라우팅 처리
+  void _processPendingRoute() {
+    if (_pendingRoute != null && _isInitialized) {
+      print('대기 중인 라우팅 처리: $_pendingRoute');
+      final route = _pendingRoute!;
+      _pendingRoute = null;
+
+      Future.microtask(() async {
+        await _navigateToRoute(route);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    // 리소스 정리
+    _pendingRoute = null;
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     notificationProvider = Provider.of<NotificationProvider>(context);
     homeProvider = Provider.of<HomeProvider>(context);
+
     return Scaffold(
-      body: widget.child,
-      bottomNavigationBar: NadalBottomNav(currentIndex: homeProvider.currentTab, onTap: (tab){
-        homeProvider.onChangedTab(tab);
-        if(tab == 0){
-          context.go('/my');
-        }else if(tab == 1){
-          context.go('/league');
-        }else if(tab == 2){
-          context.go('/more');
-        }
-      })
+        body: widget.child,
+        bottomNavigationBar: NadalBottomNav(
+            currentIndex: homeProvider.currentTab,
+            onTap: (tab) {
+              homeProvider.onChangedTab(tab);
+              if (tab == 0) {
+                context.go('/my');
+              } else if (tab == 1) {
+                context.go('/league');
+              } else if (tab == 2) {
+                context.go('/more');
+              }
+            }
+        )
     );
   }
 }

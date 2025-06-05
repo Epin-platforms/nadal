@@ -224,8 +224,9 @@ class RoomEdit extends StatelessWidget {
                       ),
                       Builder(
                         builder: (context) {
-                          final date = DateTime.parse(provider.originRoom['updateAt']).toLocal().add(const Duration(days: 7));
-                          final bool active = date.isBefore(DateTime.now());
+                          final date = DateTime.parse(provider.originRoom['updateAt']).add(const Duration(days: 7));
+                          final bool active = provider.originRoom['updateAt'] != provider.originRoom['createAt'] && date.isBefore(DateTime.now());
+
                           return NadalButton( //업데이트한지 7일이 안되면 flase
                               onPressed: (){
                                 if(active){
