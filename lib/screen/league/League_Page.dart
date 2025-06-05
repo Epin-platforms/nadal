@@ -522,7 +522,7 @@ class _LeaguePageState extends State<LeaguePage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                // 신청하기 버튼
+                // 자세히보기 버튼
                 ElevatedButton(
                   onPressed: () => _launchUrl(league.link),
                   style: ElevatedButton.styleFrom(
@@ -536,7 +536,7 @@ class _LeaguePageState extends State<LeaguePage> {
                     minimumSize: Size(100.w, 36.h),
                   ),
                   child: Text(
-                    '신청하기',
+                    '자세히보기',
                     style: TextStyle(
                       fontSize: 13.sp,
                       fontWeight: FontWeight.w600,
