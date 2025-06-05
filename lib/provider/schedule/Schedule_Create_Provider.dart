@@ -96,26 +96,32 @@ class ScheduleCreateProvider extends ChangeNotifier{
   }
 
 
-  setStartDate(DateTime res){
+  void setStartDate(DateTime res){
     if(res != startDate){
       if(isAllDay){
         _startDate = DateTime(res.year, res.month, res.day, 6, 0);
         _endDate = DateTime(res.year, res.month, res.day, 23, 00);
       }else{
         _startDate = res;
+        if(_endDate.isBefore(_startDate) || _endDate.difference(_startDate).inMinutes == 0){ //차이가 없을경우
+          _endDate = res.add(const Duration(hours: 1));
+        }
       }
       notifyListeners();
     }
   }
 
-  setEndDate(DateTime res){
+  void setEndDate(DateTime res){
     if(res != endDate){
       _endDate = res;
+      if(_endDate.isBefore(_startDate) || _endDate.difference(_startDate).inMinutes == 0){
+        _startDate = res.subtract(const Duration(hours: 1));
+      }
       notifyListeners();
     }
   }
 
-  setAllDay(bool value){
+  void setAllDay(bool value){
     _isAllDay = value;
     if(_isAllDay){ //하루종일이 켜지면
       _startDate = DateTime(_startDate.year, _startDate.month, _startDate.day, 6, 0);
@@ -124,7 +130,7 @@ class ScheduleCreateProvider extends ChangeNotifier{
     notifyListeners();
   }
 
-  setAddress(String? value, String? sido){
+  void setAddress(String? value, String? sido){
     if(_address != value){
       _address = value;
       _addressPrefix = sido;
@@ -132,12 +138,12 @@ class ScheduleCreateProvider extends ChangeNotifier{
     }
   }
 
-  setUseParticipation(bool value){
+  void setUseParticipation(bool value){
     _useParticipation = value;
     notifyListeners();
   }
 
-  setUseGenderLimit(bool value){
+  void setUseGenderLimit(bool value){
     _useGenderLimit = value;
 
     if(value){
@@ -150,22 +156,22 @@ class ScheduleCreateProvider extends ChangeNotifier{
     notifyListeners();
   }
 
-  setMaleGenderLimit(int cnt){
+  void setMaleGenderLimit(int cnt){
     _maleLimit = cnt;
     notifyListeners();
   }
 
-  setFemaleGenderLimit(int cnt){
+  void setFemaleGenderLimit(int cnt){
     _femaleLimit = cnt;
     notifyListeners();
   }
 
-  setUseAccount(bool value){
+  void setUseAccount(bool value){
     _useAccount = value;
     notifyListeners();
   }
 
-  setAccount(dynamic map){
+  void setAccount(dynamic map){
     _account = map;
     notifyListeners();
   }
@@ -178,7 +184,7 @@ class ScheduleCreateProvider extends ChangeNotifier{
   bool? get isKDK => _isKDK;
   bool? get isSingle => _isSingle;
 
-  setIsKDK(bool val){
+  void setIsKDK(bool val){
     if(val != _isKDK){
       _isKDK = val;
 
@@ -189,7 +195,7 @@ class ScheduleCreateProvider extends ChangeNotifier{
     }
   }
 
-  setIsSingle(bool val){
+  void setIsSingle(bool val){
     if(val != _isSingle){
       _isSingle = val;
       if(_isKDK == false && _isSingle == false){

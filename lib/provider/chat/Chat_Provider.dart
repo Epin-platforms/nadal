@@ -94,9 +94,21 @@ class ChatProvider extends ChangeNotifier{
         DialogManager.errorHandler(data['error']);
       }
     });
+    socket.on("multipleDevice", _multipleDevice);
     socket.on("chat", _chatHandler);
     socket.on("removeChat", _removeChatHandler);
     socket.on("kicked", _kickedHandler);
+  }
+
+  //다른 디바이스에서의 로그인을 감지
+  void _multipleDevice(dynamic data) async{
+   final router = AppRoute.context;
+
+     if(router != null){
+        FirebaseAuth.instance.signOut(); //강제 로그아웃
+        router.go('/login');
+        await DialogManager.showBasicDialog(title: '다른 기기에서 로그인되었어요', content: "다른 기기에 로그인 시도로 인해 로그아웃 되었습니다.", confirmText: "확인");
+     }
   }
 
   void _kickedHandler(dynamic data) {
@@ -229,7 +241,7 @@ class ChatProvider extends ChangeNotifier{
           final state = GoRouter.of(context!).state;
           if (state.path == '/room/:roomId' &&
               state.pathParameters['roomId'] == roomId.toString()) {
-            updateMyLastReadInServer(roomId);
+              updateMyLastReadInServer(roomId);
           } else {
             final myData = _my[roomId];
             if (myData != null) {
@@ -258,6 +270,8 @@ class ChatProvider extends ChangeNotifier{
       if (lastChat?.chatId == null) return;
 
       final lastReadId = lastChat!.chatId;
+
+      print('마지막으로 읽은 채팅 업데이트 $lastReadId');
       await serverManager.put('roomMember/lastread/$roomId?lastRead=$lastReadId');
 
       final myData = _my[roomId];
@@ -387,11 +401,10 @@ class ChatProvider extends ChangeNotifier{
             print('- 총 채팅 수: ${currentChats.length}');
             print('- 새로운 가장 오래된 채팅: ID=${currentChats.first.chatId}, createAt=${currentChats.first.createAt}');
 
-            notifyListeners();
-
             // 20개 가져왔으면 더 있을 가능성, 그보다 적으면 마지막일 가능성
             final hasMore = chatsData.length >= 20;
             print('🔍 hasMore 판단: $hasMore (받은 데이터 수: ${chatsData.length})');
+            notifyListeners();
             return hasMore;
           } else {
             print('⚠️ 모든 채팅이 중복됨');
@@ -470,11 +483,10 @@ class ChatProvider extends ChangeNotifier{
             print('✅ 채팅 추가 완료');
             print('- 총 채팅 수: ${currentChats.length}');
 
-            notifyListeners();
-
             // 20개 가져왔으면 더 있을 가능성, 그보다 적으면 마지막일 가능성
             final hasMore = chatsData.length >= 20;
             print('🔍 hasMore 판단: $hasMore (받은 데이터 수: ${chatsData.length})');
+            notifyListeners();
             return hasMore;
           } else {
             print('⚠️ 모든 채팅이 중복됨');

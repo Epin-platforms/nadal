@@ -113,8 +113,8 @@ class _ChatFrameState extends State<ChatFrame> {
 
 // 분리된 빌드 메서드들
   Widget _buildRemovedBubble(bool isSender, ThemeData theme, ColorScheme colorScheme) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 2.h, horizontal: 12.w),
+    return Align(
+      alignment: isSender ?  Alignment.centerRight : Alignment.centerLeft,
       child: RemovedChatBubble(
         isSender: isSender,
         tail: widget.tail,
@@ -211,7 +211,7 @@ class _ChatFrameState extends State<ChatFrame> {
     return Container(
       margin: EdgeInsets.only(right: 6.w, bottom: 4.h, left: 6.w),
       child: Text(
-        TextFormManager.chatCreateAt(widget.chat.createAt),
+        TextFormManager.chatCreateAt(widget.chat.createAt.toLocal()),
         style: theme.textTheme.labelSmall?.copyWith(
           fontSize: 10.sp,
           color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),

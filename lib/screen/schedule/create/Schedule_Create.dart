@@ -470,11 +470,11 @@ class _ScheduleCreateState extends State<ScheduleCreate> {
                                             }
                                           },
                                           child: NadalSolidContainer(
-                                            padding: EdgeInsets.symmetric(horizontal: 8),
+                                            padding: EdgeInsets.symmetric(horizontal: 8.w),
                                             child: Row(
                                               children: [
                                                 Expanded(child: Text(provider.account?['accountTitle'] ?? '계좌를 선택해주세요', style: theme.textTheme.bodyMedium,)),
-                                                Icon(CupertinoIcons.chevron_forward, size: 18,)
+                                                Icon(CupertinoIcons.chevron_forward, size: 18.r,)
                                               ],
                                             ),
                                           ),
@@ -482,7 +482,7 @@ class _ScheduleCreateState extends State<ScheduleCreate> {
                                       )
                                   ],
                                 ),
-                                SizedBox(height: 16,),
+                                SizedBox(height: 16.h,),
 
                                 //메모
                                 NadalTextField(controller: provider.descriptionController, label: '메모', isMaxLines: true, keyboardType: TextInputType.multiline,),
@@ -500,6 +500,7 @@ class _ScheduleCreateState extends State<ScheduleCreate> {
                           final res = await provider.create();
                           if(res != null && res != 404){
                             router.pop(provider.startDate);
+                            await Future.delayed(const Duration(milliseconds: 100));
                             router.push('/schedule/$res');
                           }
                         },

@@ -13,6 +13,8 @@ class RoomScheduleProvider extends ChangeNotifier{
     fetchRoomSchedule(now);
   }
 
+
+
   Future<void> fetchRoomSchedule(DateTime date) async{
     final from = DateTime(date.year, date.month, 1).toIso8601String();
     final to = DateTime(date.year, date.month + 1, 0, 23, 59, 59).toIso8601String();
@@ -21,6 +23,7 @@ class RoomScheduleProvider extends ChangeNotifier{
 
     _schedules = [];
     if(res.statusCode == 200){
+      print(res.data);
       final newSchedules = List.from(res.data);
       final existingIds = _schedules!.map((e) => e['scheduleId']).toSet();
       final filtered = List<Map>.from(newSchedules.where((s) => !existingIds.contains(s['scheduleId'])));

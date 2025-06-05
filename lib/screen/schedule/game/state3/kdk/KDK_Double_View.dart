@@ -644,6 +644,7 @@ class _KdkDoubleViewViewState extends State<KdkDoubleView> with SingleTickerProv
                 ),
               ),
               onTap: () async {
+                if(!widget.scheduleProvider.scheduleMembers!.containsKey(FirebaseAuth.instance.currentUser!.uid)) return; //만약 사용자가 참가자가아니라면 점수입력 금지
                 HapticFeedback.mediumImpact();
                 final newScore = await GameManager.scoreInput(finalScore, score);
 

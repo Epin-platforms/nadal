@@ -332,6 +332,7 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
                                                         ? InkWell(
                                                       borderRadius: BorderRadius.circular(12.r),
                                                       onTap: isWalkOverGame ? null : () async {
+                                                        if(!widget.scheduleProvider.scheduleMembers!.containsKey(FirebaseAuth.instance.currentUser!.uid)) return; //만약 사용자가 참가자가아니라면 점수입력 금지
                                                         // 부전승 팀은 점수 입력 불가
                                                         if (gameRound == 1 && (_isPlayerBye(game['player1_0']) || _isPlayerBye(game['player1_1']))) {
                                                           return;
@@ -418,6 +419,7 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
                                                         ? InkWell(
                                                       borderRadius: BorderRadius.circular(12.r),
                                                       onTap: isWalkOverGame ? null : () async {
+                                                        if(!widget.scheduleProvider.scheduleMembers!.containsKey(FirebaseAuth.instance.currentUser!.uid)) return; //만약 사용자가 참가자가아니라면 점수입력 금지
                                                         // 부전승 팀은 점수 입력 불가
                                                         if (gameRound == 1 && (_isPlayerBye(game['player2_0']) || _isPlayerBye(game['player2_1']))) {
                                                           return;

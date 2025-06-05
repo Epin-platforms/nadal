@@ -13,7 +13,6 @@ export 'package:image_picker/image_picker.dart';
 export 'package:bootstrap_icons/bootstrap_icons.dart';
 export 'package:flutter_screenutil/flutter_screenutil.dart';
 export 'package:cached_network_image/cached_network_image.dart';
-export 'package:carousel_slider/carousel_slider.dart';
 export 'package:flutter_contacts/flutter_contacts.dart';
 export 'package:permission_handler/permission_handler.dart';
 

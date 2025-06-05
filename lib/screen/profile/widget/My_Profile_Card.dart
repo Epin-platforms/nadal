@@ -1,11 +1,7 @@
-import 'package:my_sports_calendar/provider/auth/profile/My_Profile_Provider.dart';
-
-
 import '../../../manager/project/Import_Manager.dart';
 
 class MyProfileCard extends StatefulWidget {
-  const MyProfileCard({super.key, required this.provider});
-  final MyProfileProvider provider;
+  const MyProfileCard({super.key});
 
   @override
   State<MyProfileCard> createState() => _MyProfileCardState();
