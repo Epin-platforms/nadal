@@ -6,12 +6,12 @@ import '../../widget/Share_Bottom_Sheet.dart';
 
 // 다른 사용 예시들
 
-// 1. 이벤트 공유
-void shareApp(BuildContext context) {
+// 0. 프로필 공유
+void shareApp(BuildContext context, String uid) {
   final shareParameter = ShareParameter(
     title: "함께 나달에서 경기해요!",
     subTitle: '나달에서 일정을 만들고 친구와 함게해보세요',
-    routing: '/my',
+    routing: '/user/$uid',
   );
 
   if (shareParameter.isValid) {

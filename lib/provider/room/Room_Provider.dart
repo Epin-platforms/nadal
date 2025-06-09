@@ -418,6 +418,7 @@ class RoomProvider extends ChangeNotifier{
     AppRoute.pushLoading();
 
     try{
+      final isOpen = _room?['isOpen'] == 1;
       final chatProvider = context.read<ChatProvider>();
       final router = GoRouter.of(context);
       final roomId = _room?['roomId'] as int?;
@@ -428,7 +429,7 @@ class RoomProvider extends ChangeNotifier{
 
       if(res.statusCode == 200){
         await chatProvider.removeRoom(roomId);
-        router.go('/my');
+        isOpen ? router.go('/quick-chat') : router.go('/my');
         SnackBarManager.showCleanSnackBar(
             AppRoute.context!,
             '방에서 성공적으로 나왔어요\n다음 만남도 기대할게요!'

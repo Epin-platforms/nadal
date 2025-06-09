@@ -8,8 +8,8 @@ import 'package:my_sports_calendar/widget/Search_Text_Field.dart';
 import '../../../manager/project/Import_Manager.dart';
 
 class SearchRoom extends StatelessWidget {
-  const SearchRoom({super.key});
-
+  const SearchRoom({super.key, required this.isOpen});
+  final bool isOpen;
   @override
   Widget build(BuildContext context) {
     final user = Provider.of<UserProvider>(context).user!;

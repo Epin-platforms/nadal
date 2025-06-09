@@ -1,5 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/services.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:my_sports_calendar/provider/app/Advertisement_Provider.dart';
 import 'package:my_sports_calendar/provider/friends/Friend_Provider.dart';
@@ -11,6 +12,7 @@ import 'manager/project/Import_Manager.dart';
 void main() async {
   // Flutter 바인딩 초기화 (가장 먼저 실행)
   WidgetsFlutterBinding.ensureInitialized();
+  await MobileAds.instance.initialize();
 
   try {
     // 패키지 초기화

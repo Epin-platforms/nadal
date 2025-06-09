@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:my_sports_calendar/provider/room/Room_Provider.dart';
 import 'package:my_sports_calendar/screen/rooms/room/chat/Chat_Field.dart';
 import 'package:my_sports_calendar/screen/rooms/room/chat/Chat_List.dart';
@@ -21,6 +20,7 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
   late RoomProvider provider;
 
   bool _isInitializing = false;
+  late final bool isOpen; //오픈챗인지 판단
 
   @override
   void initState() {
@@ -39,6 +39,7 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
     chatProvider.readReset(widget.roomId);
     super.dispose();
   }
+
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -78,15 +79,17 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
 
     try {
       // 방정보 업데이트
-      await roomsProvider.updateRoom(widget.roomId);
-
+      isOpen = await roomsProvider.updateRoom(widget.roomId) ?? false;
+      print('방 업데이트가 완료되었습니다 방아이디 - ${widget.roomId}');
       // 조인이 안되어있다면 조인
       if(!chatProvider.isJoined(widget.roomId)){
         await chatProvider.joinRoom(widget.roomId);
+        print('소켓에 조인되었습니다');
       }
 
       // 방 데이터가 없다면 프리뷰로 이동
       final myData = chatProvider.my[widget.roomId];
+      print('현방에서의 내 데이터 $myData');
       if(myData == null){
         await chatProvider.removeRoom(widget.roomId);
         if (mounted) {
@@ -97,9 +100,11 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
 
       // 룸데이터 룸 프로바이더에 세팅하기
       if(provider.room == null){
+        print("프로바이더에 룸이 적용안되어 재설정을 실행함");
         final rooms = roomsProvider.rooms;
-        if (rooms != null && rooms.containsKey(widget.roomId)) {
-          final initRoom = rooms[widget.roomId];
+        final quickRooms = roomsProvider.quickRooms!;
+        if (rooms != null && (rooms.containsKey(widget.roomId) || quickRooms.containsKey(widget.roomId))) {
+          final initRoom = isOpen ? quickRooms[widget.roomId] : rooms[widget.roomId];
           await provider.setRoom(initRoom);
         }
       }

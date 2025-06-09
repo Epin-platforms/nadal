@@ -5,21 +5,22 @@ import 'package:my_sports_calendar/screen/auth/register/Get_Local.dart';
 import '../../../manager/project/Import_Manager.dart';
 
 class CreateRoom extends StatelessWidget {
-  const CreateRoom({super.key});
+  const CreateRoom({super.key, required this.isOpen});
+  final bool isOpen;
 
   @override
   Widget build(BuildContext context) {
     final user = Provider.of<UserProvider>(context).user!;
     final theme = Theme.of(context);
     return ChangeNotifierProvider(
-      create: (_)=> CreateRoomProvider(user['local'], user['city']),
+      create: (_)=> CreateRoomProvider(user['local'], user['city'], isOpen),
       builder: (context, child){
         final provider = Provider.of<CreateRoomProvider>(context);
         return IosPopGesture(
           child: GestureDetector(
             onTap: ()=> FocusScope.of(context).unfocus(),
             child: Scaffold(
-              appBar: NadalAppbar(title: '클럽 생성'),
+              appBar: NadalAppbar(title: '${isOpen ? '번개방' : '클럽'} 생성'),
               body: SafeArea(
                   child: Column(
                     children: [
@@ -30,15 +31,15 @@ class CreateRoom extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                  SizedBox(height: 40,),
-                                  Text('나만의 클럽을 시작해볼까요?', style: theme.textTheme.titleLarge,),
-                                  SizedBox(height: 24,),
-                                  NadalTextField(controller: provider.roomNameController, label: '클럽명', maxLength: 30,),
-                                  SizedBox(height: 36),
+                                  SizedBox(height: 40.h,),
+                                  Text('나만의 ${isOpen ? '번개방' : '클럽'}을 시작해볼까요?', style: theme.textTheme.titleLarge,),
+                                  SizedBox(height: 24.h,),
+                                  NadalTextField(controller: provider.roomNameController, label: '${isOpen ? '번개방' : '클럽'}명', maxLength: 30,),
+                                  SizedBox(height: 36.h),
                                   Row(
                                     children: [ 
                                       SizedBox(
-                                          width: 62,
+                                          width: 62.w,
                                           child: Text('활동지역', style: theme.textTheme.titleSmall,)),
                                       Flexible(child: GetLocal(local: provider.local, onTap: () async{
                                         final res = await PickerManager.localPicker(provider.local);
@@ -60,18 +61,18 @@ class CreateRoom extends StatelessWidget {
                                       }, local: provider.local))
                                     ],
                                   ),
-                                  SizedBox(height: 16,),
+                                  SizedBox(height: 16.h,),
                                   Row(
                                     children: [
                                       SizedBox(
-                                          width: 62,
+                                          width: 62.w,
                                           child: Text('활동방식', style: theme.textTheme.titleSmall,)),
                                       Flexible(child: InkWell(
                                           onTap: (){
                                             provider.setUseNickname(true);
                                           },
                                           child: NadalSelectableBox(selected: provider.useNickname, text: '닉네임으로 활동', ))),
-                                      SizedBox(width: 8,),
+                                      SizedBox(width: 8.w,),
                                       Flexible(child: InkWell(
                                         onTap: (){
                                           if(user['verificationCode'] == null){
@@ -86,33 +87,19 @@ class CreateRoom extends StatelessWidget {
                                       )),
                                     ],
                                   ),
-                                  SizedBox(height: 16,),
-
+                                  SizedBox(height: 16.h,),
+                                  if(!provider.isOpen)
                                   Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      SizedBox(
-                                          width: 62,
+                                      Container(
+                                          width: 62.w,
+                                          height: 48.h,
+                                          alignment: Alignment.centerLeft,
                                           child: Text('참가코드', style: theme.textTheme.titleSmall,)),
-                                      Flexible(child: InkWell(
-                                          onTap: (){
-                                            provider.setUseEnterCode(true);
-                                          },
-                                          child: NadalSelectableBox(selected: provider.useEnterCode, text: '참가코드 사용'))),
-                                      SizedBox(width: 8,),
-                                      Flexible(child: InkWell(
-                                        onTap: (){
-                                          provider.setUseEnterCode(false);
-                                        },
-                                        child: NadalSelectableBox(
-                                            selected: !provider.useEnterCode,
-                                            text: '참가코드 사용안함'),
-                                      )),
+                                      Expanded(child: NadalTextField(controller: provider.enterCodeController, label: '비밀번호', maxLength: 10, keyboardType: TextInputType.number, helper: '4자리 이상 10자리 이하의 숫자를 입력해 주세요!',)),
                                     ],
                                   ),
-                                if(provider.useEnterCode)
-                                Padding(
-                                    padding: EdgeInsets.only(top: 16),
-                                    child: NadalTextField(controller: provider.enterCodeController, label: '비밀번호', maxLength: 10, keyboardType: TextInputType.number, helper: '4자리 이상 10자리 이하의 숫자를 입력해 주세요!',)),
                                 SizedBox(height: 36,),
                                   Wrap(
                                     crossAxisAlignment: WrapCrossAlignment.center,
@@ -173,7 +160,7 @@ class CreateRoom extends StatelessWidget {
                                         padding: EdgeInsets.only(top: 4),
                                         child: Text('태그는 쉼표(,)로 구분해서 여러개를 만들수있어요', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.secondary),)),
                                   SizedBox(height: 16,),
-                                  NadalTextField(controller: provider.descriptionController, label: '클럽설명', isMaxLines: true, keyboardType: TextInputType.multiline,),
+                                  NadalTextField(controller: provider.descriptionController, label: '${isOpen ? '번개방' : '클럽'}설명', isMaxLines: true, keyboardType: TextInputType.multiline,),
                                   SizedBox(height: 50,)
                               ],
                             ),
@@ -185,7 +172,7 @@ class CreateRoom extends StatelessWidget {
                           provider.createRoom();
                         },
                         isActive: true,
-                        title: '클럽 채팅 시작하기',
+                        title: '${isOpen ? '번개방' : '클럽'} 채팅 시작하기',
                       ),
                       if(Platform.isIOS)
                         SizedBox(

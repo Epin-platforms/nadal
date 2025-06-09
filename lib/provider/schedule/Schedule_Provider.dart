@@ -179,7 +179,7 @@ class ScheduleProvider extends ChangeNotifier {
         return;
       }
       await _processScheduleMembers(res.data['members']);
-      _checkRoomRedirect();
+      await _checkRoomRedirect();
     } else {
       throw Exception('스케줄 데이터 로드 실패');
     }
@@ -228,15 +228,27 @@ class ScheduleProvider extends ChangeNotifier {
     _teams = teamMap;
   }
 
-  void _checkRoomRedirect() {
+  Future _checkRoomRedirect() async{
     final roomId = _schedule?['roomId'];
     final currentUid = _auth.currentUser?.uid;
     if (roomId != null &&
         currentUid != null &&
-        !_scheduleMembers!.containsKey(currentUid) &&
-        AppRoute.context!.read<RoomsProvider>().rooms?.containsKey(roomId) ==
-            false) {
-      AppRoute.context?.pushReplacement('/previewRoom/$roomId');
+        !_scheduleMembers!.containsKey(currentUid)) { //내가 해당 일정에 미참가 중
+      if(_schedule!['isOpen'] == 1){ //만약 오픈 채팅방이고
+        if(AppRoute.context!.read<RoomsProvider>().quickRooms?.containsKey(roomId) == false){ //내가 해당 일정이 진행되는 방에 미참가 중이라면
+          DialogManager.showBasicDialog(title: '번개챗에 입장할까요?', content: "해당 경기는 번개챗에 입장을 해야합니다", confirmText: "입장하기",
+              onConfirm: registerQuickRoom,
+              onCancel: (){
+                AppRoute.context?.pushReplacement('/previewRoom/${_schedule!['roomId']}');
+              },
+              cancelText: "취소",
+              barrierDismissible: false);
+        }
+      }else{
+        if(AppRoute.context!.read<RoomsProvider>().rooms?.containsKey(roomId) == false){
+          AppRoute.context?.pushReplacement('/previewRoom/$roomId');
+        }
+      }
     }
   }
 
@@ -253,6 +265,23 @@ class ScheduleProvider extends ChangeNotifier {
       _setError('게임 초기화 실패: $e');
     }
   }
+
+  //번개챗 가입하기
+  void registerQuickRoom() async{
+    try{
+      AppRoute.pushLoading();
+      final res = await serverManager.post('room/register/${_schedule!['roomId']}', data: {'enterCode' : ''}); //어차피 오픈채팅방은 엔터코드가없음
+      AppRoute.popLoading();
+
+      if(res.statusCode != 200 && res.statusCode != 201){ //만약 가입에 실패했다면
+        AppRoute.context?.pushReplacement('/previewRoom/${_schedule!['roomId']}'); //가입하기 페이지로 다시이동
+      }
+    }catch(error){
+      AppRoute.popLoading();
+      print(error);
+    }
+  }
+
 
   // === Socket Management ===
 

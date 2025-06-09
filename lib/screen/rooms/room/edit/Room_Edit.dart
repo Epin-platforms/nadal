@@ -19,10 +19,11 @@ class RoomEdit extends StatelessWidget {
       create: (_)=> EditRoomProvider(roomProvider.room!),
       builder: (context, child) {
         final provider = Provider.of<EditRoomProvider>(context);
+        final isOpen = provider.originRoom['isOpen'] == 1;
         return IosPopGesture(
             child: Scaffold(
               appBar: NadalAppbar(
-                title: '클럽 수정',
+                title: '${isOpen ? '번개방' : '클럽'} 수정',
               ),
               body: SafeArea(
                   child: Column(
@@ -56,14 +57,14 @@ class RoomEdit extends StatelessWidget {
                                                       await provider.pickImage;
                                                     },
                                                     constraints: BoxConstraints(
-                                                        maxHeight: 24,
-                                                        maxWidth: 24,
-                                                        minHeight: 24,
-                                                        minWidth: 24
+                                                        maxHeight: 24.r,
+                                                        maxWidth: 24.r,
+                                                        minHeight: 24.r,
+                                                        minWidth: 24.r
                                                     ),
                                                     padding: EdgeInsets.zero,
                                                     alignment: Alignment.center,
-                                                    iconSize: 13,
+                                                    iconSize: 13.sp,
                                                     icon: Icon(BootstrapIcons.camera_fill, color: const Color(0xfff1f1f1),)
                                                 )
                                             )
@@ -72,12 +73,12 @@ class RoomEdit extends StatelessWidget {
                                       ),
                                     )),
                                 SizedBox(
-                                  height: 24,
+                                  height: 24.h,
                                 ),
-                                NadalTextField(controller: provider.roomNameController, initText: provider.originRoom['roomName'], maxLength: 30, label: '클럽이름',),
-                                SizedBox(height: 16,),
-                                NadalTextField(controller: provider.descriptionController, initText: provider.originRoom['description'], maxLines: null, label: '클럽 소개',),
-                                SizedBox(height: 24,),
+                                NadalTextField(controller: provider.roomNameController, initText: provider.originRoom['roomName'], maxLength: 30, label: '${isOpen ? '번개방' : '클럽'}이름',),
+                                SizedBox(height: 16.h,),
+                                NadalTextField(controller: provider.descriptionController, initText: provider.originRoom['description'], maxLines: null, label: '${isOpen ? '번개방' : '클럽'} 소개',),
+                                SizedBox(height: 24.h,),
 
                                 //태그
                                 Wrap(
@@ -85,7 +86,7 @@ class RoomEdit extends StatelessWidget {
                                   runSpacing: 4,
                                   children: [
                                     SizedBox(
-                                        width: 62,
+                                        width: 62.w,
                                         child: Text('태그입력', style: theme.textTheme.titleSmall,)),
                                     ...List.generate(provider.tags.length, (index)=> Padding(
                                       padding: EdgeInsets.only(right: 4),
@@ -119,7 +120,7 @@ class RoomEdit extends StatelessWidget {
                                         decoration: InputDecoration(
                                             contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                                             constraints: BoxConstraints(
-                                              maxHeight: 32.5,
+                                              maxHeight: 32.5.h,
                                             ),
                                             counter: null,
                                             counterText: '',
@@ -138,44 +139,30 @@ class RoomEdit extends StatelessWidget {
                                 SizedBox(height: 24,),
 
                                 //패스워드 사용
-                                Row(
-                                  children: [
-                                    SizedBox(
-                                        width: 62,
-                                        child: Text('참가코드', style: theme.textTheme.titleSmall,)),
-                                    Flexible(child: InkWell(
-                                        onTap: (){
-                                          provider.setUseEnterCode(true);
-                                        },
-                                        child: NadalSelectableBox(selected: provider.useEnterCode, text: '참가코드 사용'))),
-                                    SizedBox(width: 8,),
-                                    Flexible(child: InkWell(
-                                      onTap: (){
-                                        provider.setUseEnterCode(false);
-                                      },
-                                      child: NadalSelectableBox(
-                                          selected: !provider.useEnterCode,
-                                          text: '참가코드 사용안함'),
-                                    )),
-                                  ],
-                                ),
-                                if(provider.useEnterCode)
-                                  Padding(
-                                      padding: EdgeInsets.only(top: 16),
-                                      child: NadalTextField(controller: provider.enterCodeController, label: '비밀번호', maxLength: 10, keyboardType: TextInputType.number, helper: '4자리 이상 10자리 이하의 숫자를 입력해 주세요!', initText: provider.originRoom['enterCode'],)),
-
+                                if(!isOpen)
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                          width: 62.w,
+                                          height: 48.h,
+                                          alignment: Alignment.centerLeft,
+                                          child: Text('참가코드', style: theme.textTheme.titleSmall,)),
+                                      Expanded(child: NadalTextField(controller: provider.enterCodeController, label: '비밀번호', maxLength: 10, keyboardType: TextInputType.number, helper: '4자리 이상 10자리 이하의 숫자를 입력해 주세요!',)),
+                                    ],
+                                  ),
                                 SizedBox(height: 16,),
                                 Row(
                                   children: [
                                     SizedBox(
-                                        width: 62,
+                                        width: 62.w,
                                         child: Text('활동방식', style: theme.textTheme.titleSmall,)),
                                     Flexible(child: InkWell(
                                         onTap: (){
                                           provider.setUseNickname(true);
                                         },
                                         child: NadalSelectableBox(selected: provider.useNickname, text: '닉네임으로 활동', ))),
-                                    SizedBox(width: 8,),
+                                    SizedBox(width: 8.w,),
                                     Flexible(child: InkWell(
                                       onTap: (){
                                         if(context.read<UserProvider>().user!['verificationCode'] == null){
@@ -194,7 +181,7 @@ class RoomEdit extends StatelessWidget {
                                 Row(
                                   children: [
                                     SizedBox(
-                                        width: 62,
+                                        width: 62.w,
                                         child: Text('활동지역', style: theme.textTheme.titleSmall,)),
                                     Flexible(child: GetLocal(local: provider.local, onTap: () async{
                                       final res = await PickerManager.localPicker(provider.local);
@@ -202,7 +189,7 @@ class RoomEdit extends StatelessWidget {
                                         provider.setLocal(res);
                                       }
                                     })),
-                                    SizedBox(width: 8,),
+                                    SizedBox(width: 8.w,),
                                     Flexible(child: GetCity(city: provider.city, onTap: () async{
                                       if(provider.local.isEmpty){
                                         DialogManager.showBasicDialog(title: '알림', content: '지역 선택 후, 시/구/군을 선택해주세요', confirmText: '확인');
@@ -225,7 +212,8 @@ class RoomEdit extends StatelessWidget {
                       Builder(
                         builder: (context) {
                           final date = DateTime.parse(provider.originRoom['updateAt']).add(const Duration(days: 7));
-                          final bool active = provider.originRoom['updateAt'] != provider.originRoom['createAt'] && date.isBefore(DateTime.now());
+                          final firstEdit = provider.originRoom['updateAt'] == provider.originRoom['createAt'];
+                          final bool active = firstEdit || date.isBefore(DateTime.now()); //첫 수정이거나, 데이트 타임이 일주일 지난 상태라면
 
                           return NadalButton( //업데이트한지 7일이 안되면 flase
                               onPressed: (){

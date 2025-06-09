@@ -20,7 +20,6 @@ class EditRoomProvider extends ChangeNotifier{
     _tagController = TextEditingController(text: '#');
     _enterCodeController = TextEditingController();
   }
-
   late Map _originRoom;
   Map get originRoom => _originRoom;
 
@@ -82,14 +81,6 @@ class EditRoomProvider extends ChangeNotifier{
       notifyListeners();
     }
   }
-
-  setUseEnterCode(bool value){
-    if(value != _useEnterCode){
-      _useEnterCode = value;
-      notifyListeners();
-    }
-  }
-
 
   //방 설명
   late final TextEditingController _descriptionController;

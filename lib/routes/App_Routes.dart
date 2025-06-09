@@ -8,6 +8,7 @@ import 'package:my_sports_calendar/screen/notification/Notification_Page.dart';
 import 'package:my_sports_calendar/screen/profile/User_Profile.dart';
 import 'package:my_sports_calendar/screen/qna/Qna_List.dart';
 import 'package:my_sports_calendar/screen/qna/Qna_Write.dart';
+import 'package:my_sports_calendar/screen/quick_chat/Quick_Chat_Main.dart';
 import 'package:my_sports_calendar/screen/report/Report_Page.dart';
 import 'package:my_sports_calendar/screen/schedule/Schedule.dart';
 import 'package:my_sports_calendar/screen/schedule/game/state3/kdk/KDK_Real_Time_Result.dart';
@@ -88,6 +89,14 @@ class AppRoute{
                 ),
             ),
             GoRoute(
+                path: '/quick-chat',
+                pageBuilder: (context, state) => NadalTransitionPage(
+                    child: QuickChatMain(),
+                    key: state.pageKey,
+                    transitionType: PageTransitionType.fade
+                )
+            ),
+            GoRoute(
               path: '/league',
                 pageBuilder: (context, state) => NadalTransitionPage(
                   child: LeaguePage(),
@@ -143,19 +152,25 @@ class AppRoute{
         ),
         GoRoute(
             path: '/createRoom',
-            pageBuilder: (context, state) => NadalTransitionPage(
-                child: CreateRoom(),
-                key: state.pageKey,
-                transitionType: PageTransitionType.slideFromBottom
-            )
+            pageBuilder: (context, state){
+              final bool isOpen = state.uri.queryParameters['isOpen'] == 'TRUE';
+              return NadalTransitionPage(
+                  child: CreateRoom(isOpen: isOpen,),
+                  key: state.pageKey,
+                  transitionType: PageTransitionType.slideFromBottom
+              );
+            }
         ),
         GoRoute(
             path: '/searchRoom',
-            pageBuilder: (context, state) => NadalTransitionPage(
-                child: SearchRoom(),
-                key: state.pageKey,
-                transitionType: PageTransitionType.slideFromRight
-            )
+            pageBuilder: (context, state){
+              final bool isOpen = state.uri.queryParameters['isOpen'] == 'TRUE';
+              return NadalTransitionPage(
+                  child: SearchRoom(isOpen : isOpen),
+                  key: state.pageKey,
+                  transitionType: PageTransitionType.slideFromRight
+              );
+            }
         ),
         GoRoute(
             path: '/previewRoom/:roomId',

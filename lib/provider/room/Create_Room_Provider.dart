@@ -7,14 +7,23 @@ import 'package:my_sports_calendar/manager/project/Import_Manager.dart';
 import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
 
 class CreateRoomProvider extends ChangeNotifier{
-  CreateRoomProvider(String local, String city){
+  CreateRoomProvider(String local, String city, bool isOpen){
+    _isOpen = isOpen;
     _local = local;
     _city = city;
+    if(isOpen){ //만약 오픈채팅방이 참이면
+      _useEnterCode = false;
+    }else{
+      _useEnterCode = true;
+    }
     _roomNameController = TextEditingController();
     _tagController = TextEditingController(text: '#');
     _enterCodeController = TextEditingController();
     _descriptionController = TextEditingController();
   }
+
+  late bool _isOpen;
+  bool get isOpen => _isOpen;
 
   String get local => _local;
   String get city => _city;
@@ -106,7 +115,7 @@ class CreateRoomProvider extends ChangeNotifier{
 
   void createRoom() async{
     if(_roomNameController.text.isEmpty || _roomNameController.text.length > 30){
-      _warningHandler('흠.. 클럽명이 이상해요 🤔');
+      _warningHandler('흠.. ${isOpen ? '번개방' : '클럽'}명이 이상해요 🤔');
       return;
     }else if(city.isEmpty){
       _warningHandler('흠.. 활동지역이 이상해요 🤔');
@@ -118,8 +127,8 @@ class CreateRoomProvider extends ChangeNotifier{
 
 
     await DialogManager.showBasicDialog(
-      title: '새로운 클럽을 만들까요?',
-      content: '생성 후에는 클럽 정보를 수정할 수 있어요.\n지금 바로 시작해볼까요?',
+      title: '새로운 ${isOpen ? '번개방' : '클럽'}을 만들까요?',
+      content: '생성 후에는 ${isOpen ? '번개방' : '클럽'} 정보를 수정할 수 있어요.\n지금 바로 시작해볼까요?',
       confirmText: "만들기",
       onConfirm: () async{
         int? roomId;
@@ -138,7 +147,7 @@ class CreateRoomProvider extends ChangeNotifier{
         }finally{
           AppRoute.popLoading();
           if(code == 202){
-            DialogManager.showBasicDialog(title: '동일한 클럽명이 이미 존재해요', content: '같은 지역에서는 같은 이름의\n채팅방을 만들 수 없어요.', confirmText: '확인');
+            DialogManager.showBasicDialog(title: '동일한 ${isOpen ? '번개방' : '클럽'}명이 이미 존재해요', content: '같은 지역에서는 같은 이름의\n채팅방을 만들 수 없어요.', confirmText: '확인');
           } else if(roomId != null){
             AppRoute.context?.pushReplacement('/room/$roomId');
           }
@@ -157,6 +166,7 @@ class CreateRoomProvider extends ChangeNotifier{
       'roomName' : _roomNameController.text,
       'local' : _local,
       'city' : _city,
+      'isOpen' : _isOpen,
       'description' : _descriptionController.text,
       'tag' : TagFormManager.listToString(_tags),
       'useNickname' : _useNickname,

@@ -31,7 +31,11 @@ class NadalRoomFrame extends StatelessWidget {
                 ),
             ),
           ),
-          placeholder: (context, str)=> NadalEmptyProfile(size: (size ?? 50.r), useBackground: false,),
+          placeholder: (context, str)=> Container(
+            height: size ?? 50.r,
+            width: size ?? 50.r,
+            color: Theme.of(context).highlightColor,
+          ),
         )
     );
   }

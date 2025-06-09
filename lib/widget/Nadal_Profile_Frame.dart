@@ -43,19 +43,28 @@ class NadalProfileFrame extends StatelessWidget {
         imageUrl == null ?
           // 기본이미지
         NadalEmptyProfile(size: size, useBackground: useBackground,) :
-        CachedNetworkImage(
-            imageUrl: imageUrl!,
-            cacheKey: imageUrl,
-            imageBuilder: (context, imageProvider)=> Container(
-              height: size, width: size,
-              decoration: BoxDecoration(
-                color: useBackground ? Theme.of(context).scaffoldBackgroundColor : Colors.grey.shade200,
-                image: DecorationImage(image: imageProvider,
-                  fit: BoxFit.cover
+        ColorFiltered(
+          colorFilter: const ColorFilter.mode(
+            Colors.transparent,
+            BlendMode.dst,
+          ),
+          child: CachedNetworkImage(
+              imageUrl: imageUrl!,
+              cacheKey: imageUrl,
+              imageBuilder: (context, imageProvider)=> Container(
+                height: size, width: size,
+                decoration: BoxDecoration(
+                  color: useBackground ? Theme.of(context).scaffoldBackgroundColor : Colors.grey.shade200,
+                  image: DecorationImage(image: imageProvider,
+                    fit: BoxFit.cover
+                  ),
                 ),
               ),
-            ),
-            placeholder: (context, str)=>NadalEmptyProfile(size: size, useBackground: useBackground,),
+              placeholder: (context, str)=> Container(
+                height: size,
+                width: size,
+                color: Theme.of(context).highlightColor,)
+          ),
         )
     );
   }

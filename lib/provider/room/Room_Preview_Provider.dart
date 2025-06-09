@@ -10,12 +10,11 @@ class RoomPreviewProvider extends ChangeNotifier{
     _fetchPreviewRoom(id);
   }
 
-  _fetchPreviewRoom(int roomId) async{
+  Future<void> _fetchPreviewRoom(int roomId) async{
     final res = await serverManager.get('room/preview/$roomId');
 
     if(res.statusCode == 200){
       _room = res.data;
-      print(_room);
       if(_room!['isJoined'] == 1){ //이미 참가중이라면
         AppRoute.context!.pushReplacement('/room/${room!['roomId']}');
       }
@@ -25,7 +24,7 @@ class RoomPreviewProvider extends ChangeNotifier{
     }
   }
 
-  registerStart(String enterCode) async{
+  Future<void> registerStart(String enterCode) async{
     AppRoute.pushLoading();
     //첫 신청은 패스워드 없이
     if(room!['useNickname'] == 0 && AppRoute.context?.read<UserProvider>().user?['verificationCode'] == null){
@@ -46,10 +45,10 @@ class RoomPreviewProvider extends ChangeNotifier{
     }else if(res.statusCode == 202){
       DialogManager.showBasicDialog(title: "앗! 이런", content: "참가를 위한 비밀번호가 일치하지 않아요", confirmText: "확인");
       return;
-    }else if(res.statusCode == 201){
+    }else if(res.statusCode == 201){ //이미 가입된 유저
       AppRoute.context!.pushReplacement('/room/${room!['roomId']}');
       return;
-    }else if(res.statusCode == 200){
+    }else if(res.statusCode == 200){ //새로 가입하는 유저
       AppRoute.context!.pushReplacement('/room/${room!['roomId']}');
       return;
     }

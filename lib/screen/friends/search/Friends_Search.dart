@@ -55,7 +55,7 @@ class _FriendsSearchState extends State<FriendsSearch> {
                   actions: [
                     NadalIconButton(
                         onTap: () {
-                          shareApp(context);
+                          shareApp(context, FirebaseAuth.instance.currentUser!.uid);
                         },
                         icon: CupertinoIcons.share
                     ),

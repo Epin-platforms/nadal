@@ -29,6 +29,11 @@ class NadalBottomNav extends StatelessWidget {
           label: 'MY',
         ),
         BottomNavigationBarItem(
+          icon: Icon(BootstrapIcons.lightning),
+          activeIcon: Icon(BootstrapIcons.lightning_fill),
+          label: '번개챗',
+        ),
+        BottomNavigationBarItem(
           icon: Icon(BootstrapIcons.trophy),
           activeIcon: Icon(BootstrapIcons.trophy_fill),
           label: '대회',

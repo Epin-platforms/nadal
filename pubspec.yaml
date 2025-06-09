@@ -114,6 +114,9 @@ dependencies:
   #사용자 연락처 동기화
   flutter_contacts: ^1.1.9+2
 
+  #구글광고
+  google_mobile_ads:
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
