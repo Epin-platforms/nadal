@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
 import '../../manager/project/Import_Manager.dart';
+import '../../provider/app/Advertisement_Provider.dart';
 import '../../widget/Nadal_Room_Frame.dart';
 import '../../widget/Nadal_Room_NotRead_Tag.dart';
 
@@ -24,6 +25,7 @@ class _QuickChatMainState extends State<QuickChatMain> {
     _scrollController = ScrollController();
     WidgetsBinding.instance.addPostFrameCallback((callback){
      _pageController.jumpToPage(homeProvider.currentMenu);
+     _initializeAds();
      homeProvider.fetchMyLocalQuickChatRooms();
      _scrollController.addListener((){
        if(_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 100){
@@ -34,8 +36,22 @@ class _QuickChatMainState extends State<QuickChatMain> {
     super.initState();
   }
 
+  /// 광고 초기화
+  Future<void> _initializeAds() async {
+    final adProvider = context.read<AdvertisementProvider>();
+
+    // 배너 광고 로드
+    await adProvider.loadBannerNativeAd('quick_chat_main_banner');
+
+    // 리스트용 네이티브 광고 미리 로드 (최대 5개)
+    for (int i = 0; i < 5; i++) {
+      await adProvider.loadListItemNativeAd('quick_chat_main_list_$i');
+    }
+  }
+
   @override
   void dispose() {
+    AdManager.disposePageAds('quick_chat_main');
     _pageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -150,7 +166,11 @@ class _QuickChatMainState extends State<QuickChatMain> {
         slivers: [
           //배너광고
           SliverToBoxAdapter(
-            child: Container(),
+            child:  BannerNativeAdWidget(
+              adKey: 'quick_chat_main_banner',
+              height: 80.h,
+              margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+            ),
           ),
           roomsProvider.quickRooms!.isEmpty ? 
               SliverToBoxAdapter(

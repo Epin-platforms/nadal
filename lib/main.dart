@@ -12,8 +12,6 @@ import 'manager/project/Import_Manager.dart';
 void main() async {
   // Flutter 바인딩 초기화 (가장 먼저 실행)
   WidgetsFlutterBinding.ensureInitialized();
-  await MobileAds.instance.initialize();
-
   try {
     // 패키지 초기화
     await asyncInitPackage();
@@ -74,6 +72,8 @@ Future<void> asyncInitPackage() async {
       print('⚠️ .env 파일 로드 실패 (선택사항): $e');
     }
 
+    //광고 초기화
+    await MobileAds.instance.initialize();
     // 카카오 SDK 초기화
     try {
       final nativeKey = dotenv.get('KAKAO_NATIVE_APP_KEY', fallback: '');
@@ -117,7 +117,7 @@ class AppDriver extends StatelessWidget {
             ChangeNotifierProvider(create: (_) => ChatProvider()),
             ChangeNotifierProvider(create: (_) => RoomsProvider()),
             ChangeNotifierProvider(create: (_) => NotificationProvider()),
-            ChangeNotifierProvider(create: (_) => AdvertisementProvider()),
+            ChangeNotifierProvider.value(value: AdManager.instance),
           ],
           builder: (context, child) {
             final provider = Provider.of<AppProvider>(context);

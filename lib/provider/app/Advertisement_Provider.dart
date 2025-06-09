@@ -2,6 +2,8 @@
 // 기존 Advertisement_Provider에 Google Ads 기능 추가
 // 복잡한 네이티브 광고 대신 안전하고 간단한 배너 광고 사용
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -22,8 +24,19 @@ class AdvertisementProvider extends ChangeNotifier {
   Map<String, bool> _adLoadedStates = {};
 
   // === Ad Configuration ===
-  static const String _nativeAdUnitId = 'ca-app-pub-3940256099942544/2247696110'; // Test Native ID
-  static const String _bannerAdUnitId = 'ca-app-pub-3940256099942544/6300978111'; // Test Banner ID
+  static String get _nativeAdUnitId {
+    if (Platform.isIOS) {
+      return 'ca-app-pub-3940256099942544/3986624511'; // iOS Test Native
+    }
+    return 'ca-app-pub-3940256099942544/2247696110'; // Android Test Native
+  }
+
+  static String get _bannerAdUnitId {
+    if (Platform.isIOS) {
+      return 'ca-app-pub-3940256099942544/2934735716'; // iOS Test Banner
+    }
+    return 'ca-app-pub-3940256099942544/6300978111'; // Android Test Banner
+  }
 
   // === Getters ===
   Map<String, NativeAd?> get nativeAds => Map.unmodifiable(_nativeAds);
