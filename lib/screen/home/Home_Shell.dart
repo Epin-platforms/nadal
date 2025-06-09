@@ -235,8 +235,6 @@ class _HomeShellState extends State<HomeShell> {
               } else if(tab == 1){
                 context.go('/quick-chat');
               } else if (tab == 2) {
-                context.go('/league');
-              } else if (tab == 3) {
                 context.go('/more');
               }
             }

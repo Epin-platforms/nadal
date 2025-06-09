@@ -13,7 +13,7 @@ class SearchRoomProvider extends ChangeNotifier{
   SearchMode _mode = SearchMode.recently;
   SearchMode get mode => _mode;
 
-  onChangedMode(SearchMode value){
+  void onChangedMode(SearchMode value){
     if(_mode != value){
       _mode = value;
       notifyListeners();
@@ -35,7 +35,11 @@ class SearchRoomProvider extends ChangeNotifier{
   Map<String, List<Map>> _searchResults = {};
   List<String> _autoTextSearch = [];
 
-  SearchRoomProvider(Map user){
+  late final bool _isOpen;
+  bool get isOpen => _isOpen;
+
+  SearchRoomProvider(Map user, bool isOpen){
+    _isOpen = isOpen;
     _getRecentlySearch();
     fetchRecommendRoom(user);
     _searchController = TextEditingController();
@@ -46,8 +50,9 @@ class SearchRoomProvider extends ChangeNotifier{
     _searchNode.addListener(_modeLister);
   }
 
-  fetchRecommendRoom(Map user) async{
-    final res = await serverManager.get('room/recommend?local=${user['local']}');
+  Future<void> fetchRecommendRoom(Map user) async{
+    int queryToInt = _isOpen ? 1 : 0;
+    final res = await serverManager.get('room/recommend?local=${user['local']}&isOpen=$queryToInt');
 
     if(res.statusCode == 200){
       _recommendRooms = List.from(res.data);
@@ -136,8 +141,9 @@ class SearchRoomProvider extends ChangeNotifier{
   }
 
 
-  searchAutoText() async{
-    final res = await serverManager.get('room/autoText?text=${_searchController.text}');
+  Future<void> searchAutoText() async{
+    int queryToInt = _isOpen ? 1 : 0;
+    final res = await serverManager.get('room/autoText?isOpen=$queryToInt&text=${_searchController.text}');
 
     if(res.statusCode == 200){
       final data = extractAutoComplete(res.data);
@@ -191,7 +197,8 @@ class SearchRoomProvider extends ChangeNotifier{
 
     final offset = _searchOffsets[text] ?? 0;
     final query = TextFormManager.encodeQueryParam(text);
-    final res = await serverManager.get('room/search?text=$query&offset=$offset');
+    int queryToInt = _isOpen ? 1 : 0;
+    final res = await serverManager.get('room/search?text=$query&offset=$offset&isOpen=$queryToInt');
 
     if (res.statusCode == 200) {
       final results = List<Map<String, dynamic>>.from(res.data);

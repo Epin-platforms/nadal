@@ -71,12 +71,10 @@ class HomeProvider extends ChangeNotifier{
 
   void fetchMyLocalQuickChatRooms() async{
     try{
-      print("번개챗 패치시작");
       if(!_localQuickChatRoomsHasMore || _fetchingQuickChat) return;
       _fetchingQuickChat = true;
       final res = await serverManager.get('room/my-local-quick?offset=$_localQuickChatRoomsOffset');
       if(res.statusCode == 200){
-        print('번개챗 받아온 결과 ${res.data}');
         final list = List<Map<String, dynamic>>.from(res.data);
 
         if(list.length < 10){
@@ -86,7 +84,6 @@ class HomeProvider extends ChangeNotifier{
         }
         _myLocalQuickChatRooms ??= [];
         if(_myLocalQuickChatRooms != null){
-          print('번개챗에서 받아온 널 제거');
           _myLocalQuickChatRooms!.addAll(list);
         }
       }
@@ -99,4 +96,40 @@ class HomeProvider extends ChangeNotifier{
       notifyListeners();
     }
   }
+
+///
+/// 둘러보기 페이지 보기
+///
+  List<Map<String, dynamic>>? _hotQuickChatRooms;
+  List<Map<String, dynamic>>?  get hotQuickChatRooms => _hotQuickChatRooms;
+
+  bool _hotLoading = false;
+  void fetchHotQuickChatRooms() async{ //핫 퀵 룸은 총 4개만 불러오기
+    if(_hotLoading) return;
+    _hotLoading = true;
+    final res = await serverManager.get('room/hot-quick-rooms');
+
+    if(res.statusCode == 200){
+      final list = List<Map<String, dynamic>>.from(res.data);
+      _hotQuickChatRooms = list;
+    }
+    _hotLoading = false;
+    notifyListeners();
+  }
+
+  List<Map<String, dynamic>> _ranking = [];
+  List<Map<String, dynamic>> get ranking => _ranking;
+
+  void fetchRanking() async{
+    if(_ranking.length == 3) return; //이미 지정되면 더이상 불러오지 않음 재시작하면 달라짐
+    final res = await serverManager.get('app/ranking');
+    if(res.statusCode == 200){
+      final list = List<Map<String, dynamic>>.from(res.data);
+
+      _ranking = list;
+      notifyListeners();
+    }
+  }
+
+
 }

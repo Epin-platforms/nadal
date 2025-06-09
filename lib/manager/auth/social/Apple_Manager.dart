@@ -21,10 +21,6 @@ class AppleManager {
           AppleIDAuthorizationScopes.email,
           AppleIDAuthorizationScopes.fullName,
         ],
-        webAuthenticationOptions: WebAuthenticationOptions(
-          clientId: 'your-client-id', // 실제 클라이언트 ID로 변경 필요
-          redirectUri: Uri.parse('your-redirect-uri'), // 실제 리다이렉트 URI로 변경 필요
-        ),
       );
 
       // 토큰 유효성 검증

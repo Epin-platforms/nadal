@@ -97,14 +97,6 @@ class AppRoute{
                 )
             ),
             GoRoute(
-              path: '/league',
-                pageBuilder: (context, state) => NadalTransitionPage(
-                  child: LeaguePage(),
-                  key: state.pageKey,
-                  transitionType: PageTransitionType.fade
-                )
-            ),
-            GoRoute(
               path: '/more',
                 pageBuilder: (context, state) => NadalTransitionPage(
                   child: MorePage(),
@@ -113,6 +105,14 @@ class AppRoute{
                 )
             ),
           ],
+        ),
+        GoRoute(
+            path: '/league',
+            pageBuilder: (context, state) => NadalTransitionPage(
+                child: LeaguePage(),
+                key: state.pageKey,
+                transitionType: PageTransitionType.fade
+            )
         ),
         GoRoute(
             path: '/myProfile',

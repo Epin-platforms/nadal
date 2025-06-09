@@ -12,89 +12,149 @@ import 'manager/project/Import_Manager.dart';
 void main() async {
   // Flutter 바인딩 초기화 (가장 먼저 실행)
   WidgetsFlutterBinding.ensureInitialized();
-  try {
-    // 패키지 초기화
-    await asyncInitPackage();
 
-    // 화면 세로 고정
+  try {
+    // 화면 세로 고정 (먼저 설정)
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
     ]);
 
+    // 패키지 초기화
+    await _initializePackages();
+
     runApp(const RootApp());
   } catch (e) {
-    print('앱 초기화 실패: $e');
-    // 기본 에러 앱 실행
+    debugPrint('앱 초기화 실패: $e');
     runApp(const ErrorApp());
   }
 }
 
-Future<void> asyncInitPackage() async {
+/// 패키지 초기화 - 순차적이고 안전한 초기화
+Future<void> _initializePackages() async {
   try {
-    // Firebase 초기화 (재시도 로직 추가)
-    int retryCount = 0;
-    const maxRetries = 3;
+    // 1. Firebase 초기화 (재시도 로직)
+    await _initializeFirebase();
 
-    while (retryCount < maxRetries) {
-      try {
-        await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.currentPlatform,
-        );
-        print('✅ Firebase 초기화 성공');
-        break;
-      } catch (e) {
-        retryCount++;
-        print('❌ Firebase 초기화 실패 (시도 $retryCount/$maxRetries): $e');
+    // 2. 광고 초기화 (Firebase 후)
+    await _initializeAds();
 
-        if (retryCount >= maxRetries) {
-          throw Exception('Firebase 초기화 실패: $e');
-        }
+    // 3. 기본 패키지들 초기화
+    await _initializeBasicPackages();
 
-        // 잠시 대기 후 재시도
-        await Future.delayed(Duration(milliseconds: 500 * retryCount));
+    // 4. 카카오 SDK 초기화 (마지막)
+    await _initializeKakaoSdk();
+
+  } catch (e) {
+    debugPrint('패키지 초기화 실패: $e');
+    rethrow;
+  }
+}
+
+/// Firebase 초기화 with 재시도
+Future<void> _initializeFirebase() async {
+  const maxRetries = 3;
+  int retryCount = 0;
+
+  while (retryCount < maxRetries) {
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      debugPrint('✅ Firebase 초기화 성공');
+      return;
+    } catch (e) {
+      retryCount++;
+      debugPrint('❌ Firebase 초기화 실패 (시도 $retryCount/$maxRetries): $e');
+
+      if (retryCount >= maxRetries) {
+        throw Exception('Firebase 초기화 최종 실패: $e');
       }
-    }
 
-    // 스크린 유틸 초기화
+      // 잠시 대기 후 재시도
+      await Future.delayed(Duration(milliseconds: 500 * retryCount));
+    }
+  }
+}
+
+/// 광고 초기화 - 안전하고 간단하게
+Future<void> _initializeAds() async {
+  try {
+    // 광고 초기화를 별도 함수로 분리하여 타임아웃 처리
+    final initCompleter = Completer<void>();
+
+    // 광고 초기화 실행
+    MobileAds.instance.initialize().then((status) {
+      if (!initCompleter.isCompleted) {
+        initCompleter.complete();
+        debugPrint('✅ 광고 초기화 성공');
+      }
+    }).catchError((error) {
+      if (!initCompleter.isCompleted) {
+        initCompleter.complete();
+        debugPrint('⚠️ 광고 초기화 실패 (계속 진행): $error');
+      }
+    });
+
+    // 타임아웃 설정
+    Timer(const Duration(seconds: 10), () {
+      if (!initCompleter.isCompleted) {
+        initCompleter.complete();
+        debugPrint('⚠️ 광고 초기화 타임아웃 (계속 진행)');
+      }
+    });
+
+    // 완료될 때까지 대기
+    await initCompleter.future;
+
+  } catch (e) {
+    debugPrint('⚠️ 광고 초기화 오류 (계속 진행): $e');
+    // 광고 초기화 실패해도 앱은 계속 실행
+  }
+}
+
+/// 기본 패키지 초기화
+Future<void> _initializeBasicPackages() async {
+  try {
+    // ScreenUtil 초기화
     await ScreenUtil.ensureScreenSize();
-    print('✅ ScreenUtil 초기화 성공');
+    debugPrint('✅ ScreenUtil 초기화 성공');
 
     // 날짜 형식 초기화
     await initializeDateFormatting();
-    print('✅ 날짜 형식 초기화 성공');
+    debugPrint('✅ 날짜 형식 초기화 성공');
 
-    // 환경변수 로드
+    // 환경변수 로드 (옵션)
     try {
       await dotenv.load(fileName: '.env');
-      print('✅ 환경변수 로드 성공');
+      debugPrint('✅ 환경변수 로드 성공');
     } catch (e) {
-      print('⚠️ .env 파일 로드 실패 (선택사항): $e');
+      debugPrint('⚠️ .env 파일 로드 실패 (선택사항): $e');
     }
-
-    //광고 초기화
-    await MobileAds.instance.initialize();
-    // 카카오 SDK 초기화
-    try {
-      final nativeKey = dotenv.get('KAKAO_NATIVE_APP_KEY', fallback: '');
-      final jsKey = dotenv.get('KAKAO_JAVASCRIPT_APP_KEY', fallback: '');
-
-      if (nativeKey.isNotEmpty && jsKey.isNotEmpty) {
-        KakaoSdk.init(
-          nativeAppKey: nativeKey,
-          javaScriptAppKey: jsKey,
-        );
-        print('✅ 카카오 SDK 초기화 성공');
-      } else {
-        print('⚠️ 카카오 SDK 키가 설정되지 않았습니다');
-      }
-    } catch (e) {
-      print('⚠️ 카카오 SDK 초기화 실패: $e');
-    }
-
   } catch (e) {
-    print('❌ 패키지 초기화 실패: $e');
-    rethrow;
+    debugPrint('기본 패키지 초기화 오류: $e');
+    // 중요하지 않은 초기화는 실패해도 계속 진행
+  }
+}
+
+/// 카카오 SDK 초기화
+Future<void> _initializeKakaoSdk() async {
+  try {
+    final nativeKey = dotenv.get('KAKAO_NATIVE_APP_KEY', fallback: '');
+    final jsKey = dotenv.get('KAKAO_JAVASCRIPT_APP_KEY', fallback: '');
+
+    if (nativeKey.isNotEmpty && jsKey.isNotEmpty) {
+      KakaoSdk.init(
+        nativeAppKey: nativeKey,
+        javaScriptAppKey: jsKey,
+      );
+      debugPrint('✅ 카카오 SDK 초기화 성공');
+    } else {
+      debugPrint('⚠️ 카카오 SDK 키가 설정되지 않았습니다');
+    }
+  } catch (e) {
+    debugPrint('⚠️ 카카오 SDK 초기화 실패: $e');
+    // 카카오 SDK 실패해도 앱은 계속 실행
   }
 }
 
@@ -117,10 +177,11 @@ class AppDriver extends StatelessWidget {
             ChangeNotifierProvider(create: (_) => ChatProvider()),
             ChangeNotifierProvider(create: (_) => RoomsProvider()),
             ChangeNotifierProvider(create: (_) => NotificationProvider()),
+            // 광고 프로바이더 - 싱글톤 인스턴스 사용
             ChangeNotifierProvider.value(value: AdManager.instance),
           ],
           builder: (context, child) {
-            final provider = Provider.of<AppProvider>(context);
+            final provider = Provider.of<AppProvider>(context, listen: false);
             return MaterialApp.router(
               debugShowCheckedModeBanner: false,
               themeMode: provider.themeMode,
@@ -135,34 +196,73 @@ class AppDriver extends StatelessWidget {
   }
 }
 
-// 에러 발생 시 표시할 기본 앱
+/// 에러 발생 시 표시할 기본 앱
 class ErrorApp extends StatelessWidget {
   const ErrorApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       home: Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.error_outline,
-                size: 64,
-                color: Colors.red,
+        backgroundColor: Colors.white,
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: EdgeInsets.all(24.w),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 64.sp,
+                    color: Colors.red[400],
+                  ),
+                  SizedBox(height: 24.h),
+                  Text(
+                    '앱 초기화 중 문제가 발생했습니다',
+                    style: TextStyle(
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[800],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 12.h),
+                  Text(
+                    '잠시 후 다시 시도해주세요',
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      color: Colors.grey[600],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 32.h),
+                  Container(
+                    width: double.infinity,
+                    height: 48.h,
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(12.r),
+                      border: Border.all(
+                        color: Colors.blue[200]!,
+                        width: 1.w,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '앱을 재시작해주세요',
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          color: Colors.blue[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(height: 16),
-              Text(
-                '앱 초기화 중 문제가 발생했습니다',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 8),
-              Text(
-                '앱을 다시 시작해주세요',
-                style: TextStyle(fontSize: 14, color: Colors.grey),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -178,27 +278,34 @@ class RootApp extends StatefulWidget {
 }
 
 class RootAppState extends State<RootApp> {
-  Key _key = UniqueKey();
+  Key _appKey = UniqueKey();
+  bool _hasError = false;
 
   void resetApp() {
-    setState(() {
-      _key = UniqueKey(); // AppDriver 재생성
-    });
+    if (mounted) {
+      _appKey = UniqueKey();
+      _hasError = false;
+      if (mounted) {
+        // setState 최소화
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {});
+          }
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return AppWrapper(
-      key: _key,
+      key: _appKey,
       onReset: resetApp,
     );
   }
 }
 
-
-
-
-//재시작을 위한 래퍼
+/// 재시작을 위한 래퍼
 class AppWrapper extends StatelessWidget {
   final VoidCallback onReset;
 
@@ -209,5 +316,3 @@ class AppWrapper extends StatelessWidget {
     return AppDriver(onReset: onReset);
   }
 }
-
-

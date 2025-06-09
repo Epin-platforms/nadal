@@ -8,8 +8,9 @@ class PermissionManager {
   static const String _permissionResultPrefix = 'epin_nadal_permission_result_';
   static const String _canRetryPrefix = 'epin_nadal_can_retry_';
   static const String _permissionRequestedDate = 'epin_nadal_permission_requested_date';
+
   // 권한 정보 클래스
-  static final List<PermissionInfo> _allPermissions = [
+  static final List<PermissionInfo> _basePermissions = [
     PermissionInfo(
       permission: Permission.camera,
       title: "카메라",
@@ -40,10 +41,11 @@ class PermissionManager {
     final hasRequested = prefs.getBool(_hasRequestedPermissions) ?? false;
 
     if (hasRequested) return;
+
     // 현재 날짜 저장
     await prefs.setString(_permissionRequestedDate, DateTime.now().toLocal().toIso8601String());
 
-    // Android 버전에 따른 권한 리스트 결정
+    // 플랫폼별 권한 리스트 결정
     final permissions = await _getPermissionsForDevice();
 
     // 권한 요청 시트 표시
@@ -58,34 +60,35 @@ class PermissionManager {
 
   // 디바이스에 따른 권한 리스트 반환
   static Future<List<PermissionInfo>> _getPermissionsForDevice() async {
-    List<PermissionInfo> devicePermissions = List.from(_allPermissions);
+    List<PermissionInfo> devicePermissions = List.from(_basePermissions);
 
     if (Platform.isAndroid) {
-      DeviceInfoPlugin deviceInfoPlugin = DeviceInfoPlugin();
-      final info = await deviceInfoPlugin.androidInfo;
+      await _addAndroidPermissions(devicePermissions);
+    } else if (Platform.isIOS) {
+      await _addIOSPermissions(devicePermissions);
+    }
 
-      if (info.version.sdkInt < 33) {
-        // Android 12 이하: storage 권한 사용
-        devicePermissions.add(PermissionInfo(
-          permission: Permission.storage,
-          title: "저장소",
-          description: "파일 저장 및 불러오기를 위해 필요합니다",
-          icon: Icons.folder,
-          isEssential: false,
-        ));
-      } else {
-        // Android 13 이상: photos 권한 사용
-        devicePermissions.add(PermissionInfo(
-          permission: Permission.photos,
-          title: "사진",
-          description: "갤러리 접근 및 사진 저장을 위해 필요합니다",
-          icon: Icons.photo_library,
-          isEssential: false,
-        ));
-      }
+    return devicePermissions;
+  }
+
+  // Android 전용 권한 추가
+  static Future<void> _addAndroidPermissions(List<PermissionInfo> permissions) async {
+    final deviceInfoPlugin = DeviceInfoPlugin();
+    final info = await deviceInfoPlugin.androidInfo;
+
+    // 저장소 권한 (Android 버전별)
+    if (info.version.sdkInt < 33) {
+      // Android 12 이하: storage 권한 사용
+      permissions.add(PermissionInfo(
+        permission: Permission.storage,
+        title: "저장소",
+        description: "파일 저장 및 불러오기를 위해 필요합니다",
+        icon: Icons.folder,
+        isEssential: false,
+      ));
     } else {
-      // iOS의 경우 photos 권한 추가
-      devicePermissions.add(PermissionInfo(
+      // Android 13 이상: photos 권한 사용
+      permissions.add(PermissionInfo(
         permission: Permission.photos,
         title: "사진",
         description: "갤러리 접근 및 사진 저장을 위해 필요합니다",
@@ -94,7 +97,55 @@ class PermissionManager {
       ));
     }
 
-    return devicePermissions;
+    // 광고 관련 권한 (Android 13+)
+    if (info.version.sdkInt >= 33) {
+      permissions.add(PermissionInfo(
+        permission: Permission.phone,
+        title: "전화",
+        description: "광고 개인화 및 앱 최적화를 위해 필요합니다",
+        icon: Icons.phone_android,
+        isEssential: false,
+      ));
+    }
+
+    // 위치 권한 (광고 타겟팅용)
+    permissions.add(PermissionInfo(
+      permission: Permission.location,
+      title: "위치",
+      description: "맞춤형 광고 제공을 위해 필요합니다",
+      icon: Icons.location_on,
+      isEssential: false,
+    ));
+  }
+
+  // iOS 전용 권한 추가
+  static Future<void> _addIOSPermissions(List<PermissionInfo> permissions) async {
+    // 사진 권한
+    permissions.add(PermissionInfo(
+      permission: Permission.photos,
+      title: "사진",
+      description: "갤러리 접근 및 사진 저장을 위해 필요합니다",
+      icon: Icons.photo_library,
+      isEssential: false,
+    ));
+
+    // 광고 추적 권한 (iOS 14.5+)
+    permissions.add(PermissionInfo(
+      permission: Permission.appTrackingTransparency,
+      title: "앱 추적 투명성",
+      description: "맞춤형 광고 제공 및 앱 성능 분석을 위해 필요합니다",
+      icon: Icons.analytics,
+      isEssential: false,
+    ));
+
+    // 위치 권한 (광고 타겟팅용)
+    permissions.add(PermissionInfo(
+      permission: Permission.locationWhenInUse,
+      title: "위치 (앱 사용 중)",
+      description: "맞춤형 광고 제공을 위해 필요합니다",
+      icon: Icons.location_on,
+      isEssential: false,
+    ));
   }
 
   // 권한 요청 바텀시트 표시
@@ -140,16 +191,7 @@ class PermissionManager {
 
   // 권한 설명 다이얼로그
   static Future<bool> _showPermissionRationalDialog(BuildContext context, Permission permission) async {
-    final permissionInfo = _allPermissions.firstWhere(
-          (p) => p.permission == permission,
-      orElse: () => PermissionInfo(
-        permission: permission,
-        title: _getPermissionName(permission),
-        description: '이 기능을 사용하기 위해 필요합니다',
-        icon: Icons.security,
-        isEssential: false,
-      ),
-    );
+    final permissionInfo = await _findPermissionInfo(permission);
 
     return await showDialog<bool>(
       context: context,
@@ -205,6 +247,21 @@ class PermissionManager {
     );
   }
 
+  // 권한 정보 찾기
+  static Future<PermissionInfo> _findPermissionInfo(Permission permission) async {
+    final allPermissions = await _getPermissionsForDevice();
+    return allPermissions.firstWhere(
+          (p) => p.permission == permission,
+      orElse: () => PermissionInfo(
+        permission: permission,
+        title: _getPermissionName(permission),
+        description: '이 기능을 사용하기 위해 필요합니다',
+        icon: Icons.security,
+        isEssential: false,
+      ),
+    );
+  }
+
   // 권한 결과 저장
   static Future<void> _savePermissionResult(Permission permission, bool granted) async {
     final prefs = await SharedPreferences.getInstance();
@@ -221,9 +278,12 @@ class PermissionManager {
       case Permission.camera: return '카메라';
       case Permission.notification: return '알림';
       case Permission.location: return '위치';
+      case Permission.locationWhenInUse: return '위치 (앱 사용 중)';
       case Permission.contacts: return '연락처';
       case Permission.storage: return '저장소';
       case Permission.photos: return '사진';
+      case Permission.phone: return '전화';
+      case Permission.appTrackingTransparency: return '앱 추적 투명성';
       default: return '권한';
     }
   }
@@ -239,6 +299,38 @@ class PermissionManager {
     }
 
     return statusMap;
+  }
+
+  // 광고 관련 권한만 확인
+  static Future<bool> checkAdPermissions() async {
+    if (Platform.isIOS) {
+      final appTrackingStatus = await Permission.appTrackingTransparency.status;
+      return appTrackingStatus.isGranted;
+    } else if (Platform.isAndroid) {
+      final deviceInfoPlugin = DeviceInfoPlugin();
+      final info = await deviceInfoPlugin.androidInfo;
+
+      if (info.version.sdkInt >= 33) {
+        final phoneStatus = await Permission.phone.status;
+        return phoneStatus.isGranted;
+      }
+    }
+    return true; // 권한이 필요하지 않은 경우
+  }
+
+  // 광고 권한 개별 요청
+  static Future<bool> requestAdPermission(BuildContext context) async {
+    if (Platform.isIOS) {
+      return await ensurePermission(Permission.appTrackingTransparency, context);
+    } else if (Platform.isAndroid) {
+      final deviceInfoPlugin = DeviceInfoPlugin();
+      final info = await deviceInfoPlugin.androidInfo;
+
+      if (info.version.sdkInt >= 33) {
+        return await ensurePermission(Permission.phone, context);
+      }
+    }
+    return true;
   }
 }
 
@@ -444,29 +536,41 @@ class _PermissionBottomSheetState extends State<PermissionBottomSheet> {
   }
 
   Future<void> _requestAllPermissions() async {
-    setState(() => _isRequesting = true);
+    if (_isRequesting) return;
+
+    _isRequesting = true;
+    if (mounted) {
+      setState(() {});
+    }
 
     final prefs = await SharedPreferences.getInstance();
     final results = <Permission, PermissionStatus>{};
 
-    // 모든 권한 요청
+    // 모든 권한 순차 요청
     for (final permissionInfo in widget.permissions) {
-      final status = await permissionInfo.permission.request();
-      results[permissionInfo.permission] = status;
-      await PermissionManager._savePermissionResult(permissionInfo.permission, status.isGranted);
+      try {
+        final status = await permissionInfo.permission.request();
+        results[permissionInfo.permission] = status;
+        await PermissionManager._savePermissionResult(permissionInfo.permission, status.isGranted);
+      } catch (e) {
+        print('권한 요청 실패: ${permissionInfo.permission} - $e');
+        results[permissionInfo.permission] = PermissionStatus.denied;
+      }
     }
 
     // 요청 완료 플래그 설정
     await prefs.setBool(PermissionManager._hasRequestedPermissions, true);
 
-    setState(() => _isRequesting = false);
-    Navigator.pop(context);
-
-    // 결과에 따른 추가 처리 (예: 성공 메시지 표시)
-    _showPermissionResult(results);
+    _isRequesting = false;
+    if (mounted) {
+      Navigator.pop(context);
+      _showPermissionResult(results);
+    }
   }
 
   Future<void> _skipPermissions() async {
+    if (_isRequesting) return;
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(PermissionManager._hasRequestedPermissions, true);
 
@@ -475,10 +579,14 @@ class _PermissionBottomSheetState extends State<PermissionBottomSheet> {
       await prefs.setBool('${PermissionManager._canRetryPrefix}${permissionInfo.permission.toString()}', true);
     }
 
-    Navigator.pop(context);
+    if (mounted) {
+      Navigator.pop(context);
+    }
   }
 
   void _showPermissionResult(Map<Permission, PermissionStatus> results) {
+    if (!mounted) return;
+
     final granted = results.values.where((status) => status.isGranted).length;
     final total = results.length;
 

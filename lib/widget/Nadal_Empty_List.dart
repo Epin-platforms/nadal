@@ -1,4 +1,5 @@
 import 'package:bootstrap_icons/bootstrap_icons.dart';
+import 'package:hive/hive.dart';
 
 import '../manager/project/Import_Manager.dart';
 
@@ -20,7 +21,11 @@ class NadalEmptyList extends StatelessWidget {
         children: [
           Image.asset("assets/image/icon/empty.png", height: 72.r, width: 72.r,),
           SizedBox(height: 16.h),
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 320.w
+              ),
+              child: Text(title, style: Theme.of(context).textTheme.titleMedium, textAlign: TextAlign.center,)),
           if (subtitle != null) ...[
             SizedBox(height: 4.h),
             Text(subtitle!, style: Theme.of(context).textTheme.bodySmall, textAlign: TextAlign.center),

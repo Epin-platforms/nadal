@@ -90,7 +90,7 @@ class _LeaguePageState extends State<LeaguePage> {
 
           return Scaffold(
             appBar: NadalAppbar(
-                title: '대회'
+              title: '대회',
             ),
             body: SafeArea(
               child: Column(
@@ -216,7 +216,7 @@ class _LeaguePageState extends State<LeaguePage> {
                             if (index > 0 && index % 4 == 0) {
                               return FutureBuilder<Advertisement>(
                                 // API 호출로 광고 가져오기
-                                future: adProvider.fetchAd(),
+                                future: adProvider.fetchServerAd(),
                                 builder: (context, snapshot) {
                                   if (snapshot.connectionState == ConnectionState.waiting) {
                                     return Container(); // 로딩 중 플레이스홀더 표시

@@ -10,17 +10,18 @@ import '../../../manager/project/Import_Manager.dart';
 class SearchRoom extends StatelessWidget {
   const SearchRoom({super.key, required this.isOpen});
   final bool isOpen;
+
   @override
   Widget build(BuildContext context) {
     final user = Provider.of<UserProvider>(context).user!;
     return ChangeNotifierProvider(
-        create: (_)=> SearchRoomProvider(user),
+        create: (_)=> SearchRoomProvider(user, isOpen),
         builder: (context, child){
           final provider = Provider.of<SearchRoomProvider>(context);
           return IosPopGesture(
               child: Scaffold(
                 appBar: NadalAppbar(
-                  title: '클럽 검색',
+                  title: '${isOpen ? '번개방' : '클럽'} 검색',
                 ),
                 body: SafeArea(
                     child: Column(
