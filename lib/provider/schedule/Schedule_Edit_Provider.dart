@@ -22,8 +22,8 @@ class ScheduleEditProvider extends ChangeNotifier{
      _useGenderLimit = _schedule['useGenderLimit'] == 1;
      _maleLimit = _schedule['maleLimit'];
      _femaleLimit = _schedule['femaleLimit'];
-     _startDate = DateTime.parse(_schedule['startDate']).toLocal();
-     _endDate = DateTime.parse(_schedule['endDate']).toLocal();
+     _startDate = DateTime.parse(_schedule['startDate']);
+     _endDate = DateTime.parse(_schedule['endDate']);
      if(_schedule['accountId'] != null){
        _fetchAccount(_schedule['accountId']);
      }

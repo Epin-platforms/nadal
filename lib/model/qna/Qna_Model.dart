@@ -1,3 +1,5 @@
+import 'package:my_sports_calendar/manager/form/widget/DateTime_Manager.dart';
+
 class QnaModel{
   final int qid;
   final String uid;
@@ -32,10 +34,10 @@ class QnaModel{
         uid: map['uid'],
         title: map['title'],
         question: map['question'],
-        createAt: DateTime.parse(map['createAt']).toLocal(),
+        createAt: DateTimeManager.parseUtcToLocalSafe(map['createAt']) ?? DateTime.now(),
         answerMid: map['answerMid'],
         answer: map['answer'],
-        answerAt: map['answerAt'] != null ? DateTime.parse(map['answerAt']).toLocal() : null,
+        answerAt: DateTimeManager.parseUtcToLocalSafe(map['answerAt']),
         isFaq: map['isFaq'] == 1,
         managerName: map['managerName'],
         managerProfileImage: map['managerProfileImage']

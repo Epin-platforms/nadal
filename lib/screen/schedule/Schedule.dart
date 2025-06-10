@@ -157,10 +157,13 @@ class _ScheduleState extends State<Schedule> {
           scheduleProvider: scheduleProvider,
         );
       default:
-        return ScheduleMain(
-          commentProvider: commentProvider,
-          provider: scheduleProvider,
-          userProvider: userProvider,
+        return RefreshIndicator(
+          onRefresh: _initializeSchedule,
+          child: ScheduleMain(
+            commentProvider: commentProvider,
+            provider: scheduleProvider,
+            userProvider: userProvider,
+          ),
         );
     }
   }

@@ -1,3 +1,5 @@
+import '../../manager/form/widget/DateTime_Manager.dart';
+
 class LeagueModel{
   final int leagueId;
   final String title;
@@ -26,7 +28,7 @@ class LeagueModel{
         title: map['title'],
         location: map['location'],
         local: map['local'],
-        date: DateTime.parse(map['date']).toLocal(),
+        date: DateTimeManager.parseUtcToLocalSafe(map['date']) ?? DateTime.now(),
         imageUrl: map['imageUrl'],
         link: map['link'],
         sports: map['sports']);

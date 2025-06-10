@@ -90,7 +90,12 @@ class ScheduleCreateProvider extends ChangeNotifier{
 
       if(_tag == "게임"){
         _useParticipation = true;
+      }else if(tags[index] == '공지' || tags[index] == '양도'){
+        if(_useParticipation){
+          _useParticipation = false;
+        }
       }
+
       notifyListeners();
     }
   }

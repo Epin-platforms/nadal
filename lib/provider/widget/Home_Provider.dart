@@ -97,6 +97,15 @@ class HomeProvider extends ChangeNotifier{
     }
   }
 
+  void checkExistRoom(int roomId){
+      if(AppRoute.context!.read<RoomsProvider>().quickRooms!.containsKey(roomId)){
+        final index = _myLocalQuickChatRooms!.indexWhere((e)=> e['roomId'] == roomId);
+        if(index != -1){
+          _myLocalQuickChatRooms!.removeAt(index);
+          notifyListeners();
+        }
+      }
+  }
 ///
 /// 둘러보기 페이지 보기
 ///

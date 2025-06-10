@@ -269,12 +269,17 @@ class ScheduleProvider extends ChangeNotifier {
   //번개챗 가입하기
   void registerQuickRoom() async{
     try{
+      final roomsProvider = AppRoute.context?.read<RoomsProvider>();
       AppRoute.pushLoading();
       final res = await serverManager.post('room/register/${_schedule!['roomId']}', data: {'enterCode' : ''}); //어차피 오픈채팅방은 엔터코드가없음
       AppRoute.popLoading();
 
       if(res.statusCode != 200 && res.statusCode != 201){ //만약 가입에 실패했다면
         AppRoute.context?.pushReplacement('/previewRoom/${_schedule!['roomId']}'); //가입하기 페이지로 다시이동
+      }else{ //가입이 완료되었다면 채팅방 업데이트
+        if(roomsProvider != null){
+          roomsProvider.updateRoom(_schedule!['roomId'], isOpenRoom: true);
+        }
       }
     }catch(error){
       AppRoute.popLoading();

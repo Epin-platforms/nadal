@@ -1,6 +1,6 @@
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:my_sports_calendar/manager/project/Import_Manager.dart';
 
 class TextFormManager{
   static String chatCreateAt(DateTime createAt){
@@ -61,12 +61,10 @@ class TextFormManager{
     return codeUnit >= 0xAC00 && codeUnit <= 0xD7A3;
   }
 
-
   //요일 반환
   static String returnWeek({required DateTime date}){
     return date.weekday == 1 ? '월' : date.weekday == 2 ? '화' : date.weekday == 3 ? '수' : date.weekday == 4 ? '목' : date.weekday == 5 ? '금' : date.weekday == 6 ? '토' : '일';
   }
-
 
   static String createFormToScheduleDate(DateTime date, bool isAllDay){
     final isAm = date.hour < 12;
@@ -76,7 +74,6 @@ class TextFormManager{
       return '${DateFormat('M월 d일').format(date)} (${returnWeek(date: date)})${isAllDay ? '' : '\n\n${isAm? '오전' : '오후'} ${DateFormat('h:mm').format(date)}'}';
     }
   }
-
 
   static String? stateToText(int? state){
     switch(state){
@@ -93,7 +90,7 @@ class TextFormManager{
     DateTime? date;
 
     if(item is String){
-      date = DateTime.parse(item).toLocal();
+      date = DateTimeManager.parseUtcToLocalSafe(item);
     }else{
       date = item;
     }
@@ -116,7 +113,6 @@ class TextFormManager{
     }
   }
 
-
   static String formatNumberWithCommas(int number) {
     String numStr = number.toString(); // 숫자를 문자열로 변환
     StringBuffer formatted = StringBuffer();
@@ -133,10 +129,9 @@ class TextFormManager{
     return formatted.toString().split('').reversed.join(); // 문자열 뒤집기
   }
 
-
   static String fromToDate(dynamic from, dynamic to, {bool isAllDay = false}){
-    DateTime fromDate = (from is String) ? DateTime.parse(from) : from;
-    DateTime toDate = (to is String) ? DateTime.parse(to) : to;
+    DateTime fromDate = (from is String) ? DateTimeManager.parseUtcToLocalSafe(from) : from;
+    DateTime toDate = (to is String) ? DateTimeManager.parseUtcToLocalSafe(to) : to;
 
     if(isAllDay){
       final String allDayForm = DateTime.now().year == fromDate.year ? 'M월 d일 (E)' : 'yyyy년 M월 d일 (E)';

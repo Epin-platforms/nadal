@@ -171,9 +171,9 @@ class UserProvider extends ChangeNotifier {
 
     try {
       final banType = _user?['banType'];
-      final startBlock = DateTime.tryParse(_user?['startBlock'] ?? '')?.toLocal();
-      final endBlock = DateTime.tryParse(_user?['endBlock'] ?? '')?.toLocal();
-      final lastLogin = DateTime.tryParse(response.data?['lastLogin'] ?? '')?.toLocal();
+      final startBlock = DateTime.tryParse(_user?['startBlock'] ?? '');
+      final endBlock = DateTime.tryParse(_user?['endBlock'] ?? '');
+      final lastLogin = DateTime.tryParse(response.data?['lastLogin'] ?? '');
 
       if (lastLogin != null && startBlock != null && endBlock != null) {
         final isBanActive = lastLogin.isAfter(startBlock);

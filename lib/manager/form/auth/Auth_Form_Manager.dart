@@ -4,7 +4,7 @@ class AuthFormManager{
     if(date == null){
       return '?년';
     }else{
-      final career = DateTime.parse(date).toLocal();
+      final career = DateTime.parse(date);
       final int year = DateTime.now().difference(career).inDays ~/ 365;
       return year == 0 ? '초보' : '$year년';
     }

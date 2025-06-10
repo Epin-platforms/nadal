@@ -550,7 +550,7 @@ class MediumAdWidget extends StatelessWidget {
           ),
           SizedBox(width: 4.w),
           Text(
-            '스폰서',
+            '광고',
             style: TextStyle(
               fontSize: 10.sp,
               color: Colors.orange[600],
@@ -678,7 +678,7 @@ class NativeListTileAdWidget extends StatelessWidget {
                 ),
                 SizedBox(width: 4.w),
                 Text(
-                  '스폰서',
+                  '광고',
                   style: TextStyle(
                     fontSize: 10.sp,
                     color: Colors.orange[600],

@@ -211,7 +211,7 @@ class RoomEdit extends StatelessWidget {
                       ),
                       Builder(
                         builder: (context) {
-                          final date = DateTime.parse(provider.originRoom['updateAt']).add(const Duration(days: 7));
+                          final date = DateTimeManager.parseUtcToLocal(provider.originRoom['updateAt']).add(const Duration(days: 7));
                           final firstEdit = provider.originRoom['updateAt'] == provider.originRoom['createAt'];
                           final bool active = firstEdit || date.isBefore(DateTime.now()); //첫 수정이거나, 데이트 타임이 일주일 지난 상태라면
 

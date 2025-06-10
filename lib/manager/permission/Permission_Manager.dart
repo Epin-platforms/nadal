@@ -43,7 +43,7 @@ class PermissionManager {
     if (hasRequested) return;
 
     // 현재 날짜 저장
-    await prefs.setString(_permissionRequestedDate, DateTime.now().toLocal().toIso8601String());
+    await prefs.setString(_permissionRequestedDate, DateTime.now().toIso8601String());
 
     // 플랫폼별 권한 리스트 결정
     final permissions = await _getPermissionsForDevice();

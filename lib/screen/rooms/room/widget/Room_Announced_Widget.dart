@@ -63,7 +63,7 @@ class _RoomAnnouncedWidgetState extends State<RoomAnnouncedWidget> {
                   children: [
                     Text(
                       DateFormat('yyyy년 MM월 dd일', 'ko_KR')
-                          .format(DateTime.parse(announce['createAt']).toLocal()),
+                          .format(DateTimeManager.parseUtcToLocal(announce['createAt'])),
                       style: theme.textTheme.labelMedium?.copyWith(color: theme.hintColor),
                     ),
                     if (showToggle)

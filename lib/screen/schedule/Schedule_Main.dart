@@ -197,34 +197,37 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
               // 방 이름 정보 (제목 바로 아래에 위치)
               if (post['roomName'] != null && post['roomName'].toString().isNotEmpty) ...[
                 SizedBox(height: 8.h),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(20.r),
-                    border: Border.all(
-                      color: theme.dividerColor.withValues(alpha: 0.3),
-                      width: 1,
+                InkWell(
+                  onTap: ()=> context.pushReplacement('/room/${post['roomId']}'),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(20.r),
+                      border: Border.all(
+                        color: theme.dividerColor.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.meeting_room_rounded,
-                        size: 16.r,
-                        color: theme.colorScheme.secondary.withValues(alpha: 0.8),
-                      ),
-                      SizedBox(width: 6.w),
-                      Text(
-                        '${post['roomName']} 방',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.w500,
-                          color: theme.colorScheme.secondary,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.meeting_room_rounded,
+                          size: 16.r,
+                          color: theme.colorScheme.secondary.withValues(alpha: 0.8),
                         ),
-                      ),
-                    ],
+                        SizedBox(width: 6.w),
+                        Text(
+                          '${post['roomName']} 방',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w500,
+                            color: theme.colorScheme.secondary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],

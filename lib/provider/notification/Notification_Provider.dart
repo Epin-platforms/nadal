@@ -40,6 +40,9 @@ class NotificationProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
+  // 읽음 처리 대기 중인 알림 ID들
+  final Set<int> _pendingReadNotifications = <int>{};
+
   NotificationProvider();
 
   Future<void> initialize() async {
@@ -77,6 +80,10 @@ class NotificationProvider extends ChangeNotifier {
       if (res.statusCode == 200) {
         final List<dynamic> newNotifications = List.from(res.data);
         _notifications = newNotifications.map((e) => NotificationModel.fromJson(json: e)).toList();
+
+        // 대기 중인 읽음 처리 실행
+        await _processPendingReadNotifications();
+
         notifyListeners();
       } else {
         print('알림 데이터 가져오기 실패: ${res.statusCode}');
@@ -86,6 +93,60 @@ class NotificationProvider extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  // 대기 중인 읽음 처리 실행
+  Future<void> _processPendingReadNotifications() async {
+    if (_pendingReadNotifications.isEmpty) return;
+
+    final pendingIds = List<int>.from(_pendingReadNotifications);
+    _pendingReadNotifications.clear();
+
+    for (final notificationId in pendingIds) {
+      try {
+        await _markNotificationAsReadSafely(notificationId);
+      } catch (e) {
+        print('대기 중인 알림 읽음 처리 오류 (ID: $notificationId): $e');
+      }
+    }
+  }
+
+  // 안전한 알림 읽음 처리 (서버 요청 없이 로컬에서만)
+  Future<void> _markNotificationAsReadSafely(int notificationId) async {
+    if (_notifications == null) return;
+
+    final notificationIndex = _notifications!.indexWhere((e) => e.notificationId == notificationId);
+    if (notificationIndex != -1 && !_notifications![notificationIndex].isRead) {
+      _notifications![notificationIndex].isRead = true;
+
+      // 서버에 읽음 처리 요청 (백그라운드에서)
+      _sendReadNotificationToServer(notificationId);
+    }
+  }
+
+  // 서버에 읽음 처리 요청 (에러 발생해도 UI에 영향 없음)
+  void _sendReadNotificationToServer(int notificationId) async {
+    try {
+      await serverManager.put(
+          'notification/read',
+          data: {'notificationId': notificationId}
+      );
+      print('알림 읽음 처리 서버 전송 완료: $notificationId');
+    } catch (e) {
+      print('알림 읽음 처리 서버 전송 실패: $e');
+      // 실패해도 UI에는 이미 읽음으로 표시되어 있음
+    }
+  }
+
+  // 푸시 알림으로 앱 진입 시 읽음 처리
+  Future<void> markNotificationAsReadFromPush(int notificationId) async {
+    if (_notifications != null) {
+      await _markNotificationAsReadSafely(notificationId);
+      notifyListeners();
+    } else {
+      // 아직 알림 목록이 로드되지 않았으면 대기 목록에 추가
+      _pendingReadNotifications.add(notificationId);
     }
   }
 
@@ -148,8 +209,7 @@ class NotificationProvider extends ChangeNotifier {
 
   Future<bool> readNotification(int notificationId) async {
     final notificationIndex = _notifications?.indexWhere((e) => e.notificationId == notificationId);
-    print(notificationId);
-    print(notificationIndex);
+
     if (notificationIndex == null || notificationIndex == -1) {
       return false;
     }
@@ -158,24 +218,32 @@ class NotificationProvider extends ChangeNotifier {
       return true;
     }
 
+    // 먼저 UI 업데이트
+    _notifications![notificationIndex].isRead = true;
+    notifyListeners();
+
+    // 그 다음 서버 요청
     try {
       final code = await serverManager.put(
           'notification/read',
           data: {'notificationId': notificationId}
       );
 
-      if (code.statusCode == 200) {
-        _notifications![notificationIndex].isRead = true;
+      if (code.statusCode != 200) {
+        // 서버 요청 실패 시 롤백
+        _notifications![notificationIndex].isRead = false;
         notifyListeners();
-        return true;
+        return false;
       }
-      return false;
+      return true;
     } catch (e) {
       print('알림 읽음 처리 오류: $e');
+      // 서버 요청 실패 시 롤백
+      _notifications![notificationIndex].isRead = false;
+      notifyListeners();
       return false;
     }
   }
-
 
   // FCM 관련 코드
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
@@ -217,6 +285,7 @@ class NotificationProvider extends ChangeNotifier {
                 'body': message.notification!.body,
                 'roomId': message.data['roomId'],
                 'scheduleId': message.data['scheduleId'],
+                'notificationId': message.data['notificationId'],
                 'badge': message.data['badge'] ?? '0',
                 'alarm': message.data['alarm'] ?? '1',
                 'type': message.data['type'] ?? 'default',
@@ -444,9 +513,18 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 백그라운드에서 알림 클릭 시 데이터 새로고침
+  // 백그라운드에서 알림 클릭 시 데이터 새로고침 및 읽음 처리
   void _handleNotificationTapWithRefresh(Map<String, dynamic> data) async {
     if (AppRoute.context != null) {
+      // 알림 읽음 처리 (notificationId가 있는 경우)
+      final notificationIdStr = data['notificationId'] as String?;
+      if (notificationIdStr != null) {
+        final notificationId = int.tryParse(notificationIdStr);
+        if (notificationId != null) {
+          await markNotificationAsReadFromPush(notificationId);
+        }
+      }
+
       if (data['routing'] != null) {
         try {
           final routing = data['routing'] as String;
@@ -529,9 +607,19 @@ class NotificationProvider extends ChangeNotifier {
   }
 }
 
-// 일반 알림 클릭 핸들러
+// 일반 알림 클릭 핸들러 (읽음 처리 추가)
 void _handleNotificationTap(Map<String, dynamic> data) {
   if (AppRoute.context != null) {
+    // 알림 읽음 처리
+    final notificationIdStr = data['notificationId'] as String?;
+    if (notificationIdStr != null) {
+      final notificationId = int.tryParse(notificationIdStr);
+      if (notificationId != null) {
+        final notificationProvider = AppRoute.context?.read<NotificationProvider>();
+        notificationProvider?.markNotificationAsReadFromPush(notificationId);
+      }
+    }
+
     if (data['routing'] != null) {
       try {
         final router = GoRouter.of(AppRoute.context!);

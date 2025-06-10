@@ -313,6 +313,18 @@ class _QuickChatMainState extends State<QuickChatMain> {
       );
     }
 
+    if(homeProvider.myLocalQuickChatRooms!.isEmpty){
+      return SliverToBoxAdapter(
+        child: SizedBox(
+          height: 300.h,
+          child: NadalEmptyList(title: '아직 주변에 번개방이 없어요', subtitle: '번개방을 만들고 친구들과 게임을 진행해보세요',
+            actionText: '방 만들기',
+            onAction: ()=> context.push('/createRoom?isOpen=TRUE')
+          ),
+        ),
+      ); 
+    }
+
     return SliverList.builder(
       itemCount: _calculateTotalItemCount(homeProvider.myLocalQuickChatRooms!.length),
       itemBuilder: (context, index) {

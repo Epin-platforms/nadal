@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:my_sports_calendar/manager/form/widget/DateTime_Manager.dart';
+
 enum ChatType{
   text, image, schedule, removed
 }
@@ -63,6 +65,7 @@ class Chat{
 
 
   factory Chat.fromJson({required Map<String,dynamic> json}){
+    print(json['createAt']);
     final type = intToChatType(json['type']);
     final uid = json['uid'] ?? '-1';
     return Chat(
@@ -73,11 +76,11 @@ class Chat{
         contents: json['contents'],
         images: json['images'] == null ? null : List<String>.from(jsonDecode(json['images'])),
         scheduleId: json['scheduleId'],
-        createAt: DateTime.parse(json['createAt']),
-        updateAt: DateTime.parse(json['updateAt']),
+        createAt: DateTimeManager.parseUtcToLocalSafe(json['createAt']) ?? DateTime.now(),
+        updateAt: DateTimeManager.parseUtcToLocalSafe(json['updateAt']) ?? DateTime.now(),
         title: json['title'],
-        startDate: DateTime.tryParse(json['startDate'] ?? ''),
-        endDate: DateTime.tryParse(json['endDate'] ?? ''),
+        startDate: DateTimeManager.parseUtcToLocalSafe(json['startDate']),
+        endDate: DateTimeManager.parseUtcToLocalSafe(json['endDate']),
         tag: json['tag'],
         name: uid == -1 ? '(알수없음)' : json['name'] ,//이름이 없다면 탈퇴한 사용자
         gender: uid == -1 ? '?' : json['gender'],

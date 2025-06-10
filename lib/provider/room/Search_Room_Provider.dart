@@ -24,14 +24,12 @@ class SearchRoomProvider extends ChangeNotifier{
   final _recentlySearchKey = "epin.nadal.rooms_search_key";
 
   List<String> get recentlySearch => _recentlySearch;
-  List<Map> get recommendRooms => _recommendRooms;
 
   Map<String, List<Map>> get searchResults => _searchResults;
   List<Map> get resultRooms => searchResults[_lastSearch] ?? [];
   List<String> get autoTextSearch => _autoTextSearch;
 
   List<String> _recentlySearch  = [];
-  List<Map> _recommendRooms = []; //추천
   Map<String, List<Map>> _searchResults = {};
   List<String> _autoTextSearch = [];
 
@@ -41,7 +39,6 @@ class SearchRoomProvider extends ChangeNotifier{
   SearchRoomProvider(Map user, bool isOpen){
     _isOpen = isOpen;
     _getRecentlySearch();
-    fetchRecommendRoom(user);
     _searchController = TextEditingController();
     _searchNode = FocusNode();
 
@@ -50,19 +47,9 @@ class SearchRoomProvider extends ChangeNotifier{
     _searchNode.addListener(_modeLister);
   }
 
-  Future<void> fetchRecommendRoom(Map user) async{
-    int queryToInt = _isOpen ? 1 : 0;
-    final res = await serverManager.get('room/recommend?local=${user['local']}&isOpen=$queryToInt');
-
-    if(res.statusCode == 200){
-      _recommendRooms = List.from(res.data);
-      notifyListeners();
-    }
-  }
-
 
   //최근 검색 목록 가져오기 //최초 프로바이더 만들때만 가져오기
-  _getRecentlySearch() async{
+  Future<void> _getRecentlySearch() async{
     prefs = await SharedPreferences.getInstance();
 
     if(prefs.containsKey(_recentlySearchKey)){
@@ -84,11 +71,11 @@ class SearchRoomProvider extends ChangeNotifier{
   }
 
   //최근 검색목록 저장
-  _updateRecentlySearch(){
+  void _updateRecentlySearch(){
     prefs.setStringList(_recentlySearchKey, _recentlySearch);
   }
 
-  _addRecentlySearch(String value){
+  void _addRecentlySearch(String value){
     if(_recentlySearch.contains(value)){ //가장 최근으로 업데이트
       _recentlySearch.remove(value);
       _recentlySearch.add(value);
@@ -99,7 +86,7 @@ class SearchRoomProvider extends ChangeNotifier{
   }
 
   //사용자가 없에는 코드
-  removeRecentlySearch(int index){
+  void removeRecentlySearch(int index){
     _recentlySearch.removeAt(index);
     notifyListeners();
   }
@@ -110,7 +97,7 @@ class SearchRoomProvider extends ChangeNotifier{
   FocusNode get searchNode => _searchNode;
 
 
-  _modeLister(){
+  void _modeLister(){
     if (_searchController.text.isEmpty && resultRooms.isEmpty) {
       print("모드가 최근검색으로 변경됨");
       onChangedMode(SearchMode.recently);

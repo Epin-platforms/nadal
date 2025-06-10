@@ -32,6 +32,33 @@ class _NotificationItemState extends State<NotificationItem> {
     }
   }
 
+  // 안전한 읽음 처리 및 라우팅
+  Future<void> _handleNotificationTap() async {
+    try {
+      // 읽지 않은 알림인 경우 읽음 처리
+      if (!widget.notification.isRead) {
+        await widget.provider.readNotification(widget.notification.notificationId);
+      }
+
+      // 라우팅 처리
+      if (widget.notification.routing != null) {
+        final routing = widget.notification.routing!;
+        final form = !routing.startsWith('/') ? '/$routing' : routing;
+
+        if (mounted) {
+          context.push(form);
+        }
+      }
+    } catch (e) {
+      print('알림 탭 처리 오류: $e');
+      // 에러가 발생해도 라우팅은 시도
+      if (widget.notification.routing != null && mounted) {
+        final routing = widget.notification.routing!;
+        final form = !routing.startsWith('/') ? '/$routing' : routing;
+        context.push(form);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,23 +79,22 @@ class _NotificationItemState extends State<NotificationItem> {
         ? colorScheme.primary.withValues(alpha: 0.7)
         : colorScheme.primary;
 
-
     return ListTile(
-      onTap: (){
-        if(!widget.notification.isRead){
-          widget.provider.readNotification(widget.notification.notificationId);
-        }
-
-        if(widget.notification.routing != null){
-          final form = !widget.notification.routing!.startsWith('/') ? '/${widget.notification.routing}' : widget.notification.routing!;
-          context.push(form);
-        }
-      },
+      onTap: _handleNotificationTap,
       tileColor: backgroundColor,
       leading: Icon(iconData, color: iconColor,),
-      title: Text(widget.notification.title ?? '새로운 소식이 도착했어요', style: theme.textTheme.labelLarge,),
-      subtitle: Text(widget.notification.subTitle ?? '지금 확인해볼까요?', style: theme.textTheme.labelMedium,),
-      trailing: Text(timeStr, style: theme.textTheme.labelSmall,),
+      title: Text(
+        widget.notification.title ?? '새로운 소식이 도착했어요',
+        style: theme.textTheme.labelLarge,
+      ),
+      subtitle: Text(
+        widget.notification.subTitle ?? '지금 확인해볼까요?',
+        style: theme.textTheme.labelMedium,
+      ),
+      trailing: Text(
+        timeStr,
+        style: theme.textTheme.labelSmall,
+      ),
     );
   }
 }

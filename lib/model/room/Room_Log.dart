@@ -1,3 +1,5 @@
+import '../../manager/form/widget/DateTime_Manager.dart';
+
 class RoomLog{
   int logId;
   int roomId;
@@ -23,7 +25,7 @@ class RoomLog{
         uid: json['uid'],
         name : json['displayName'],
         action: json['action'],
-        createAt: DateTime.parse(json['createAt']).toLocal()
+        createAt: DateTimeManager.parseUtcToLocalSafe(json['createAt']) ?? DateTime.now()
     );
   }
 }

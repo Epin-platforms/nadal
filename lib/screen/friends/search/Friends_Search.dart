@@ -92,15 +92,7 @@ class _FriendsSearchState extends State<FriendsSearch> {
                               subtitle: '친구를 초대해 함께 경기를 진행해보세요',
                               actionText: '친구 초대',
                               onAction: (){
-                                showModalBottomSheet(context: context, builder: (context){
-                                  return ShareBottomSheet(shareParameter: ShareParameter(
-                                      title: '친구가 나달에서 애타게 기다리고있어요',
-                                      link: null,
-                                      imageUrl: null,
-                                      subTitle: '지금 같이 나달에서 경기해요',
-                                      routing: '')
-                                  );
-                                });
+                                shareApp(context, FirebaseAuth.instance.currentUser!.uid);
                               },
                             ),
                           )

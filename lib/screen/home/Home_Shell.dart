@@ -23,6 +23,7 @@ class _HomeShellState extends State<HomeShell> {
   // 딥링크 처리 상태 관리
   bool _isInitialized = false;
   String? _pendingRoute;
+  int? _pendingNotificationId;
 
   @override
   void initState() {
@@ -96,12 +97,16 @@ class _HomeShellState extends State<HomeShell> {
 
   void _checkPush() {
     try {
-      final nav = GoRouter.of(context);
       FirebaseMessaging.instance.getInitialMessage().then((msg) {
         if (msg != null && msg.data['routing'] != null) {
           print('푸시 메시지 라우팅: ${msg.data['routing']}');
+
+          // 알림 ID 추출
+          final notificationIdStr = msg.data['notificationId'] as String?;
+          final notificationId = notificationIdStr != null ? int.tryParse(notificationIdStr) : null;
+
           Future.microtask(() {
-            _navigateToRoute(msg.data['routing']!);
+            _navigateToRouteWithNotification(msg.data['routing']!, notificationId);
           });
         }
       });
@@ -147,6 +152,7 @@ class _HomeShellState extends State<HomeShell> {
 
       final params = uri.queryParameters;
       final routing = params['routing'];
+      final notificationIdStr = params['notificationId'];
 
       if (routing == null || routing.isEmpty) {
         print('라우팅 정보가 없습니다');
@@ -155,27 +161,47 @@ class _HomeShellState extends State<HomeShell> {
 
       print('추출된 라우팅: $routing');
 
+      final notificationId = notificationIdStr != null ? int.tryParse(notificationIdStr) : null;
+      if (notificationId != null) {
+        print('추출된 알림 ID: $notificationId');
+      }
+
       // 앱이 초기화되지 않았으면 대기
       if (!_isInitialized) {
         print('앱 초기화 대기 중, 라우팅 보류: $routing');
         _pendingRoute = routing;
+        _pendingNotificationId = notificationId;
         return;
       }
 
       // 즉시 라우팅 실행
-      await _navigateToRoute(routing);
+      await _navigateToRouteWithNotification(routing, notificationId);
 
     } catch (e) {
       print('딥링크 처리 오류: $e');
     }
   }
 
-  // 안전한 라우팅 처리
-  Future<void> _navigateToRoute(String routing) async {
+  // 알림 읽음 처리를 포함한 안전한 라우팅 처리
+  Future<void> _navigateToRouteWithNotification(String routing, int? notificationId) async {
     try {
       if (!mounted) return;
 
       print('라우팅 실행 시작: $routing');
+      if (notificationId != null) {
+        print('알림 읽음 처리 시작: $notificationId');
+      }
+
+      // 알림 읽음 처리 (라우팅 전에 실행)
+      if (notificationId != null) {
+        try {
+          await notificationProvider.markNotificationAsReadFromPush(notificationId);
+          print('알림 읽음 처리 완료: $notificationId');
+        } catch (e) {
+          print('알림 읽음 처리 오류: $e');
+          // 읽음 처리 실패해도 라우팅은 계속 진행
+        }
+      }
 
       // 홈으로 이동 후 잠시 대기
       context.go('/my');
@@ -199,15 +225,23 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
+  // 기존 라우팅 처리 (호환성 유지)
+  Future<void> _navigateToRoute(String routing) async {
+    await _navigateToRouteWithNotification(routing, null);
+  }
+
   // 대기 중인 라우팅 처리
   void _processPendingRoute() {
     if (_pendingRoute != null && _isInitialized) {
       print('대기 중인 라우팅 처리: $_pendingRoute');
       final route = _pendingRoute!;
+      final notificationId = _pendingNotificationId;
+
       _pendingRoute = null;
+      _pendingNotificationId = null;
 
       Future.microtask(() async {
-        await _navigateToRoute(route);
+        await _navigateToRouteWithNotification(route, notificationId);
       });
     }
   }
@@ -216,6 +250,7 @@ class _HomeShellState extends State<HomeShell> {
   void dispose() {
     // 리소스 정리
     _pendingRoute = null;
+    _pendingNotificationId = null;
     super.dispose();
   }
 

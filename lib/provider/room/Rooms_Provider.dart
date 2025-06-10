@@ -46,14 +46,14 @@ class RoomsProvider extends ChangeNotifier{
   //
   // room 관련 기능들
   //
-  Future<bool?> updateRoom(int roomId) async{
+  Future<bool?> updateRoom(int roomId, {bool isOpenRoom = false}) async{
     bool isOpen = false;
     try {
       if (_rooms == null) {
         await roomInitialize();
         return null;
       }
-      final updateAt = _rooms?[roomId]?['updateAt'];
+      final updateAt = isOpenRoom ? _quickRooms?[roomId]?['updateAt'] : _rooms?[roomId]?['updateAt'];
       final res = await serverManager.get('room/reGet/$roomId?updateAt=$updateAt');
 
       if(res.statusCode == 200 && res.data != null){
@@ -63,7 +63,6 @@ class RoomsProvider extends ChangeNotifier{
 
         if (updatedRoomId != null) {
           isOpen = roomData['isOpen'] == 1;
-          print('방데이터 오픈채팅인가요? - ${roomData['isOpen']}');
           if(isOpen){
             _quickRooms![updatedRoomId] = roomData;
           }else{

@@ -86,7 +86,15 @@ class _GameState4State extends State<GameState4> {
               scheduleProvider: widget.scheduleProvider,
             ),
           ],
-
+          if(!isParticipant)...[
+            SizedBox(
+              height: 300,
+              child: NadalEmptyList(
+                  title: '요약할 게임이 없어요...',
+                  subtitle: '참여한 게임만 결과를 볼 수 있어요'
+              ),
+            )
+          ],
           // KDK 게임인 경우 대진표 결과 표시
           if (widget.scheduleProvider.gameType == GameType.kdkSingle ||
               widget.scheduleProvider.gameType == GameType.kdkDouble)

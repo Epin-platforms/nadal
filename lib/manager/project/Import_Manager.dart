@@ -61,7 +61,7 @@ export 'package:my_sports_calendar/manager/picker/Picker_Manager.dart';
 export 'package:my_sports_calendar/manager/form/auth/Auth_Form_Manager.dart';
 export 'package:my_sports_calendar/manager/form/widget/Text_Form_Manager.dart';
 export '../../manager/dialog/SnackBar_Manager.dart';
-
+export 'package:my_sports_calendar/manager/form/widget/DateTime_Manager.dart';
 
 //모델
 export 'package:my_sports_calendar/model/chat/Chat.dart';

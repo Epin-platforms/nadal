@@ -261,7 +261,8 @@ class _ParticipationSoloState extends State<ParticipationSolo> {
                   final res = await widget.provider.participateSchedule();
                   if(res == 'complete'){
                     await widget.provider.updateMembers();
-                    userProvider.fetchMySchedules(DateTime.parse(widget.provider.schedule!['startDate']), force: true);
+                    userProvider.fetchMySchedules(
+                        DateTimeManager.parseUtcToLocal(widget.provider.schedule!['startDate']), force: true);
                   }
                 }
               },

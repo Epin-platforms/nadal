@@ -16,7 +16,7 @@ class ScheduleCreate extends StatefulWidget {
 class _ScheduleCreateState extends State<ScheduleCreate> {
   late ScheduleCreateProvider provider;
 
-  _upTagSheet() async{
+  Future<void> _upTagSheet() async{
     if(provider.roomId != null){
       showCupertinoModalPopup(context: context, builder: (context){
         return NadalSheet(
@@ -297,7 +297,7 @@ class _ScheduleCreateState extends State<ScheduleCreate> {
                                     child: NadalTextField(controller: provider.addressDetailController, label: '장소 상세', maxLength: 30, ),
                                   ),
 
-                                if(provider.roomId != null)...
+                                if(provider.roomId != null && provider.tag != '공지' && provider.tag != '양도')...
                                     [
                                       SizedBox(height: 16.h,),
                                       Row(

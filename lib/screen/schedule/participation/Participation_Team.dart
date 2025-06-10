@@ -23,7 +23,7 @@ class _ParticipationTeamState extends State<ParticipationTeam> {
 
       if (res == 'complete') {
         await widget.provider.updateMembers();
-        userProvider.fetchMySchedules(DateTime.parse(widget.provider.schedule!['startDate']).toLocal(), force: true);
+        userProvider.fetchMySchedules(DateTimeManager.parseUtcToLocal(widget.provider.schedule!['startDate']), force: true);
       }else if(res == 'exist'){
         DialogManager.showBasicDialog(
           title: '앗, 이미 참가 중인 멤버에요!',

@@ -1,7 +1,8 @@
 import '../../../manager/project/Import_Manager.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-class ScheduleStepSelector extends StatefulWidget {
+class ScheduleStepSelector extends StatelessWidget {
   final int currentStep;
   final int viewStep;
   final int totalSteps;
@@ -17,56 +18,19 @@ class ScheduleStepSelector extends StatefulWidget {
     required this.viewStep,
   });
 
-  @override
-  State<ScheduleStepSelector> createState() => _ScheduleStepSelectorState();
-}
-
-class _ScheduleStepSelectorState extends State<ScheduleStepSelector> with SingleTickerProviderStateMixin {
-  // 애니메이션 컨트롤러 추가
-  late AnimationController _animationController;
-  late Animation<double> _progressAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
-
-    _updateProgressAnimation();
+  double _calculateProgressWidth(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final stepWidth = (screenWidth - 32.w) / (totalSteps - 1);
+    return stepWidth * viewStep.clamp(0, totalSteps - 1);
   }
 
-  @override
-  void didUpdateWidget(ScheduleStepSelector oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.viewStep != widget.viewStep || oldWidget.currentStep != widget.currentStep) {
-      _updateProgressAnimation();
-    }
+  bool _isStepCompleted(int index) {
+    // 마지막 단계까지 포함하여 완료 상태 확인
+    return index < viewStep || (index == viewStep && viewStep == totalSteps - 1);
   }
 
-  void _updateProgressAnimation() {
-    // 프로그레스 애니메이션 업데이트
-    final double beginValue = widget.viewStep > 0 ?
-    ((widget.viewStep - 1) / (widget.totalSteps - 1)) : 0.0;
-    final double endValue = widget.viewStep / (widget.totalSteps - 1);
-
-    _progressAnimation = Tween<double>(
-      begin: beginValue,
-      end: endValue,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      // 더 부드러운 커브 사용
-      curve: Curves.easeOutQuart,
-    ));
-
-    _animationController.forward(from: 0.0);
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
+  bool _isCurrentStep(int index) {
+    return index == currentStep;
   }
 
   @override
@@ -77,194 +41,170 @@ class _ScheduleStepSelectorState extends State<ScheduleStepSelector> with Single
     final backgroundColor = theme.scaffoldBackgroundColor;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-      child: AnimatedBuilder(
-        animation: _animationController,
-        builder: (context, child) {
-          // 총 스텝 간격 계산
-          final stepWidth = (MediaQuery.of(context).size.width - 32) / (widget.totalSteps - 1);
-          // 현재 위치까지의 너비 계산
-          final progressWidth = stepWidth * _progressAnimation.value * (widget.totalSteps - 1);
+      padding: EdgeInsets.symmetric(vertical: 24.h, horizontal: 16.w),
+      child: Stack(
+        alignment: Alignment.topCenter,
+        children: [
+          // 배경 줄
+          Container(
+            height: 4.h,
+            margin: EdgeInsets.only(top: 15.h),
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: lineColor.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(2.r),
+            ),
+          ),
 
-          return Stack(
-            alignment: Alignment.topCenter,
-            children: [
-              // 배경 줄
-              Container(
-                height: 4,
-                margin: const EdgeInsets.only(top: 15),
-                width: double.infinity,
+          // 진행 상태 표시 줄
+          if (viewStep > 0)
+            Positioned(
+              left: 0,
+              top: 15.h,
+              child: Container(
+                height: 4.h,
+                width: _calculateProgressWidth(context),
                 decoration: BoxDecoration(
-                  color: lineColor.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(2),
+                  color: color,
+                  borderRadius: BorderRadius.circular(2.r),
                 ),
               ),
+            ),
 
-              // 진행 애니메이션 줄 - 메인 프로그레스 바
-              if (widget.viewStep > 0)
-                Positioned(
-                  left: 0,
-                  top: 15,
-                  child: Container(
-                    height: 4,
-                    width: progressWidth,
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: BorderRadius.circular(2),
-                      gradient: LinearGradient(
-                        colors: [
-                          color,
-                          color.withValues(alpha: 0.8),
-                        ],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: color.withValues(alpha: 0.4),
-                          blurRadius: 6,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+          // 단계 표시기
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(totalSteps, (index) {
+              final isCompleted = _isStepCompleted(index);
+              final isCurrent = _isCurrentStep(index);
 
-              // 진행 애니메이션 끝 효과 (발광 효과)
-              if (widget.viewStep > 0)
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 800),
-                  curve: Curves.easeOutQuart,
-                  left: progressWidth - 6,
-                  top: 12,
-                  child: Container(
-                    height: 10,
-                    width: 10,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: color.withValues(alpha: 0.7),
-                          blurRadius: 10,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-              // 단계 표시기
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(widget.totalSteps, (index) {
-                  final isCompleted = index < widget.viewStep;
-                  final isCurrent = index == widget.currentStep;
-
-                  return IntrinsicWidth(
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          color: backgroundColor,
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () => widget.onStepTap(index),
-                              borderRadius: BorderRadius.circular(10),
-                              splashColor: color.withValues(alpha: 0.3),
-                              highlightColor: color.withValues(alpha: 0.1),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 400),
-                                curve: Curves.easeOutQuart,
-                                width: isCurrent ? 36 : 30,
-                                height: isCurrent ? 36 : 30,
-                                decoration: BoxDecoration(
-                                  color: isCompleted
-                                      ? color
-                                      : isCurrent
-                                      ? color.withValues(alpha: 0.15)
-                                      : lineColor.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: isCompleted || isCurrent ? color : lineColor.withValues(alpha: 0.5),
-                                    width: isCurrent ? 2.5 : 1.5,
-                                  ),
-                                  boxShadow: isCurrent ? [
-                                    BoxShadow(
-                                      color: color.withValues(alpha: 0.3),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 3),
-                                    ),
-                                  ] : null,
+              return IntrinsicWidth(
+                child: Column(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8.w),
+                      color: backgroundColor,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => onStepTap(index),
+                          borderRadius: BorderRadius.circular(10.r),
+                          splashColor: color.withValues(alpha: 0.3),
+                          highlightColor: color.withValues(alpha: 0.1),
+                          child: Container(
+                            width: isCurrent ? 36.w : 30.w,
+                            height: isCurrent ? 36.h : 30.h,
+                            decoration: BoxDecoration(
+                              color: isCompleted
+                                  ? color
+                                  : isCurrent
+                                  ? color.withValues(alpha: 0.15)
+                                  : lineColor.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10.r),
+                              border: Border.all(
+                                color: isCompleted || isCurrent
+                                    ? color
+                                    : lineColor.withValues(alpha: 0.5),
+                                width: isCurrent ? 2.5.w : 1.5.w,
+                              ),
+                              boxShadow: isCurrent ? [
+                                BoxShadow(
+                                  color: color.withValues(alpha: 0.3),
+                                  blurRadius: 8.r,
+                                  offset: Offset(0, 3.h),
                                 ),
-                                child: Center(
-                                  child: AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 400),
-                                    transitionBuilder: (child, animation) {
-                                      return ScaleTransition(
-                                        scale: animation,
-                                        child: FadeTransition(
-                                          opacity: animation,
-                                          child: child,
-                                        ),
-                                      );
-                                    },
-                                    child: Icon(
-                                      isCompleted
-                                          ? Icons.check_rounded
-                                          : isCurrent
-                                          ? Icons.radio_button_checked_rounded
-                                          : Icons.radio_button_unchecked_rounded,
-                                      key: ValueKey('step_icon_$index${isCompleted ? '_completed' : isCurrent ? '_current' : ''}'),
-                                      size: isCurrent ? 20 : 16,
-                                      color: isCompleted
-                                          ? Colors.white
-                                          : isCurrent
-                                          ? color
-                                          : lineColor.withValues(alpha: 0.7),
-                                    ),
-                                  ),
+                              ] : null,
+                            ),
+                            child: Center(
+                              child: Icon(
+                                _getStepIcon(index, isCompleted, isCurrent),
+                                size: isCurrent ? 20.sp : 16.sp,
+                                color: _getStepIconColor(
+                                    isCompleted,
+                                    isCurrent,
+                                    color,
+                                    lineColor
                                 ),
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        TweenAnimationBuilder<double>(
-                          tween: Tween<double>(
-                            begin: 0.8,
-                            end: isCurrent ? 1.0 : 0.9,
-                          ),
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeOutCubic,
-                          builder: (context, value, child) {
-                            return Transform.scale(
-                              scale: value,
-                              child: child,
-                            );
-                          },
-                          child: Text(
-                            widget.stepTitles[index],
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: isCurrent ? color : isCompleted ? theme.textTheme.bodyMedium?.color : theme.hintColor,
-                              fontWeight: isCurrent ? FontWeight.bold : isCompleted ? FontWeight.w500 : FontWeight.normal,
-                              fontSize: isCurrent ? 14 : 13,
-                              letterSpacing: isCurrent ? 0.2 : 0,
-                              height: 1.2,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  );
-                }),
-              ),
-            ],
-          );
-        },
+                    SizedBox(height: 8.h),
+                    Text(
+                      stepTitles[index],
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: _getStepTextColor(
+                            isCompleted,
+                            isCurrent,
+                            color,
+                            theme
+                        ),
+                        fontWeight: _getStepTextWeight(isCompleted, isCurrent),
+                        fontSize: isCurrent ? 14.sp : 13.sp,
+                        letterSpacing: isCurrent ? 0.2 : 0,
+                        height: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ),
+        ],
       ),
     );
+  }
+
+  IconData _getStepIcon(int index, bool isCompleted, bool isCurrent) {
+    if (isCompleted) {
+      return Icons.check_rounded;
+    } else if (isCurrent) {
+      return Icons.radio_button_checked_rounded;
+    } else {
+      return Icons.radio_button_unchecked_rounded;
+    }
+  }
+
+  Color _getStepIconColor(
+      bool isCompleted,
+      bool isCurrent,
+      Color primaryColor,
+      Color lineColor
+      ) {
+    if (isCompleted) {
+      return Colors.white;
+    } else if (isCurrent) {
+      return primaryColor;
+    } else {
+      return lineColor.withValues(alpha: 0.7);
+    }
+  }
+
+  Color _getStepTextColor(
+      bool isCompleted,
+      bool isCurrent,
+      Color primaryColor,
+      ThemeData theme
+      ) {
+    if (isCurrent) {
+      return primaryColor;
+    } else if (isCompleted) {
+      return theme.textTheme.bodyMedium?.color ?? Colors.black;
+    } else {
+      return theme.hintColor;
+    }
+  }
+
+  FontWeight _getStepTextWeight(bool isCompleted, bool isCurrent) {
+    if (isCurrent) {
+      return FontWeight.bold;
+    } else if (isCompleted) {
+      return FontWeight.w500;
+    } else {
+      return FontWeight.normal;
+    }
   }
 }

@@ -117,7 +117,7 @@ class _RoomDrawerState extends State<RoomDrawer> {
                         child: Text(provider.room?['roomName'] ?? '알수없는 채팅방', style: theme.textTheme.titleLarge,)),
                     SizedBox(height: 4.h,),
                     Text('${room['local']} ${room['city']}', style: theme.textTheme.labelMedium,),
-                    Text(DateFormat('yyyy.MM.dd').format(DateTime.parse(room['createAt']).toLocal()), style: theme.textTheme.labelSmall,),
+                    Text(DateFormat('yyyy.MM.dd').format(DateTimeManager.parseUtcToLocal(room['createAt'])), style: theme.textTheme.labelSmall,),
                     SizedBox(height: 24.h,),
                     //방소개 탭
                     Container(

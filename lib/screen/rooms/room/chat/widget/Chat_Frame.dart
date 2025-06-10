@@ -88,7 +88,7 @@ class _ChatFrameState extends State<ChatFrame> {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now().toLocal();
+    final now = DateTime.now();
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -196,7 +196,7 @@ class _ChatFrameState extends State<ChatFrame> {
     return Container(
       margin: EdgeInsets.only(right: 6.w, bottom: 4.h, left: 6.w),
       child: Text(
-        TextFormManager.chatCreateAt(widget.chat.createAt.toLocal()),
+        TextFormManager.chatCreateAt(widget.chat.createAt),
         style: theme.textTheme.labelSmall?.copyWith(
           fontSize: 10.sp,
           color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
