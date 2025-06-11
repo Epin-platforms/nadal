@@ -305,9 +305,69 @@ class ChatProvider extends ChangeNotifier{
     }
   }
 
-  // 기존 메서드 (호환성 유지)
+  // 🔧 개선된 메서드: updateMyLastReadInServer
   Future<void> updateMyLastReadInServer(int roomId) async {
-    await _updateMyLastReadInServerImmediate(roomId);
+    try {
+      print('🔄 updateMyLastReadInServer 시작 (roomId: $roomId)');
+
+      final chats = _chat[roomId];
+      if (chats == null || chats.isEmpty) {
+        print('⚠️ 채팅이 없어서 lastRead 업데이트를 건너뜁니다');
+        return;
+      }
+
+      final lastChat = chats.lastOrNull;
+      if (lastChat?.chatId == null) {
+        print('⚠️ 마지막 채팅이 null입니다');
+        return;
+      }
+
+      final lastReadId = lastChat!.chatId;
+
+      // 현재 lastRead와 비교하여 필요한 경우에만 업데이트
+      final currentLastRead = _lastReadChatId[roomId];
+      if (currentLastRead != null && currentLastRead >= lastReadId) {
+        print('⚠️ 이미 최신 상태입니다 (current: $currentLastRead, new: $lastReadId)');
+        return;
+      }
+
+      // 로컬 상태 업데이트
+      final myData = _my[roomId];
+      if (myData != null) {
+        myData['lastRead'] = lastReadId;
+        myData['unreadCount'] = 0;
+        _lastReadChatId[roomId] = lastReadId;
+      }
+
+      _updateBadgeImmediately();
+      notifyListeners();
+
+      // 서버 업데이트
+      await _sendLastReadToServerSync(roomId, lastReadId);
+
+      print('✅ updateMyLastReadInServer 완료');
+    } catch (e) {
+      print('❌ updateMyLastReadInServer 오류: $e');
+    }
+  }
+
+  // 🔧 새로운 메서드: 동기 서버 업데이트
+  Future<void> _sendLastReadToServerSync(int roomId, int lastReadId) async {
+    try {
+      print('📡 서버에 lastRead 업데이트 전송: roomId=$roomId, lastReadId=$lastReadId');
+
+      final response = await serverManager.put(
+          'roomMember/lastread/$roomId?lastRead=$lastReadId'
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('✅ 서버 lastRead 업데이트 성공');
+      } else {
+        print('⚠️ 서버 lastRead 업데이트 실패: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ 서버 lastRead 업데이트 오류: $e');
+    }
   }
 
   // 즉시 배지 업데이트
@@ -575,26 +635,40 @@ class ChatProvider extends ChangeNotifier{
     }
   }
 
+  // 🔧 핵심 수정: enterRoomUpdateLastRead 개선
   Future<void> enterRoomUpdateLastRead(int roomId) async {
     try {
+      print('🔄 enterRoomUpdateLastRead 시작 (roomId: $roomId)');
+
       final myData = _my[roomId];
-      if (myData == null) return;
+      if (myData == null) {
+        print('❌ myData가 null입니다');
+        return;
+      }
 
       final chats = _chat[roomId];
       final latestChatId = (chats != null && chats.isNotEmpty)
           ? chats.last.chatId
           : 0;
 
+      print('📝 현재 lastRead: ${myData['lastRead']}, 최신 chatId: $latestChatId');
+
+      // 로컬 상태 업데이트
       myData['lastRead'] = latestChatId;
       myData['unreadCount'] = 0;
       _lastReadChatId[roomId] = latestChatId;
 
-      // 배지 즉시 업데이트
       _updateBadgeImmediately();
-
       notifyListeners();
+
+      // 🔧 핵심 수정: 서버 업데이트를 분리하여 실행
+      if (latestChatId > 0) {
+        await _sendLastReadToServerSync(roomId, latestChatId);
+      }
+
+      print('✅ enterRoomUpdateLastRead 완료');
     } catch (e) {
-      print('방 입장 시 읽음 상태 업데이트 오류: $e');
+      print('❌ 방 입장 시 읽음 상태 업데이트 오류: $e');
     }
   }
 

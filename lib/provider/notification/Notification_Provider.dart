@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:my_sports_calendar/manager/project/Import_Manager.dart';
 import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
 import 'package:my_sports_calendar/model/app/Notifications_Model.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:app_badge_plus/app_badge_plus.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 const String _channelId = 'epin.nadal.chat.channel';
 const String _channelName = 'Nadal_Chat_ver1.0.0';
@@ -18,15 +20,57 @@ FlutterLocalNotificationsPlugin();
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print('백그라운드 메시지 수신: ${message.messageId}');
 
-  // 안드로이드 배지 업데이트 (백그라운드에서도)
+  // 백그라운드에서 배지 업데이트
   if (message.data['badge'] != null) {
     final badgeCount = int.tryParse(message.data['badge']) ?? 0;
     try {
       await AppBadgePlus.updateBadge(badgeCount);
+      print('백그라운드 배지 업데이트: $badgeCount');
     } catch (e) {
       print('백그라운드 배지 업데이트 오류: $e');
     }
   }
+
+  // 백그라운드에서도 로컬 알림 표시 (iOS 중요)
+  try {
+    await _showBackgroundLocalNotification(message.data);
+  } catch (e) {
+    print('백그라운드 로컬 알림 오류: $e');
+  }
+}
+
+// 백그라운드용 로컬 알림 표시 함수
+Future<void> _showBackgroundLocalNotification(Map<String, dynamic> data) async {
+  const androidDetails = AndroidNotificationDetails(
+    _channelId,
+    _channelName,
+    channelDescription: _channelDesc,
+    importance: Importance.high,
+    priority: Priority.high,
+    icon: _androidNotiIcon,
+  );
+
+  const iosDetails = DarwinNotificationDetails(
+    presentAlert: true,
+    presentBadge: true,
+    presentSound: true,
+    interruptionLevel: InterruptionLevel.active,
+    categoryIdentifier: 'nadal_notification',
+  );
+
+  const notificationDetails = NotificationDetails(
+    android: androidDetails,
+    iOS: iosDetails,
+  );
+
+  final id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+  await flutterLocalNotificationsPlugin.show(
+    id,
+    data['title'] ?? '새로운 알림',
+    data['body'] ?? data['subTitle'] ?? '확인해보세요',
+    notificationDetails,
+    payload: jsonEncode(data),
+  );
 }
 
 @pragma('vm:entry-point')
@@ -49,6 +93,8 @@ class NotificationProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
 
   final Set<int> _pendingReadNotifications = <int>{};
+  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+  String? _currentFcmToken;
 
   NotificationProvider();
 
@@ -86,7 +132,9 @@ class NotificationProvider extends ChangeNotifier {
 
       if (res.statusCode == 200) {
         final List<dynamic> newNotifications = List.from(res.data);
-        _notifications = newNotifications.map((e) => NotificationModel.fromJson(json: e)).toList();
+        _notifications = newNotifications
+            .map((e) => NotificationModel.fromJson(json: e))
+            .toList();
 
         await _processPendingReadNotifications();
 
@@ -120,20 +168,18 @@ class NotificationProvider extends ChangeNotifier {
   Future<void> _markNotificationAsReadSafely(int notificationId) async {
     if (_notifications == null) return;
 
-    final notificationIndex = _notifications!.indexWhere((e) => e.notificationId == notificationId);
+    final notificationIndex =
+    _notifications!.indexWhere((e) => e.notificationId == notificationId);
     if (notificationIndex != -1 && !_notifications![notificationIndex].isRead) {
       _notifications![notificationIndex].isRead = true;
-
       _sendReadNotificationToServer(notificationId);
     }
   }
 
   void _sendReadNotificationToServer(int notificationId) async {
     try {
-      await serverManager.put(
-          'notification/read',
-          data: {'notificationId': notificationId}
-      );
+      await serverManager.put('notification/read',
+          data: {'notificationId': notificationId});
       print('알림 읽음 처리 서버 전송 완료: $notificationId');
     } catch (e) {
       print('알림 읽음 처리 서버 전송 실패: $e');
@@ -163,26 +209,25 @@ class NotificationProvider extends ChangeNotifier {
     final List<String> failed = [];
 
     try {
-      await Future.wait(
-          receivers.map((receiver) async {
-            try {
-              final model = {
-                'uid': receiver,
-                'title': title,
-                'subTitle': subTitle,
-                'routing': routing,
-              };
+      await Future.wait(receivers.map((receiver) async {
+        try {
+          final model = {
+            'uid': receiver,
+            'title': title,
+            'subTitle': subTitle,
+            'routing': routing,
+          };
 
-              final res = await serverManager.post('notification/create', data: model);
-              if (res.statusCode != 200) {
-                failed.add(receiver);
-              }
-            } catch (e) {
-              print('알림 전송 오류 (수신자: $receiver): $e');
-              failed.add(receiver);
-            }
-          })
-      );
+          final res =
+          await serverManager.post('notification/create', data: model);
+          if (res.statusCode != 200) {
+            failed.add(receiver);
+          }
+        } catch (e) {
+          print('알림 전송 오류 (수신자: $receiver): $e');
+          failed.add(receiver);
+        }
+      }));
     } catch (e) {
       print('알림 전송 중 오류 발생: $e');
     }
@@ -192,7 +237,8 @@ class NotificationProvider extends ChangeNotifier {
 
   Future<bool> deleteNotification(int notificationId) async {
     try {
-      final res = await serverManager.delete('notification/remove/$notificationId');
+      final res =
+      await serverManager.delete('notification/remove/$notificationId');
 
       if (res.statusCode == 200) {
         _notifications?.removeWhere((e) => e.notificationId == notificationId);
@@ -207,7 +253,8 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   Future<bool> readNotification(int notificationId) async {
-    final notificationIndex = _notifications?.indexWhere((e) => e.notificationId == notificationId);
+    final notificationIndex = _notifications
+        ?.indexWhere((e) => e.notificationId == notificationId);
 
     if (notificationIndex == null || notificationIndex == -1) {
       return false;
@@ -221,10 +268,8 @@ class NotificationProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final code = await serverManager.put(
-          'notification/read',
-          data: {'notificationId': notificationId}
-      );
+      final code = await serverManager.put('notification/read',
+          data: {'notificationId': notificationId});
 
       if (code.statusCode != 200) {
         _notifications![notificationIndex].isRead = false;
@@ -240,27 +285,37 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
-  String? _currentFcmToken;
-
   Future<void> initializeFCM() async {
     try {
+      // 로컬 알림 먼저 초기화
       await _initializeLocalNotifications();
 
+      // iOS 추가 권한 요청
+      if (Platform.isIOS) {
+        await _requestIOSPermissions();
+      }
+
+      // FCM 권한 요청 (iOS 개선)
       NotificationSettings settings = await _firebaseMessaging.requestPermission(
         alert: true,
         badge: true,
         sound: true,
+        provisional: false, // 명시적 권한 요청
+        criticalAlert: false,
+        announcement: false,
       );
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized ||
           settings.authorizationStatus == AuthorizationStatus.provisional) {
+
+        // 토큰 처리
         String? token = await _firebaseMessaging.getToken();
         if (token != null && token != _currentFcmToken) {
           _currentFcmToken = token;
           await _saveTokenToServer(token);
         }
 
+        // 토큰 새로고침 리스너
         _firebaseMessaging.onTokenRefresh.listen((newToken) async {
           if (newToken != _currentFcmToken) {
             _currentFcmToken = newToken;
@@ -268,10 +323,9 @@ class NotificationProvider extends ChangeNotifier {
           }
         });
 
+        // 포그라운드 메시지 처리
         FirebaseMessaging.onMessage.listen((RemoteMessage message) {
           print('포그라운드 메시지 수신: ${message.messageId}');
-
-          // 포그라운드에서도 배지 업데이트
           _updateBadgeFromMessage(message);
 
           if (_shouldShowNotification(message.data)) {
@@ -293,27 +347,30 @@ class NotificationProvider extends ChangeNotifier {
           }
         });
 
+        // 백그라운드에서 앱 열기
         FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
           print('백그라운드 메시지 클릭: ${message.messageId}');
           _handleNotificationTapWithRefresh(message.data);
         });
 
+        // 백그라운드 메시지 핸들러 등록
         FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-        RemoteMessage? initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+        // 앱이 종료된 상태에서 알림으로 실행
+        RemoteMessage? initialMessage =
+        await FirebaseMessaging.instance.getInitialMessage();
         if (initialMessage != null) {
           print('종료 상태 메시지 처리: ${initialMessage.messageId}');
           _handleNotificationTapWithRefresh(initialMessage.data);
         }
       } else {
-        print('알림 권한 거부됨');
+        print('알림 권한 거부됨: ${settings.authorizationStatus}');
       }
     } catch (e) {
       print('FCM 초기화 오류: $e');
     }
   }
 
-  // 메시지로부터 배지 업데이트
   void _updateBadgeFromMessage(RemoteMessage message) {
     try {
       final badgeStr = message.data['badge'] as String?;
@@ -348,14 +405,14 @@ class NotificationProvider extends ChangeNotifier {
       }
 
       return !currentUri.contains(routing);
-
     } catch (e) {
       print('알림 표시 여부 판단 오류: $e');
       return true;
     }
   }
 
-  bool _shouldShowRoomNotification(String currentUri, String routing, Map<String, dynamic> data) {
+  bool _shouldShowRoomNotification(
+      String currentUri, String routing, Map<String, dynamic> data) {
     try {
       if (!currentUri.contains('/room/')) return true;
 
@@ -373,21 +430,25 @@ class NotificationProvider extends ChangeNotifier {
       }
 
       return true;
-
     } catch (e) {
       print('채팅방 알림 판단 오류: $e');
       return true;
     }
   }
 
-  bool _shouldShowScheduleNotification(String currentUri, String routing, Map<String, dynamic> data) {
+  bool _shouldShowScheduleNotification(
+      String currentUri, String routing, Map<String, dynamic> data) {
     try {
       if (!currentUri.contains('/schedule/')) return true;
 
-      final routingScheduleIdMatch = RegExp(r'/schedule/(\d+)').firstMatch(routing);
-      final currentScheduleIdMatch = RegExp(r'/schedule/(\d+)').firstMatch(currentUri);
+      final routingScheduleIdMatch =
+      RegExp(r'/schedule/(\d+)').firstMatch(routing);
+      final currentScheduleIdMatch =
+      RegExp(r'/schedule/(\d+)').firstMatch(currentUri);
 
-      if (routingScheduleIdMatch == null || currentScheduleIdMatch == null) return true;
+      if (routingScheduleIdMatch == null || currentScheduleIdMatch == null) {
+        return true;
+      }
 
       final routingScheduleId = routingScheduleIdMatch.group(1);
       final currentScheduleId = currentScheduleIdMatch.group(1);
@@ -398,7 +459,6 @@ class NotificationProvider extends ChangeNotifier {
       }
 
       return true;
-
     } catch (e) {
       print('스케줄 알림 판단 오류: $e');
       return true;
@@ -410,14 +470,33 @@ class NotificationProvider extends ChangeNotifier {
       const AndroidInitializationSettings androidInitializationSettings =
       AndroidInitializationSettings(_androidNotiIcon);
 
-      const DarwinInitializationSettings iosInitializationSettings = DarwinInitializationSettings(
+      // iOS 설정 개선
+      DarwinInitializationSettings iosInitializationSettings =
+      DarwinInitializationSettings(
         requestAlertPermission: true,
         requestSoundPermission: true,
         requestBadgePermission: true,
-        notificationCategories: <DarwinNotificationCategory>[],
+        defaultPresentAlert: true,
+        defaultPresentSound: true,
+        defaultPresentBadge: true,
+        notificationCategories: <DarwinNotificationCategory>[
+          DarwinNotificationCategory(
+            'nadal_notification',
+            actions: <DarwinNotificationAction>[
+              DarwinNotificationAction.plain(
+                'open',
+                '열기',
+                options: <DarwinNotificationActionOption>{
+                  DarwinNotificationActionOption.foreground,
+                },
+              ),
+            ],
+          ),
+        ],
       );
 
-      const InitializationSettings initializationSettings = InitializationSettings(
+      InitializationSettings initializationSettings =
+      InitializationSettings(
         android: androidInitializationSettings,
         iOS: iosInitializationSettings,
       );
@@ -434,8 +513,14 @@ class NotificationProvider extends ChangeNotifier {
             }
           }
         },
-        onDidReceiveBackgroundNotificationResponse: notificationTapBackgroundHandler,
+        onDidReceiveBackgroundNotificationResponse:
+        notificationTapBackgroundHandler,
       );
+
+      // Android 알림 채널 생성
+      if (Platform.isAndroid) {
+        await _createNotificationChannel();
+      }
 
       await _requestIOSPermissions();
     } catch (e) {
@@ -443,19 +528,39 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> _requestIOSPermissions() async {
-    await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
-        ?.requestPermissions(
-      alert: true,
-      badge: true,
-      sound: true,
+  // Android 알림 채널 생성
+  Future<void> _createNotificationChannel() async {
+    const channel = AndroidNotificationChannel(
+      _channelId,
+      _channelName,
+      description: _channelDesc,
+      importance: Importance.high,
     );
+
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+  }
+
+  Future<void> _requestIOSPermissions() async {
+    if (Platform.isIOS) {
+      await flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin>()
+          ?.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+        critical: false,
+      );
+    }
   }
 
   Future<void> _saveTokenToServer(String token) async {
     try {
-      await serverManager.post('notification/fcmToken', data: {'fcmToken': token});
+      await serverManager
+          .post('notification/fcmToken', data: {'fcmToken': token});
       print('FCM 토큰 서버에 저장 성공');
     } catch (e) {
       print('FCM 토큰 서버 저장 오류: $e');
@@ -470,8 +575,8 @@ class NotificationProvider extends ChangeNotifier {
       final int badge = int.tryParse(data['badge'] ?? '0') ?? 0;
       final bool alarm = data['alarm'] == '0' ? false : true;
 
-      // 안드로이드 전용 배지 설정 강화
-      final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      final AndroidNotificationDetails androidDetails =
+      AndroidNotificationDetails(
         _channelId,
         _channelName,
         channelDescription: _channelDesc,
@@ -480,21 +585,24 @@ class NotificationProvider extends ChangeNotifier {
         groupKey: groupKey,
         setAsGroupSummary: false,
         showWhen: alarm,
-        number: badge, // 안드로이드 배지
+        number: badge,
         playSound: alarm,
         enableVibration: alarm,
         icon: _androidNotiIcon,
         color: const Color(0xFF00C4B4),
-        // 안드로이드에서 배지 표시를 위한 추가 설정
         autoCancel: true,
         showProgress: false,
       );
 
+      // iOS 설정 개선
       final DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
         presentSound: alarm,
         presentAlert: alarm,
-        badgeNumber: badge,
+        presentBadge: alarm,
+        badgeNumber: badge > 0 ? badge : null,
         interruptionLevel: InterruptionLevel.active,
+        categoryIdentifier: 'nadal_notification',
+        threadIdentifier: groupKey,
       );
 
       NotificationDetails notificationDetails = NotificationDetails(
@@ -510,12 +618,11 @@ class NotificationProvider extends ChangeNotifier {
         payload: jsonEncode(data),
       );
 
-      // 알림 표시 후 배지 강제 업데이트 (안드로이드용)
+      // 배지 업데이트
       if (badge > 0) {
-        await Future.delayed(const Duration(milliseconds: 100));
+        await Future.delayed(Duration(milliseconds: 100.w.toInt()));
         await AppBadgePlus.updateBadge(badge);
       }
-
     } catch (e) {
       print('로컬 알림 표시 오류: $e');
     }
@@ -542,7 +649,8 @@ class NotificationProvider extends ChangeNotifier {
               await _refreshRoomDataSafely(roomId);
             }
           } else if (routing.contains('/schedule/')) {
-            final scheduleIdMatch = RegExp(r'/schedule/(\d+)').firstMatch(routing);
+            final scheduleIdMatch =
+            RegExp(r'/schedule/(\d+)').firstMatch(routing);
             if (scheduleIdMatch != null) {
               final scheduleId = int.parse(scheduleIdMatch.group(1)!);
               await _refreshScheduleDataSafely(scheduleId);
@@ -550,7 +658,6 @@ class NotificationProvider extends ChangeNotifier {
           }
 
           await _navigateToRoute(routing);
-
         } catch (e) {
           print('알림 라우팅 오류: $e');
         }
@@ -565,10 +672,9 @@ class NotificationProvider extends ChangeNotifier {
       final currentUri = router.state.uri.toString();
       if (currentUri != routing) {
         router.go('/my');
-        await Future.delayed(const Duration(milliseconds: 100));
+        await Future.delayed(Duration(milliseconds: 100.w.toInt()));
         router.push(routing);
       }
-
     } catch (e) {
       print('라우팅 처리 오류: $e');
     }
@@ -609,7 +715,8 @@ void _handleNotificationTap(Map<String, dynamic> data) {
     if (notificationIdStr != null) {
       final notificationId = int.tryParse(notificationIdStr);
       if (notificationId != null) {
-        final notificationProvider = AppRoute.context?.read<NotificationProvider>();
+        final notificationProvider =
+        AppRoute.context?.read<NotificationProvider>();
         notificationProvider?.markNotificationAsReadFromPush(notificationId);
       }
     }
