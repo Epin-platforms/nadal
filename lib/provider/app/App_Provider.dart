@@ -11,44 +11,10 @@ enum AppProviderState{
 }
 
 class AppProvider extends ChangeNotifier with WidgetsBindingObserver{
-  final _themeKey = 'epin.nadal.themeKey';
-  ThemeMode _themeMode = ThemeMode.system;
-  ThemeMode get themeMode => _themeMode;
-
   // 🔧 초기화 상태 관리
   bool _isInitialized = false;
   bool _isDisposed = false;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
-
-  _fetchThemeKey() async{
-    final pref = await SharedPreferences.getInstance();
-
-    final mode = pref.getString(_themeKey);
-    if(mode != null){
-      if(mode == 'dark'){
-        _themeMode = ThemeMode.dark;
-      }else if(mode == 'light'){
-        _themeMode = ThemeMode.light;
-      }
-      notifyListeners();
-    }
-  }
-
-  setTheme(String value) async{
-    final pref = await SharedPreferences.getInstance();
-
-    if(value == 'dark'){
-      _themeMode = ThemeMode.dark;
-      pref.setString(_themeKey, value);
-    }else if(value == 'light'){
-      _themeMode = ThemeMode.light;
-      pref.setString(_themeKey, value);
-    }else{
-      _themeMode = ThemeMode.system;
-      pref.remove(_themeKey);
-    }
-    notifyListeners();
-  }
 
   AppProviderState _state = AppProviderState.none;
   AppProviderState get state => _state;
@@ -74,7 +40,6 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver{
 
       WidgetsBinding.instance.addObserver(this);
       await _initConnectivityListener();
-      await _fetchThemeKey();
       final res = await _fetchAppData();
 
       _isInitialized = true;

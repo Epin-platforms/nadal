@@ -49,7 +49,9 @@ class _CityPickerState extends State<CityPicker> {
       final result = selectedItem == '데이터 없음' ? null : selectedItem;
       Navigator.of(context).pop(result);
     } else {
-      _selectedCity = selectedItem;
+      setState(() {
+        _selectedCity = selectedItem;
+      });
       _wheelController.animateToItem(
         index,
         duration: const Duration(milliseconds: 250),
@@ -60,7 +62,9 @@ class _CityPickerState extends State<CityPicker> {
 
   void _onScrollChanged(int index) {
     if (index >= 0 && index < _cities.length) {
-      _selectedCity = _cities[index];
+      setState(() {
+        _selectedCity = _cities[index];
+      });
     }
   }
 
@@ -78,29 +82,29 @@ class _CityPickerState extends State<CityPicker> {
     return IosPopGesture(
       child: Scaffold(
         appBar: NadalAppbar(
-            title: '시/구/군 선택',
-            actions: [
-              TextButton(
-                onPressed: hasValidData ? _confirmSelection : null,
-                child: Text(
-                  '확인',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: hasValidData
-                        ? colorScheme.primary
-                        : colorScheme.onSurface.withAlpha(100),
-                    fontWeight: FontWeight.w600,
-                  ),
+          title: '시/구/군 선택',
+          actions: [
+            TextButton(
+              onPressed: hasValidData ? _confirmSelection : null,
+              child: Text(
+                '확인',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: hasValidData
+                      ? colorScheme.primary
+                      : colorScheme.onSurface.withAlpha(100),
+                  fontWeight: FontWeight.w600,
                 ),
               ),
+            ),
           ],
-          ),
+        ),
         body: SafeArea(
           child: Container(
             padding: EdgeInsets.symmetric(horizontal: 16.w),
             child: Column(
               children: [
                 SizedBox(height: 40.h),
-              
+
                 // 제목 및 지역 정보
                 Column(
                   children: [
@@ -120,9 +124,9 @@ class _CityPickerState extends State<CityPicker> {
                     ),
                   ],
                 ),
-              
+
                 SizedBox(height: 60.h),
-              
+
                 // 데이터 없음 메시지 또는 휠 스크롤뷰
                 if (!hasValidData)
                   Expanded(
@@ -158,7 +162,7 @@ class _CityPickerState extends State<CityPicker> {
                       childDelegate: ListWheelChildBuilderDelegate(
                         builder: (context, index) {
                           final isSelected = _selectedCity == _cities[index];
-              
+
                           return GestureDetector(
                             onTap: () => _selectItem(index),
                             behavior: HitTestBehavior.opaque,
@@ -189,7 +193,7 @@ class _CityPickerState extends State<CityPicker> {
                       ),
                     ),
                   ),
-              
+
                 SizedBox(height: 100.h),
               ],
             ),

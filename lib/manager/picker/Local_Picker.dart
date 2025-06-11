@@ -37,7 +37,9 @@ class _LocalPickerState extends State<LocalPicker> {
     if (selectedItem == _selectedLocal) {
       Navigator.of(context).pop(selectedItem);
     } else {
-      _selectedLocal = selectedItem;
+      setState(() {
+        _selectedLocal = selectedItem;
+      });
       _wheelController.animateToItem(
         index,
         duration: const Duration(milliseconds: 250),
@@ -48,7 +50,9 @@ class _LocalPickerState extends State<LocalPicker> {
 
   void _onScrollChanged(int index) {
     if (index >= 0 && index < _locals.length) {
-      _selectedLocal = _locals[index];
+      setState(() {
+        _selectedLocal = _locals[index];
+      });
     }
   }
 
@@ -80,6 +84,7 @@ class _LocalPickerState extends State<LocalPicker> {
             child: Column(
               children: [
                 SizedBox(height: 40.h),
+              
                 // 제목
                 Text(
                   '지역을 선택해주세요',

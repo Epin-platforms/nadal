@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:my_sports_calendar/manager/project/ThemeMode_Manager.dart';
 import '../../manager/project/Import_Manager.dart';
 
 class ProfileMore extends StatefulWidget {
@@ -24,7 +25,6 @@ class _ProfileMoreState extends State<ProfileMore> {
     final titleStyle = Theme.of(context).textTheme.titleSmall;
     final provider = Provider.of<UserProvider>(context);
     appProvider = Provider.of<AppProvider>(context);
-    final user = provider.user!;
     return Scaffold(
       appBar: NadalAppbar(
         title: '개인 설정',
@@ -36,28 +36,30 @@ class _ProfileMoreState extends State<ProfileMore> {
               showCupertinoModalPopup(context: context,
                   builder: (context){
                     final nav = Navigator.of(context);
-                    return NadalSheet(actions: [
-                      CupertinoActionSheetAction(
-                          onPressed: (){
-                              nav.pop();
-                              context.read<AppProvider>().setTheme('dark');
-                          },
-                          child: Text('다크모드', style: Theme.of(context).textTheme.bodyLarge,)
-                      ),
-                      CupertinoActionSheetAction(
-                          onPressed: (){
-                            nav.pop();
-                            context.read<AppProvider>().setTheme('light');
-                          },
-                          child: Text('라이트모드', style: Theme.of(context).textTheme.bodyLarge,)
-                      ),
-                      CupertinoActionSheetAction(
-                          onPressed: (){
-                            nav.pop();
-                            context.read<AppProvider>().setTheme('system');
-                          },
-                          child: Text('시스템', style: Theme.of(context).textTheme.bodyLarge,)
-                      )
+                    return NadalSheet(
+                        title: '테마를 선택해주세요',
+                        actions: [
+                          CupertinoActionSheetAction(
+                              onPressed: () async{
+                                  nav.pop();
+                                  await ThemeModeManager().changeTheme(ThemeMode.dark);
+                              },
+                              child: Text('다크모드', style: Theme.of(context).textTheme.bodyLarge,)
+                          ),
+                          CupertinoActionSheetAction(
+                              onPressed: () async{
+                                nav.pop();
+                                await ThemeModeManager().changeTheme(ThemeMode.light);
+                              },
+                              child: Text('라이트모드', style: Theme.of(context).textTheme.bodyLarge,)
+                          ),
+                          CupertinoActionSheetAction(
+                              onPressed: () async{
+                                nav.pop();
+                                await ThemeModeManager().changeTheme(ThemeMode.system);
+                              },
+                              child: Text('시스템', style: Theme.of(context).textTheme.bodyLarge,)
+                          )
                     ]);
                   });
             },

@@ -18,14 +18,14 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
   @override
   void initState() {
     super.initState();
-    // 초기 데이터 로드
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final userProvider = context.read<UserProvider>();
-      userProvider.fetchMySchedules(_focusedDay);
+      if (mounted) {
+        final userProvider = context.read<UserProvider>();
+        userProvider.fetchMySchedules(_focusedDay);
+      }
     });
   }
 
-  // 특정 날짜에 일정을 불러오는 함수 (메모리 효율화)
   List<Map> _getEventsForDay(DateTime day, List<Map> schedules) {
     final dayKey = DateTime(day.year, day.month, day.day);
     return schedules.where((schedule) {
@@ -37,25 +37,24 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
   }
 
   void _onPageChanged(DateTime dateTime) {
-    if (mounted) {
-      setState(() {
-        _focusedDay = dateTime;
-        _selectedDay = dateTime;
-      });
+    if (!mounted) return;
 
-      // 데이터 로드
-      final userProvider = context.read<UserProvider>();
-      userProvider.fetchMySchedules(dateTime);
-    }
+    setState(() {
+      _focusedDay = dateTime;
+      _selectedDay = dateTime;
+    });
+
+    final userProvider = context.read<UserProvider>();
+    userProvider.fetchMySchedules(dateTime);
   }
 
   void _onDaySelected(DateTime selectedDay, DateTime focusedDay) {
-    if (mounted) {
-      setState(() {
-        _selectedDay = selectedDay;
-        _focusedDay = focusedDay;
-      });
-    }
+    if (!mounted) return;
+
+    setState(() {
+      _selectedDay = selectedDay;
+      _focusedDay = focusedDay;
+    });
   }
 
   Future<void> _onScheduleTap(Map schedule) async {
@@ -71,7 +70,6 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
   }
 
   Widget _buildCalendarDay({
-    required BuildContext context,
     required DateTime day,
     required List<Map> events,
     required bool isSelected,
@@ -81,67 +79,49 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
     final today = DateTime(now.year, now.month, now.day);
     final dayKey = DateTime(day.year, day.month, day.day);
     final isToday = dayKey == today;
+    final hasEvents = events.isNotEmpty;
 
-    return Opacity(
-      opacity: isOutside ? 0.3 : 1.0,
+    return GestureDetector(
+      onTap: isOutside ? null : () => _onDaySelected(day, day),
       child: Container(
+        margin: EdgeInsets.all(2.w),
+        padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 8.w),
         decoration: BoxDecoration(
+          // 오늘만 배경색
+          color: isToday ? Theme.of(context).colorScheme.primary.withValues(alpha:0.1) : null,
+          // 선택된 날짜는 보더로 표시
+          border: isSelected
+              ? Border.all(color: Theme.of(context).colorScheme.primary, width: 1.w)
+              : null,
           borderRadius: BorderRadius.circular(8.r),
-          border: isSelected ? Border.all(
-            color: Theme.of(context).colorScheme.primary,
-          ) : null,
         ),
-        padding: EdgeInsets.symmetric(horizontal: 3.w),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // 날짜 표시
-            Center(
-              child: Container(
-                padding: EdgeInsets.all(1.r),
-                decoration: BoxDecoration(
-                  color: isToday ? CupertinoColors.activeGreen : null,
-                  borderRadius: BorderRadius.circular(3.r),
-                ),
-                child: Text(
-                  DateFormat('d').format(day),
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: isToday
-                        ? const Color(0xfff1f1f1)
-                        : day.weekday == 6
-                        ? CupertinoColors.activeBlue
-                        : day.weekday == 7
-                        ? CupertinoColors.destructiveRed
-                        : Theme.of(context).colorScheme.onSurface,
-                    fontWeight: isToday ? FontWeight.w600 : FontWeight.w400,
-                  ),
-                ),
+            Text(
+              '${day.day}',
+              style: TextStyle(
+                fontSize: 14.sp,
+                fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
+                color: isOutside
+                    ? Theme.of(context).colorScheme.onSurface.withValues(alpha:0.3)
+                    : isToday
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.onSurface,
               ),
             ),
-            // 이벤트 표시
-            if (events.isNotEmpty)
-              Expanded(
-                child: Center(
-                  child: Container(
-                    width: double.infinity,
-                    padding: EdgeInsets.symmetric(vertical: 3.h, horizontal: 2.w),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.secondary,
-                      borderRadius: BorderRadius.circular(3.r),
-                    ),
-                    child: Text(
-                      events.first['title'] ?? '',
-                      textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: const Color(0xfff1f1f1),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 10.sp,
-                      ),
-                    ),
-                  ),
+            // 이벤트가 있으면 dot만 표시
+            if (hasEvents && !isOutside) ...[
+              SizedBox(height: 4.h),
+              Container(
+                width: 4.r,
+                height: 4.r,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                  shape: BoxShape.circle,
                 ),
               ),
+            ],
           ],
         ),
       ),
@@ -155,13 +135,14 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
         final schedules = userProvider.schedules;
         final selectedDayEvents = _getEventsForDay(_selectedDay, schedules);
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 헤더
-            Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 24.h, 16.w, 24.h),
-              child: Row(
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 헤더
+              Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   RichText(
@@ -169,12 +150,13 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
                       text: 'MY ',
                       style: Theme.of(context).textTheme.titleLarge!.copyWith(
                         color: Theme.of(context).colorScheme.onSurface,
+                        fontWeight: FontWeight.w700,
                       ),
                       children: [
                         TextSpan(
                           text: DateFormat('M월').format(_selectedDay),
                           style: Theme.of(context).textTheme.titleLarge!.copyWith(
-                            color: Theme.of(context).colorScheme.secondary,
+                            color: Theme.of(context).colorScheme.primary,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -182,163 +164,237 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
                           text: ' 일정',
                           style: Theme.of(context).textTheme.titleLarge!.copyWith(
                             color: Theme.of(context).colorScheme.onSurface,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  NadalIconButton(
-                    icon: BootstrapIcons.calendar2_plus,
+                  GestureDetector(
                     onTap: () {
                       context.push('/create/schedule',
                           extra: ScheduleParams(date: _selectedDay));
                     },
+                    child: Container(
+                      padding: EdgeInsets.all(10.w),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        borderRadius: BorderRadius.circular(8.r),
+                      ),
+                      child: Icon(
+                        BootstrapIcons.calendar2_plus,
+                        color: Theme.of(context).colorScheme.onPrimary,
+                        size: 18.r,
+                      ),
+                    ),
                   ),
                 ],
               ),
-            ),
 
-            // 캘린더
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: TableCalendar<Map>(
-                locale: 'ko_KR',
-                focusedDay: _focusedDay,
-                currentDay: _selectedDay,
-                firstDay: DateTime.now().subtract(const Duration(days: 1000)),
-                lastDay: DateTime.now().add(const Duration(days: 1000)),
-                startingDayOfWeek: StartingDayOfWeek.sunday,
-                calendarFormat: CalendarFormat.month,
-                headerVisible: false,
-                selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-                eventLoader: (day) => _getEventsForDay(day, schedules),
-                onDaySelected: _onDaySelected,
-                onPageChanged: _onPageChanged,
-                calendarStyle: CalendarStyle(
-                  markerDecoration: BoxDecoration(
-                    color: ThemeManager.infoColor, // 원하는 색상으로 변경
-                    borderRadius: BorderRadius.circular(20),
+              SizedBox(height: 20.h),
+
+              // 캘린더
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  borderRadius: BorderRadius.circular(12.r),
+                  border: Border.all(
+                    color: Theme.of(context).dividerColor.withValues(alpha:0.1),
+                    width: 1.w,
                   ),
-                  markerSize: 6.0, // 마커 크기
-                  markersMaxCount: 3, // 최대 마커 개수
-                  markersAlignment: Alignment.bottomCenter, // 마커 위치
                 ),
-                calendarBuilders: CalendarBuilders<Map>(
+                child: TableCalendar<Map>(
+                  locale: 'ko_KR',
+                  focusedDay: _focusedDay,
+                  currentDay: _selectedDay,
+                  firstDay: DateTime.now().subtract(const Duration(days: 365)),
+                  lastDay: DateTime.now().add(const Duration(days: 365)),
+                  startingDayOfWeek: StartingDayOfWeek.sunday,
+                  calendarFormat: CalendarFormat.month,
+
+                  // 애니메이션 비활성화로 안정성 확보
+                  sixWeekMonthsEnforced: false,
+                  pageAnimationEnabled: false,
+
+                  selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                  onDaySelected: _onDaySelected,
+                  onPageChanged: _onPageChanged,
+
+                  // 헤더 스타일
+                  headerStyle: HeaderStyle(
+                    titleCentered: true,
+                    formatButtonVisible: false,
+                    leftChevronVisible: true,
+                    rightChevronVisible: true,
+                    headerPadding: EdgeInsets.symmetric(vertical: 16.h),
+                    titleTextStyle: TextStyle(
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    leftChevronIcon: Icon(
+                      BootstrapIcons.chevron_left,
+                      size: 16.r,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    rightChevronIcon: Icon(
+                      BootstrapIcons.chevron_right,
+                      size: 16.r,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+
+                  // 캘린더 스타일
+                  calendarStyle: CalendarStyle(
+                    outsideDaysVisible: true,
+                    cellMargin: EdgeInsets.zero,
+                    cellPadding: EdgeInsets.zero,
+                    // 모든 기본 스타일 제거하여 커스텀 빌더만 사용
+                    defaultDecoration: const BoxDecoration(),
+                    weekendDecoration: const BoxDecoration(),
+                    holidayDecoration: const BoxDecoration(),
+                    selectedDecoration: const BoxDecoration(),
+                    todayDecoration: const BoxDecoration(),
+                    outsideDecoration: const BoxDecoration(),
+                    tablePadding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
+                  ),
+
                   // 요일 헤더
-                  dowBuilder: (context, day) {
-                    final text = TextFormManager.returnWeek(date: day);
-                    return Center(
-                      child: FittedBox(
+                  daysOfWeekStyle: DaysOfWeekStyle(
+                    weekdayStyle: TextStyle(
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha:0.6),
+                    ),
+                    weekendStyle: TextStyle(
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.red.shade400,
+                    ),
+                  ),
+
+                  // 커스텀 빌더
+                  calendarBuilders: CalendarBuilders(
+                    // 요일 헤더
+                    dowBuilder: (context, day) {
+                      final text = TextFormManager.returnWeek(date: day);
+                      return Center(
                         child: Text(
                           text,
                           style: TextStyle(
-                            fontSize: 14.sp,
+                            fontSize: 12.sp,
                             fontWeight: FontWeight.w600,
                             color: day.weekday == 6
-                                ? Colors.blueAccent
+                                ? Colors.blue.shade400
                                 : day.weekday == 7
-                                ? Colors.redAccent
-                                : Theme.of(context).colorScheme.onSurface,
+                                ? Colors.red.shade400
+                                : Theme.of(context).colorScheme.onSurface.withValues(alpha:0.6),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
 
-                  // 선택된 날짜
-                  selectedBuilder: (context, day, focusedDay) {
-                    final events = _getEventsForDay(day, schedules);
-                    return _buildCalendarDay(
-                      context: context,
-                      day: day,
-                      events: events,
-                      isSelected: true,
-                      isOutside: false,
-                    );
-                  },
+                    // 모든 날짜 스타일을 통합 처리
+                    defaultBuilder: (context, day, focusedDay) {
+                      final events = _getEventsForDay(day, schedules);
+                      final isSelected = isSameDay(_selectedDay, day);
+                      final isOutside = day.month != _focusedDay.month;
+                      return _buildCalendarDay(
+                        day: day,
+                        events: events,
+                        isSelected: isSelected,
+                        isOutside: isOutside,
+                      );
+                    },
 
-                  // 기본 날짜
-                  defaultBuilder: (context, day, focusedDay) {
-                    final events = _getEventsForDay(day, schedules);
-                    return _buildCalendarDay(
-                      context: context,
-                      day: day,
-                      events: events,
-                      isSelected: false,
-                      isOutside: false,
-                    );
-                  },
+                    selectedBuilder: (context, day, focusedDay) {
+                      final events = _getEventsForDay(day, schedules);
+                      return _buildCalendarDay(
+                        day: day,
+                        events: events,
+                        isSelected: true,
+                        isOutside: false,
+                      );
+                    },
 
-                  // 다른 월 날짜
-                  outsideBuilder: (context, day, focusedDay) {
-                    final events = _getEventsForDay(day, schedules);
-                    return _buildCalendarDay(
-                      context: context,
-                      day: day,
-                      events: events,
-                      isSelected: false,
-                      isOutside: true,
-                    );
-                  },
+                    todayBuilder: (context, day, focusedDay) {
+                      final events = _getEventsForDay(day, schedules);
+                      final isSelected = isSameDay(_selectedDay, day);
+                      return _buildCalendarDay(
+                        day: day,
+                        events: events,
+                        isSelected: isSelected,
+                        isOutside: false,
+                      );
+                    },
+
+                    outsideBuilder: (context, day, focusedDay) {
+                      final events = _getEventsForDay(day, schedules);
+                      return _buildCalendarDay(
+                        day: day,
+                        events: events,
+                        isSelected: false,
+                        isOutside: true,
+                      );
+                    },
+                  ),
                 ),
               ),
-            ),
 
-            const Divider(),
+              SizedBox(height: 24.h),
 
-            // 선택된 날짜의 일정 목록
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: 24.h),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 날짜 표시
-                  Padding(
-                    padding: EdgeInsets.only(left: 16.w),
-                    child: Text(
-                      '${DateFormat(
-                        _selectedDay.year != DateTime.now().year
-                            ? 'yyyy년 M월 d일'
-                            : 'M월 d일',
-                      ).format(_selectedDay)} (${TextFormManager.returnWeek(date: _selectedDay)})',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 16.h),
-
-                  // 일정 목록 또는 빈 목록
-                  if (selectedDayEvents.isNotEmpty)
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: selectedDayEvents.length,
-                      itemBuilder: (context, index) {
-                        final schedule = selectedDayEvents[index];
-                        return NadalSimpleScheduleList(
-                          schedule: schedule,
-                          onTap: () => _onScheduleTap(schedule),
-                        );
-                      },
-                    )
-                  else
-                    SizedBox(
-                      height: 230.h,
-                      child: NadalEmptyList(
-                        title: '이 날은 아직 비어 있어요',
-                        subtitle: '일정을 하나 추가해볼까요?',
-                        onAction: () {
-                          context.push('/create/schedule',
-                              extra: ScheduleParams(date: _selectedDay));
-                        },
-                        actionText: '일정 추가하기',
-                      ),
-                    ),
-                ],
+              // 구분선
+              Container(
+                height: 1.h,
+                color: Theme.of(context).dividerColor.withValues(alpha:0.1),
               ),
-            ),
-          ],
+
+              SizedBox(height: 20.h),
+
+              // 선택된 날짜 표시
+              Text(
+                '${DateFormat(
+                  _selectedDay.year != DateTime.now().year
+                      ? 'yyyy년 M월 d일'
+                      : 'M월 d일',
+                ).format(_selectedDay)} (${TextFormManager.returnWeek(date: _selectedDay)})',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+
+              SizedBox(height: 16.h),
+
+              // 일정 목록
+              if (selectedDayEvents.isNotEmpty)
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: selectedDayEvents.length,
+                  separatorBuilder: (context, index) => SizedBox(height: 8.h),
+                  itemBuilder: (context, index) {
+                    final schedule = selectedDayEvents[index];
+                    return NadalSimpleScheduleList(
+                      schedule: schedule,
+                      onTap: () => _onScheduleTap(schedule),
+                    );
+                  },
+                )
+              else
+                ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: 210.h),
+                  child: NadalEmptyList(
+                    title: '이 날은 아직 비어 있어요',
+                    subtitle: '일정을 하나 추가해볼까요?',
+                    onAction: () {
+                      context.push('/create/schedule',
+                          extra: ScheduleParams(date: _selectedDay));
+                    },
+                    actionText: '일정 추가하기',
+                  ),
+                ),
+            ],
+          ),
         );
       },
     );

@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:my_sports_calendar/manager/project/ThemeMode_Manager.dart';
 import 'package:my_sports_calendar/provider/app/Advertisement_Provider.dart';
 import 'package:my_sports_calendar/provider/friends/Friend_Provider.dart';
 import 'package:my_sports_calendar/provider/notification/Notification_Provider.dart';
@@ -44,6 +45,9 @@ Future<void> _initializePackages() async {
 
     // 4. 카카오 SDK 초기화 (마지막)
     await _initializeKakaoSdk();
+
+    //테마 초기와
+    await ThemeModeManager().initialize();
 
   } catch (e) {
     debugPrint('패키지 초기화 실패: $e');
@@ -165,33 +169,38 @@ class AppDriver extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ScreenUtilInit(
-      designSize: const Size(402.0, 874.0),
-      builder: (context, child) {
-        return MultiProvider(
-          providers: [
-            ChangeNotifierProvider(create: (_) => AppProvider()),
-            ChangeNotifierProvider(create: (_) => UserProvider()),
-            ChangeNotifierProvider(create: (_) => HomeProvider()),
-            ChangeNotifierProvider(create: (_) => FriendsProvider()),
-            ChangeNotifierProvider(create: (_) => ChatProvider()),
-            ChangeNotifierProvider(create: (_) => RoomsProvider()),
-            ChangeNotifierProvider(create: (_) => NotificationProvider()),
-            // 광고 프로바이더 - 싱글톤 인스턴스 사용
-            ChangeNotifierProvider.value(value: AdManager.instance),
-          ],
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeModeManager().themeModeNotifier,
+      builder: (context, themeMode, child) {
+        return ScreenUtilInit(
+          designSize: const Size(402.0, 874.0),
           builder: (context, child) {
-            final provider = Provider.of<AppProvider>(context, listen: false);
-            return MaterialApp.router(
-              debugShowCheckedModeBanner: false,
-              themeMode: provider.themeMode,
-              theme: ThemeManager.lightTheme,
-              darkTheme: ThemeManager.darkTheme,
-              routerConfig: AppRoute.router,
+            return MultiProvider(
+              providers: [
+                ChangeNotifierProvider(create: (_) => AppProvider()),
+                ChangeNotifierProvider(create: (_) => UserProvider()),
+                ChangeNotifierProvider(create: (_) => HomeProvider()),
+                ChangeNotifierProvider(create: (_) => FriendsProvider()),
+                ChangeNotifierProvider(create: (_) => ChatProvider()),
+                ChangeNotifierProvider(create: (_) => RoomsProvider()),
+                ChangeNotifierProvider(create: (_) => NotificationProvider()),
+                // 광고 프로바이더 - 싱글톤 인스턴스 사용
+                ChangeNotifierProvider.value(value: AdManager.instance),
+              ],
+              builder: (context, child) {
+                return child!;
+              },
+              child: MaterialApp.router(
+                debugShowCheckedModeBanner: false,
+                themeMode: themeMode,
+                theme: ThemeManager.lightTheme,
+                darkTheme: ThemeManager.darkTheme,
+                routerConfig: AppRoute.router,
+              ),
             );
           },
         );
-      },
+      }
     );
   }
 }
