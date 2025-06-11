@@ -1,3 +1,5 @@
+import 'package:my_sports_calendar/manager/form/widget/DateTime_Manager.dart';
+
 class NotificationModel{
   int notificationId;
   String uid;
@@ -24,7 +26,7 @@ class NotificationModel{
         uid: json['uid'],
         subTitle: json['subTitle'],
         routing: json['routing'],
-        createAt: DateTime.parse(json['createAt']),
+        createAt: DateTimeManager.parseUtcToLocal(json['createAt']),
         isRead: json['readState'] == 1 ? true : false,
     );
   }

@@ -208,7 +208,7 @@ class ProfileEditProvider extends ChangeNotifier{
         .replaceAll('초보', '0')
         .replaceAll('?', '0')
         .replaceAll('년', '') != _careerController.text.trim()){
-      final DateTime _date = DateTime.parse(_originUser['career']);
+      final DateTime _date = DateTimeManager.parseUtcToLocal(_originUser['career']);
       final int year =  int.parse(_careerController.text.trim());
       sendData.addAll({
         'career': AuthFormManager.careerYearToDate(year, _date.month)

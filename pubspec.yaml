@@ -87,6 +87,8 @@ dependencies:
 
   #형태지정
   intl: ^0.20.2
+  #아이폰 이미지 깨짐 방지처리
+  image: ^4.5.4
 
   #위젯
   table_calendar: ^3.2.0

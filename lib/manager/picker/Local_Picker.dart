@@ -1,4 +1,3 @@
-
 import '../project/Import_Manager.dart';
 
 class LocalPicker extends StatefulWidget {
@@ -10,15 +9,19 @@ class LocalPicker extends StatefulWidget {
 }
 
 class _LocalPickerState extends State<LocalPicker> {
-  final locals = ListPackage.local.keys.toList();
-  late String local;
+  final List<String> _locals = ListPackage.local.keys.toList();
+  late String _selectedLocal;
   late FixedExtentScrollController _wheelController;
 
   @override
   void initState() {
     super.initState();
-    local = widget.initLocal ?? locals[0];
-    _wheelController = FixedExtentScrollController(initialItem: locals.indexOf(local));
+    _selectedLocal = widget.initLocal ?? _locals.first;
+
+    final initialIndex = _locals.indexOf(_selectedLocal);
+    _wheelController = FixedExtentScrollController(
+        initialItem: initialIndex.clamp(0, _locals.length - 1)
+    );
   }
 
   @override
@@ -27,72 +30,111 @@ class _LocalPickerState extends State<LocalPicker> {
     super.dispose();
   }
 
-  void _handleTap(int index) {
-    final selected = locals[index];
-    if (selected == local) {
-      Navigator.of(context).pop(selected); // 선택된 항목이면 pop
+  void _selectItem(int index) {
+    if (index < 0 || index >= _locals.length) return;
+
+    final selectedItem = _locals[index];
+    if (selectedItem == _selectedLocal) {
+      Navigator.of(context).pop(selectedItem);
     } else {
+      _selectedLocal = selectedItem;
       _wheelController.animateToItem(
         index,
-        duration: Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
       );
-      setState(() {
-        local = selected;
-      });
+    }
+  }
+
+  void _onScrollChanged(int index) {
+    if (index >= 0 && index < _locals.length) {
+      _selectedLocal = _locals[index];
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SafeArea(
-      child: IosPopGesture(
-        child: Scaffold(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor.withAlpha(200),
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            leading: IconButton(
-              onPressed: () => Navigator.of(context).pop(),
-              icon: Icon(Icons.arrow_back_ios_new, color: Theme.of(context).colorScheme.onSurface),
+    final colorScheme = theme.colorScheme;
+
+    return IosPopGesture(
+      child: Scaffold(
+        appBar: NadalAppbar(
+          title: '지역선택',
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(_selectedLocal),
+              child: Text(
+                '확인',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(local),
-                child: Text('확인', style: theme.textTheme.labelLarge),
-              ),
-            ],
-          ),
-          body: Padding(
-            padding: EdgeInsets.only(bottom: 200, top: 100),
-            child: ListWheelScrollView.useDelegate(
-              controller: _wheelController,
-              itemExtent: 45.h,
-              diameterRatio: 1.2,
-              physics: const FixedExtentScrollPhysics(),
-              onSelectedItemChanged: (index) {
-                setState(() {
-                  local = locals[index];
-                });
-              },
-              childDelegate: ListWheelChildBuilderDelegate(
-                builder: (context, index) {
-                  return GestureDetector(
-                    onTap: () => _handleTap(index),
-                    behavior: HitTestBehavior.opaque,
-                    child: Center(
-                      child: Text(
-                        locals[index],
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: local == locals[index]
-                                ? Theme.of(context).colorScheme.onSurface
-                                : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2))
-                      ),
+          ],
+        ),
+        body: SafeArea(
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            child: Column(
+              children: [
+                SizedBox(height: 40.h),
+                // 제목
+                Text(
+                  '지역을 선택해주세요',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              
+                SizedBox(height: 60.h),
+              
+                // 휠 스크롤뷰
+                Expanded(
+                  child: ListWheelScrollView.useDelegate(
+                    controller: _wheelController,
+                    itemExtent: 50.h,
+                    diameterRatio: 1.5,
+                    physics: const FixedExtentScrollPhysics(),
+                    onSelectedItemChanged: _onScrollChanged,
+                    childDelegate: ListWheelChildBuilderDelegate(
+                      builder: (context, index) {
+                        final isSelected = _selectedLocal == _locals[index];
+              
+                        return GestureDetector(
+                          onTap: () => _selectItem(index),
+                          behavior: HitTestBehavior.opaque,
+                          child: Container(
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12.r),
+                              color: isSelected
+                                  ? colorScheme.primary.withAlpha(30)
+                                  : Colors.transparent,
+                            ),
+                            margin: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                            child: Text(
+                              _locals[index],
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: isSelected
+                                    ? colorScheme.primary
+                                    : colorScheme.onSurface.withAlpha(180),
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                      childCount: _locals.length,
                     ),
-                  );
-                },
-                childCount: locals.length,
-              ),
+                  ),
+                ),
+              
+                SizedBox(height: 100.h),
+              ],
             ),
           ),
         ),

@@ -37,7 +37,7 @@ class QnaModel{
         createAt: DateTimeManager.parseUtcToLocalSafe(map['createAt']) ?? DateTime.now(),
         answerMid: map['answerMid'],
         answer: map['answer'],
-        answerAt: DateTimeManager.parseUtcToLocalSafe(map['answerAt']),
+        answerAt: DateTime.tryParse(map['answerAt'] ?? ''),
         isFaq: map['isFaq'] == 1,
         managerName: map['managerName'],
         managerProfileImage: map['managerProfileImage']

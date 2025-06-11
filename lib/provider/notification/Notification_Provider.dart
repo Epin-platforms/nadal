@@ -4,8 +4,8 @@ import 'package:my_sports_calendar/manager/project/Import_Manager.dart';
 import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
 import 'package:my_sports_calendar/model/app/Notifications_Model.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:app_badge_plus/app_badge_plus.dart';
 
-// 알림 채널 ID와 이름을 상수로 정의
 const String _channelId = 'epin.nadal.chat.channel';
 const String _channelName = 'Nadal_Chat_ver1.0.0';
 const String _channelDesc = '나달 알림';
@@ -14,13 +14,21 @@ const String _androidNotiIcon = '@drawable/android_noti_icon';
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 FlutterLocalNotificationsPlugin();
 
-// 백그라운드 메시지 핸들러
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print('백그라운드 메시지 수신: ${message.messageId}');
+
+  // 안드로이드 배지 업데이트 (백그라운드에서도)
+  if (message.data['badge'] != null) {
+    final badgeCount = int.tryParse(message.data['badge']) ?? 0;
+    try {
+      await AppBadgePlus.updateBadge(badgeCount);
+    } catch (e) {
+      print('백그라운드 배지 업데이트 오류: $e');
+    }
+  }
 }
 
-// 알림 클릭 백그라운드 핸들러
 @pragma('vm:entry-point')
 void notificationTapBackgroundHandler(NotificationResponse response) {
   if (response.payload != null) {
@@ -40,7 +48,6 @@ class NotificationProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
-  // 읽음 처리 대기 중인 알림 ID들
   final Set<int> _pendingReadNotifications = <int>{};
 
   NotificationProvider();
@@ -81,7 +88,6 @@ class NotificationProvider extends ChangeNotifier {
         final List<dynamic> newNotifications = List.from(res.data);
         _notifications = newNotifications.map((e) => NotificationModel.fromJson(json: e)).toList();
 
-        // 대기 중인 읽음 처리 실행
         await _processPendingReadNotifications();
 
         notifyListeners();
@@ -96,7 +102,6 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 대기 중인 읽음 처리 실행
   Future<void> _processPendingReadNotifications() async {
     if (_pendingReadNotifications.isEmpty) return;
 
@@ -112,7 +117,6 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 안전한 알림 읽음 처리 (서버 요청 없이 로컬에서만)
   Future<void> _markNotificationAsReadSafely(int notificationId) async {
     if (_notifications == null) return;
 
@@ -120,12 +124,10 @@ class NotificationProvider extends ChangeNotifier {
     if (notificationIndex != -1 && !_notifications![notificationIndex].isRead) {
       _notifications![notificationIndex].isRead = true;
 
-      // 서버에 읽음 처리 요청 (백그라운드에서)
       _sendReadNotificationToServer(notificationId);
     }
   }
 
-  // 서버에 읽음 처리 요청 (에러 발생해도 UI에 영향 없음)
   void _sendReadNotificationToServer(int notificationId) async {
     try {
       await serverManager.put(
@@ -135,17 +137,14 @@ class NotificationProvider extends ChangeNotifier {
       print('알림 읽음 처리 서버 전송 완료: $notificationId');
     } catch (e) {
       print('알림 읽음 처리 서버 전송 실패: $e');
-      // 실패해도 UI에는 이미 읽음으로 표시되어 있음
     }
   }
 
-  // 푸시 알림으로 앱 진입 시 읽음 처리
   Future<void> markNotificationAsReadFromPush(int notificationId) async {
     if (_notifications != null) {
       await _markNotificationAsReadSafely(notificationId);
       notifyListeners();
     } else {
-      // 아직 알림 목록이 로드되지 않았으면 대기 목록에 추가
       _pendingReadNotifications.add(notificationId);
     }
   }
@@ -218,11 +217,9 @@ class NotificationProvider extends ChangeNotifier {
       return true;
     }
 
-    // 먼저 UI 업데이트
     _notifications![notificationIndex].isRead = true;
     notifyListeners();
 
-    // 그 다음 서버 요청
     try {
       final code = await serverManager.put(
           'notification/read',
@@ -230,7 +227,6 @@ class NotificationProvider extends ChangeNotifier {
       );
 
       if (code.statusCode != 200) {
-        // 서버 요청 실패 시 롤백
         _notifications![notificationIndex].isRead = false;
         notifyListeners();
         return false;
@@ -238,14 +234,12 @@ class NotificationProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       print('알림 읽음 처리 오류: $e');
-      // 서버 요청 실패 시 롤백
       _notifications![notificationIndex].isRead = false;
       notifyListeners();
       return false;
     }
   }
 
-  // FCM 관련 코드
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   String? _currentFcmToken;
 
@@ -277,7 +271,9 @@ class NotificationProvider extends ChangeNotifier {
         FirebaseMessaging.onMessage.listen((RemoteMessage message) {
           print('포그라운드 메시지 수신: ${message.messageId}');
 
-          // 현재 페이지가 알림 관련된 페이지인지 확인
+          // 포그라운드에서도 배지 업데이트
+          _updateBadgeFromMessage(message);
+
           if (_shouldShowNotification(message.data)) {
             if (message.notification != null) {
               _showLocalNotification({
@@ -317,7 +313,20 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 개선된 알림 표시 여부 판단 로직
+  // 메시지로부터 배지 업데이트
+  void _updateBadgeFromMessage(RemoteMessage message) {
+    try {
+      final badgeStr = message.data['badge'] as String?;
+      if (badgeStr != null) {
+        final badgeCount = int.tryParse(badgeStr) ?? 0;
+        AppBadgePlus.updateBadge(badgeCount);
+        print('FCM 메시지로부터 배지 업데이트: $badgeCount');
+      }
+    } catch (e) {
+      print('FCM 배지 업데이트 오류: $e');
+    }
+  }
+
   bool _shouldShowNotification(Map<String, dynamic> data) {
     if (AppRoute.context == null) return true;
 
@@ -325,38 +334,31 @@ class NotificationProvider extends ChangeNotifier {
       final router = GoRouter.of(AppRoute.context!);
       final state = router.state;
 
-      // 현재 라우트의 실제 URI 가져오기
       final currentUri = state.uri.toString();
       final routing = data['routing'] as String?;
 
       if (routing == null || currentUri.isEmpty) return true;
 
-      // 채팅방 알림인 경우 상세 확인
       if (routing.contains('/room/')) {
         return _shouldShowRoomNotification(currentUri, routing, data);
       }
 
-      // 스케줄 알림인 경우 상세 확인
       if (routing.contains('/schedule/')) {
         return _shouldShowScheduleNotification(currentUri, routing, data);
       }
 
-      // 기타 알림의 경우 정확히 같은 페이지인지 확인
       return !currentUri.contains(routing);
 
     } catch (e) {
       print('알림 표시 여부 판단 오류: $e');
-      return true; // 에러 시에는 알림을 표시
+      return true;
     }
   }
 
-  // 채팅방 알림 표시 여부 판단
   bool _shouldShowRoomNotification(String currentUri, String routing, Map<String, dynamic> data) {
     try {
-      // 현재 채팅방 페이지에 있지 않으면 알림 표시
       if (!currentUri.contains('/room/')) return true;
 
-      // 라우팅에서 roomId 추출
       final routingRoomIdMatch = RegExp(r'/room/(\d+)').firstMatch(routing);
       final currentRoomIdMatch = RegExp(r'/room/(\d+)').firstMatch(currentUri);
 
@@ -365,7 +367,6 @@ class NotificationProvider extends ChangeNotifier {
       final routingRoomId = routingRoomIdMatch.group(1);
       final currentRoomId = currentRoomIdMatch.group(1);
 
-      // 같은 채팅방이면 알림을 표시하지 않음
       if (routingRoomId == currentRoomId) {
         print('현재 채팅방($currentRoomId)과 알림 채팅방($routingRoomId)이 같아서 알림 숨김');
         return false;
@@ -379,13 +380,10 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 스케줄 알림 표시 여부 판단
   bool _shouldShowScheduleNotification(String currentUri, String routing, Map<String, dynamic> data) {
     try {
-      // 현재 스케줄 페이지에 있지 않으면 알림 표시
       if (!currentUri.contains('/schedule/')) return true;
 
-      // 라우팅에서 scheduleId 추출
       final routingScheduleIdMatch = RegExp(r'/schedule/(\d+)').firstMatch(routing);
       final currentScheduleIdMatch = RegExp(r'/schedule/(\d+)').firstMatch(currentUri);
 
@@ -394,7 +392,6 @@ class NotificationProvider extends ChangeNotifier {
       final routingScheduleId = routingScheduleIdMatch.group(1);
       final currentScheduleId = currentScheduleIdMatch.group(1);
 
-      // 같은 스케줄이면 알림을 표시하지 않음
       if (routingScheduleId == currentScheduleId) {
         print('현재 스케줄($currentScheduleId)과 알림 스케줄($routingScheduleId)이 같아서 알림 숨김');
         return false;
@@ -473,6 +470,7 @@ class NotificationProvider extends ChangeNotifier {
       final int badge = int.tryParse(data['badge'] ?? '0') ?? 0;
       final bool alarm = data['alarm'] == '0' ? false : true;
 
+      // 안드로이드 전용 배지 설정 강화
       final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
         _channelId,
         _channelName,
@@ -482,11 +480,14 @@ class NotificationProvider extends ChangeNotifier {
         groupKey: groupKey,
         setAsGroupSummary: false,
         showWhen: alarm,
-        number: badge,
+        number: badge, // 안드로이드 배지
         playSound: alarm,
         enableVibration: alarm,
         icon: _androidNotiIcon,
         color: const Color(0xFF00C4B4),
+        // 안드로이드에서 배지 표시를 위한 추가 설정
+        autoCancel: true,
+        showProgress: false,
       );
 
       final DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
@@ -508,15 +509,20 @@ class NotificationProvider extends ChangeNotifier {
         notificationDetails,
         payload: jsonEncode(data),
       );
+
+      // 알림 표시 후 배지 강제 업데이트 (안드로이드용)
+      if (badge > 0) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        await AppBadgePlus.updateBadge(badge);
+      }
+
     } catch (e) {
       print('로컬 알림 표시 오류: $e');
     }
   }
 
-  // 백그라운드에서 알림 클릭 시 데이터 새로고침 및 읽음 처리
   void _handleNotificationTapWithRefresh(Map<String, dynamic> data) async {
     if (AppRoute.context != null) {
-      // 알림 읽음 처리 (notificationId가 있는 경우)
       final notificationIdStr = data['notificationId'] as String?;
       if (notificationIdStr != null) {
         final notificationId = int.tryParse(notificationIdStr);
@@ -529,16 +535,13 @@ class NotificationProvider extends ChangeNotifier {
         try {
           final routing = data['routing'] as String;
 
-          // 채팅방 알림인 경우
           if (routing.contains('/room/')) {
             final roomIdMatch = RegExp(r'/room/(\d+)').firstMatch(routing);
             if (roomIdMatch != null) {
               final roomId = int.parse(roomIdMatch.group(1)!);
               await _refreshRoomDataSafely(roomId);
             }
-          }
-          // 스케줄 알림인 경우
-          else if (routing.contains('/schedule/')) {
+          } else if (routing.contains('/schedule/')) {
             final scheduleIdMatch = RegExp(r'/schedule/(\d+)').firstMatch(routing);
             if (scheduleIdMatch != null) {
               final scheduleId = int.parse(scheduleIdMatch.group(1)!);
@@ -555,12 +558,10 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 안전한 라우팅 처리
   Future<void> _navigateToRoute(String routing) async {
     try {
       final router = GoRouter.of(AppRoute.context!);
 
-      // 현재 라우트와 다른 경우에만 네비게이션
       final currentUri = router.state.uri.toString();
       if (currentUri != routing) {
         router.go('/my');
@@ -573,17 +574,14 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 안전한 방 데이터 새로고침
   Future<void> _refreshRoomDataSafely(int roomId) async {
     try {
       final chatProvider = AppRoute.context?.read<ChatProvider>();
       final roomsProvider = AppRoute.context?.read<RoomsProvider>();
 
       if (chatProvider != null && roomsProvider != null) {
-        // 방 정보 업데이트
         await roomsProvider.updateRoom(roomId);
 
-        // 채팅 데이터 새로고침
         if (!chatProvider.isJoined(roomId)) {
           await chatProvider.joinRoom(roomId);
         } else {
@@ -596,10 +594,8 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 안전한 스케줄 데이터 새로고침
   Future<void> _refreshScheduleDataSafely(int scheduleId) async {
     try {
-      // 필요시 스케줄 관련 프로바이더 새로고침 로직 추가
       print('스케줄 데이터 새로고침 (scheduleId: $scheduleId)');
     } catch (e) {
       print('스케줄 데이터 새로고침 오류 (scheduleId: $scheduleId): $e');
@@ -607,10 +603,8 @@ class NotificationProvider extends ChangeNotifier {
   }
 }
 
-// 일반 알림 클릭 핸들러 (읽음 처리 추가)
 void _handleNotificationTap(Map<String, dynamic> data) {
   if (AppRoute.context != null) {
-    // 알림 읽음 처리
     final notificationIdStr = data['notificationId'] as String?;
     if (notificationIdStr != null) {
       final notificationId = int.tryParse(notificationIdStr);
@@ -625,7 +619,6 @@ void _handleNotificationTap(Map<String, dynamic> data) {
         final router = GoRouter.of(AppRoute.context!);
         final routing = data['routing'] as String;
 
-        // 현재 라우트와 다른 경우에만 네비게이션
         final currentUri = router.state.uri.toString();
         if (currentUri != routing) {
           router.go('/my');

@@ -18,6 +18,12 @@ class ChatProvider extends ChangeNotifier{
   void myMemberUpdate({required int roomId, required String field, required dynamic data}){
     if (_my.containsKey(roomId) && _my[roomId] != null) {
       _my[roomId]![field] = data;
+
+      // unreadCount 변경 시 즉시 배지 업데이트
+      if (field == 'unreadCount') {
+        _updateBadgeImmediately();
+      }
+
       notifyListeners();
     }
   }
@@ -100,15 +106,14 @@ class ChatProvider extends ChangeNotifier{
     socket.on("kicked", _kickedHandler);
   }
 
-  //다른 디바이스에서의 로그인을 감지
   void _multipleDevice(dynamic data) async{
-   final router = AppRoute.context;
+    final router = AppRoute.context;
 
-     if(router != null){
-        FirebaseAuth.instance.signOut(); //강제 로그아웃
-        router.go('/login');
-        await DialogManager.showBasicDialog(title: '다른 기기에서 로그인되었어요', content: "다른 기기에 로그인 시도로 인해 로그아웃 되었습니다.", confirmText: "확인");
-     }
+    if(router != null){
+      FirebaseAuth.instance.signOut();
+      router.go('/login');
+      await DialogManager.showBasicDialog(title: '다른 기기에서 로그인되었어요', content: "다른 기기에 로그인 시도로 인해 로그아웃 되었습니다.", confirmText: "확인");
+    }
   }
 
   void _kickedHandler(dynamic data) {
@@ -118,7 +123,6 @@ class ChatProvider extends ChangeNotifier{
       final roomId = data['roomId'] as int;
       final room = data['room'] as Map<String, dynamic>?;
 
-      // 안전한 데이터 제거
       _chat.remove(roomId);
       _my.remove(roomId);
       _lastReadChatId.remove(roomId);
@@ -131,7 +135,6 @@ class ChatProvider extends ChangeNotifier{
         return;
       }
 
-      // 다음 프레임에서 안전하게 실행
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!context.mounted) return;
 
@@ -226,7 +229,6 @@ class ChatProvider extends ChangeNotifier{
       final Chat chat = Chat.fromJson(json: data);
       final int roomId = chat.roomId;
 
-      // 중복 방지 체크
       _loadedChatIds.putIfAbsent(roomId, () => <int>{});
       if (_loadedChatIds[roomId]!.contains(chat.chatId)) {
         return;
@@ -241,13 +243,15 @@ class ChatProvider extends ChangeNotifier{
           final state = GoRouter.of(context!).state;
           if (state.path == '/room/:roomId' &&
               state.pathParameters['roomId'] == roomId.toString()) {
-              updateMyLastReadInServer(roomId);
+            // 현재 방에 있으면 즉시 lastRead 업데이트하고 배지 갱신
+            _updateMyLastReadInServerImmediate(roomId);
           } else {
+            // 다른 방에 있으면 unread 증가
             final myData = _my[roomId];
             if (myData != null) {
               final currentCount = myData['unreadCount'] as int? ?? 0;
               myData['unreadCount'] = currentCount + 1;
-              setBadge();
+              _updateBadgeImmediately();
             }
           }
         } catch (e) {
@@ -261,27 +265,68 @@ class ChatProvider extends ChangeNotifier{
     }
   }
 
-  Future<void> updateMyLastReadInServer(int roomId) async {
+  // 즉시 lastRead 업데이트 (배지 갱신 포함)
+  Future<void> _updateMyLastReadInServerImmediate(int roomId) async {
     try {
       final chats = _chat[roomId];
       if (chats == null || chats.isEmpty) return;
 
-      final lastChat = chats.firstOrNull;
+      final lastChat = chats.lastOrNull;
       if (lastChat?.chatId == null) return;
 
       final lastReadId = lastChat!.chatId;
 
-      print('마지막으로 읽은 채팅 업데이트 $lastReadId');
-      await serverManager.put('roomMember/lastread/$roomId?lastRead=$lastReadId');
-
+      // 먼저 로컬 상태 업데이트
       final myData = _my[roomId];
       if (myData != null) {
         myData['lastRead'] = lastReadId;
+        myData['unreadCount'] = 0; // unread count 초기화
         _lastReadChatId[roomId] = lastReadId;
       }
+
+      // 배지 즉시 업데이트
+      _updateBadgeImmediately();
+
+      // 서버에 비동기로 전송 (실패해도 UI는 이미 업데이트됨)
+      _sendLastReadToServer(roomId, lastReadId);
+
     } catch (e) {
-      print('lastRead 업데이트 오류: $e');
+      print('즉시 lastRead 업데이트 오류: $e');
     }
+  }
+
+  // 서버에 lastRead 전송 (백그라운드)
+  void _sendLastReadToServer(int roomId, int lastReadId) async {
+    try {
+      await serverManager.put('roomMember/lastread/$roomId?lastRead=$lastReadId');
+      print('마지막으로 읽은 채팅 서버 업데이트 완료: $lastReadId');
+    } catch (e) {
+      print('lastRead 서버 업데이트 오류: $e');
+    }
+  }
+
+  // 기존 메서드 (호환성 유지)
+  Future<void> updateMyLastReadInServer(int roomId) async {
+    await _updateMyLastReadInServerImmediate(roomId);
+  }
+
+  // 즉시 배지 업데이트
+  void _updateBadgeImmediately() {
+    try {
+      final badge = _calculateTotalUnreadCount();
+      AppBadgePlus.updateBadge(badge);
+      print('배지 업데이트: $badge');
+    } catch (e) {
+      print('즉시 배지 업데이트 오류: $e');
+    }
+  }
+
+  // 총 unread count 계산
+  int _calculateTotalUnreadCount() {
+    return _my.entries.fold<int>(0, (sum, entry) {
+      final unreadCount = entry.value['unreadCount'] as int? ?? 0;
+      return sum + unreadCount;
+    });
   }
 
   Future<bool> setChats(int roomId) async {
@@ -320,7 +365,6 @@ class ChatProvider extends ChangeNotifier{
           print('- 가장 최신 채팅: ID=${newChats.last.chatId}, createAt=${newChats.last.createAt}');
         }
 
-        // 빈 리스트라도 설정해야 초기화 완료 처리됨
         _chat[roomId] = newChats;
         _loadedChatIds[roomId] = newChats.map((chat) => chat.chatId).toSet();
 
@@ -329,9 +373,12 @@ class ChatProvider extends ChangeNotifier{
           myData['unreadCount'] = unreadCount;
         }
 
+        // 배지 업데이트
+        _updateBadgeImmediately();
+
         notifyListeners();
         print('✅ setChats 성공');
-        return true; // 채팅 데이터 로드 성공 (빈 리스트여도 성공으로 처리)
+        return true;
       } else {
         print('❌ 서버 응답 오류: ${response.statusCode}');
       }
@@ -401,7 +448,6 @@ class ChatProvider extends ChangeNotifier{
             print('- 총 채팅 수: ${currentChats.length}');
             print('- 새로운 가장 오래된 채팅: ID=${currentChats.first.chatId}, createAt=${currentChats.first.createAt}');
 
-            // 20개 가져왔으면 더 있을 가능성, 그보다 적으면 마지막일 가능성
             final hasMore = chatsData.length >= 20;
             print('🔍 hasMore 판단: $hasMore (받은 데이터 수: ${chatsData.length})');
             notifyListeners();
@@ -443,7 +489,6 @@ class ChatProvider extends ChangeNotifier{
       notifyListeners();
       print('🚀 loadChatsAfter 시작 (roomId: $roomId)');
 
-      // 시간순으로 정렬해서 가장 최신 채팅 찾기
       final sortedChats = [...currentChats]..sort((a, b) => a.createAt.compareTo(b.createAt));
       final newestChatId = sortedChats.last.chatId;
 
@@ -483,7 +528,6 @@ class ChatProvider extends ChangeNotifier{
             print('✅ 채팅 추가 완료');
             print('- 총 채팅 수: ${currentChats.length}');
 
-            // 20개 가져왔으면 더 있을 가능성, 그보다 적으면 마지막일 가능성
             final hasMore = chatsData.length >= 20;
             print('🔍 hasMore 판단: $hasMore (받은 데이터 수: ${chatsData.length})');
             notifyListeners();
@@ -521,6 +565,9 @@ class ChatProvider extends ChangeNotifier{
           _lastReadChatId[roomId] = lastRead;
         }
 
+        // 배지 업데이트
+        _updateBadgeImmediately();
+
         notifyListeners();
       }
     } catch (e) {
@@ -541,6 +588,10 @@ class ChatProvider extends ChangeNotifier{
       myData['lastRead'] = latestChatId;
       myData['unreadCount'] = 0;
       _lastReadChatId[roomId] = latestChatId;
+
+      // 배지 즉시 업데이트
+      _updateBadgeImmediately();
+
       notifyListeners();
     } catch (e) {
       print('방 입장 시 읽음 상태 업데이트 오류: $e');
@@ -594,6 +645,9 @@ class ChatProvider extends ChangeNotifier{
           }
         }
 
+        // 배지 업데이트
+        _updateBadgeImmediately();
+
         notifyListeners();
       }
     } catch (e) {
@@ -609,6 +663,9 @@ class ChatProvider extends ChangeNotifier{
       _my.remove(roomId);
       _lastReadChatId.remove(roomId);
       _loadedChatIds.remove(roomId);
+
+      // 배지 업데이트
+      _updateBadgeImmediately();
 
       final context = AppRoute.context;
       if (context?.mounted == true) {
@@ -650,23 +707,14 @@ class ChatProvider extends ChangeNotifier{
       if (myData != null) {
         myData['unreadCount'] = 0;
       }
-      setBadge();
+      _updateBadgeImmediately();
     } catch (e) {
       print('읽음 상태 리셋 오류: $e');
     }
   }
 
+  // 기존 setBadge 메서드 (호환성 유지)
   void setBadge() {
-    try {
-      final badge = _my.entries.fold<int>(
-          0, (sum, entry) {
-        final unreadCount = entry.value['unreadCount'] as int? ?? 0;
-        return sum + unreadCount;
-      }
-      );
-      AppBadgePlus.updateBadge(badge);
-    } catch (e) {
-      print('배지 설정 오류: $e');
-    }
+    _updateBadgeImmediately();
   }
 }

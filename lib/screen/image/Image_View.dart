@@ -128,80 +128,82 @@ class _ImageViewState extends State<ImageView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: NadalAppbar(
-        actions: [
-          if(widget.imageUrl.startsWith('http'))
-          NadalIconButton(
-              onTap: () async{
-                _download();
-              },
-              icon: CupertinoIcons.square_arrow_down,
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          InteractiveViewer(
-              maxScale: 5.0,
-              minScale: 0.5,
-              child: CachedNetworkImage(
-                  width: ScreenUtil().screenWidth,
-                  fit: BoxFit.fitWidth,
-                  cacheKey: widget.imageUrl,
-                  imageUrl: widget.imageUrl,
-                  imageBuilder: (context, imageProvider){
-                    return Container(
-                      width: ScreenUtil().screenWidth,
-                      decoration: BoxDecoration(
-                        image: DecorationImage(image: imageProvider, fit: BoxFit.fitWidth),
-                      ),
-                    );
-                  },
-                  placeholder: (context, url)=> Center(
-                    child: NadalCircular(),
-                  ),
-                  errorWidget: (context, url, error){
-                    return Padding(
-                      padding: EdgeInsetsGeometry.only(bottom: 60.h),
-                      child: Center(
-                        child: Container(
-                          width: 200.w,
-                          height: 200.h,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.withAlpha(20),
-                            borderRadius: BorderRadius.circular(8.r),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.image_not_supported_outlined,
-                                color: Theme.of(context).hintColor,
-                                size: 48.sp,
-                              ),
-                              SizedBox(height: 8.h),
-                              Text(
-                                '이미지를 불러올 수 없습니다',
-                                style: Theme.of(context).textTheme.labelMedium
-                              ),
-                            ],
+    return IosPopGesture(
+      child: Scaffold(
+        appBar: NadalAppbar(
+          actions: [
+            if(widget.imageUrl.startsWith('http'))
+            NadalIconButton(
+                onTap: () async{
+                  _download();
+                },
+                icon: CupertinoIcons.square_arrow_down,
+            ),
+          ],
+        ),
+        body: Stack(
+          children: [
+            InteractiveViewer(
+                maxScale: 5.0,
+                minScale: 0.5,
+                child: CachedNetworkImage(
+                    width: ScreenUtil().screenWidth,
+                    fit: BoxFit.fitWidth,
+                    cacheKey: widget.imageUrl,
+                    imageUrl: widget.imageUrl,
+                    imageBuilder: (context, imageProvider){
+                      return Container(
+                        width: ScreenUtil().screenWidth,
+                        decoration: BoxDecoration(
+                          image: DecorationImage(image: imageProvider, fit: BoxFit.fitWidth),
+                        ),
+                      );
+                    },
+                    placeholder: (context, url)=> Center(
+                      child: NadalCircular(),
+                    ),
+                    errorWidget: (context, url, error){
+                      return Padding(
+                        padding: EdgeInsetsGeometry.only(bottom: 60.h),
+                        child: Center(
+                          child: Container(
+                            width: 200.w,
+                            height: 200.h,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.withAlpha(20),
+                              borderRadius: BorderRadius.circular(8.r),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.image_not_supported_outlined,
+                                  color: Theme.of(context).hintColor,
+                                  size: 48.sp,
+                                ),
+                                SizedBox(height: 8.h),
+                                Text(
+                                  '이미지를 불러올 수 없습니다',
+                                  style: Theme.of(context).textTheme.labelMedium
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                )
+            ),
+            if(_downLoading)
+              Positioned.fill(
+                 child: Container(
+                   color: Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.7),
+                   alignment: Alignment.center,
+                   child: NadalCircular()
+                 )
               )
-          ),
-          if(_downLoading)
-            Positioned.fill(
-               child: Container(
-                 color: Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.7),
-                 alignment: Alignment.center,
-                 child: NadalCircular()
-               )
-            )
-        ],
+          ],
+        ),
       ),
     );
   }

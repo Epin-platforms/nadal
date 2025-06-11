@@ -28,7 +28,7 @@ class LeagueModel{
         title: map['title'],
         location: map['location'],
         local: map['local'],
-        date: DateTimeManager.parseUtcToLocalSafe(map['date']) ?? DateTime.now(),
+        date: DateTime.parse(map['date']),
         imageUrl: map['imageUrl'],
         link: map['link'],
         sports: map['sports']);

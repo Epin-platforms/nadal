@@ -109,7 +109,7 @@ class _CarouselOverlapState extends State<CarouselOverlap> {
                                     Row(
                                       children: [
                                         NadalDot(),
-                                        Text('개설일 ${DateFormat('yyyy.MM.dd', 'ko_KR').format(DateTime.parse(item['createAt']))}', style: theme.textTheme.labelMedium?.copyWith(fontSize: 12.sp ,color: const Color(0xfff1f1f1), fontWeight: FontWeight.w500, shadows: [
+                                        Text('개설일 ${DateFormat('yyyy.MM.dd', 'ko_KR').format(DateTimeManager.parseUtcToLocal(item['createAt']))}', style: theme.textTheme.labelMedium?.copyWith(fontSize: 12.sp ,color: const Color(0xfff1f1f1), fontWeight: FontWeight.w500, shadows: [
                                           Shadow(
                                             color: Theme.of(context).highlightColor,
                                             blurRadius: 3,

@@ -172,7 +172,7 @@ class ScheduleChatBubble extends StatelessWidget {
                       ),
                        SizedBox(width: 4.w),
                       Text(
-                        '스케줄 보기',
+                        '자세히 보기',
                         style: TextStyle(
                           fontSize: 13.sp,
                           fontWeight: FontWeight.w600,

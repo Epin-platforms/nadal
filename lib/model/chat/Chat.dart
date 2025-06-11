@@ -65,7 +65,6 @@ class Chat{
 
 
   factory Chat.fromJson({required Map<String,dynamic> json}){
-    print(json['createAt']);
     final type = intToChatType(json['type']);
     final uid = json['uid'] ?? '-1';
     return Chat(
@@ -79,8 +78,8 @@ class Chat{
         createAt: DateTimeManager.parseUtcToLocalSafe(json['createAt']) ?? DateTime.now(),
         updateAt: DateTimeManager.parseUtcToLocalSafe(json['updateAt']) ?? DateTime.now(),
         title: json['title'],
-        startDate: DateTimeManager.parseUtcToLocalSafe(json['startDate']),
-        endDate: DateTimeManager.parseUtcToLocalSafe(json['endDate']),
+        startDate: DateTime.tryParse(json['startDate'] ?? ''),
+        endDate: DateTime.tryParse(json['endDate'] ?? ''),
         tag: json['tag'],
         name: uid == -1 ? '(알수없음)' : json['name'] ,//이름이 없다면 탈퇴한 사용자
         gender: uid == -1 ? '?' : json['gender'],

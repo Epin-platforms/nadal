@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:my_sports_calendar/manager/project/Import_Manager.dart';
 
@@ -89,6 +88,7 @@ class TextFormManager{
   static String timeAgo({required dynamic item}) {
     DateTime? date;
 
+    //createAt은 timeStamp이므로 local로 변경
     if(item is String){
       date = DateTimeManager.parseUtcToLocalSafe(item);
     }else{
@@ -130,8 +130,8 @@ class TextFormManager{
   }
 
   static String fromToDate(dynamic from, dynamic to, {bool isAllDay = false}){
-    DateTime fromDate = (from is String) ? DateTimeManager.parseUtcToLocalSafe(from) : from;
-    DateTime toDate = (to is String) ? DateTimeManager.parseUtcToLocalSafe(to) : to;
+    DateTime fromDate = (from is String) ? DateTime.parse(from) : from;
+    DateTime toDate = (to is String) ? DateTime.parse(to) : to;
 
     if(isAllDay){
       final String allDayForm = DateTime.now().year == fromDate.year ? 'M월 d일 (E)' : 'yyyy년 M월 d일 (E)';

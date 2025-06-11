@@ -29,7 +29,7 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
   List<Map> _getEventsForDay(DateTime day, List<Map> schedules) {
     final dayKey = DateTime(day.year, day.month, day.day);
     return schedules.where((schedule) {
-      final startDate = DateTimeManager.parseUtcToLocalSafe(schedule['startDate']);
+      final startDate = DateTime.tryParse(schedule['startDate'] ?? '');
       if (startDate == null) return false;
       final scheduleDay = DateTime(startDate.year, startDate.month, startDate.day);
       return scheduleDay == dayKey;
