@@ -791,4 +791,25 @@ class ChatProvider extends ChangeNotifier{
   void setBadge() {
     _updateBadgeImmediately();
   }
+
+  String getLastChat(int roomId){
+    final chats = _chat[roomId];
+    if(chats == null || chats.isEmpty) return ''; //채팅이 없다면 공백 리턴
+    final latestChat = chats.reduce((a, b) => a.chatId > b.chatId ? a : b);
+    return _getChatText(latestChat);
+  }
+
+  /// 채팅 텍스트 생성
+  String _getChatText(Chat latestChat) {
+    switch (latestChat.type) {
+      case ChatType.text:
+        return latestChat.contents!;
+      case ChatType.image:
+        return '사진';
+      case ChatType.schedule:
+        return '일정';
+      default:
+        return '삭제된 메시지 입니다';
+    }
+  }
 }

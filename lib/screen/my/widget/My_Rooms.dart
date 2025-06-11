@@ -22,7 +22,7 @@ class MyRooms extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('MY 클럽 & 커뮤니티', style: Theme.of(context).textTheme.titleLarge,),
+                Text('MY 클럽', style: Theme.of(context).textTheme.titleLarge,),
                 Row(
                   children: [
                     NadalIconButton(
@@ -65,9 +65,6 @@ class MyRooms extends StatelessWidget {
                 itemBuilder: (context, index){
                   final roomEntry = roomsProvider.getRoomsList(context)[index];
                   final roomData = roomEntry.value;
-                  final chats = chatProvider.chat[roomData['roomId']];
-                  final latestChat = chats == null || chats.isEmpty ? null : chats.reduce((a, b) => a.chatId > b.chatId ? a : b);
-                  final chatText = latestChat == null ? '' : latestChat.type == ChatType.text ? latestChat.contents : latestChat.type == ChatType.image ? '사진' : latestChat.type == ChatType.schedule ? '일정' : '삭제된 메시지 입니다';
                   final unread = chatProvider.my[roomData['roomId']]?['unreadCount'];
                   return ListTile(
                     onTap: ()=> context.push('/room/${roomData['roomId']}'),
@@ -83,7 +80,7 @@ class MyRooms extends StatelessWidget {
                               style: Theme.of(context).textTheme.titleMedium,
                               children: [
                                 TextSpan(
-                                  text: ' ${roomData['memberCount'] ?? 0}',
+                                  text: '(${roomData['memberCount'] ?? 0})',
                                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                     color: Theme.of(context).hintColor,
                                   ),
@@ -98,7 +95,7 @@ class MyRooms extends StatelessWidget {
                         constraints: BoxConstraints(
                           maxHeight: 24.h
                         ),
-                        child: Text(chatText ?? '', style: Theme.of(context).textTheme.labelMedium,)),
+                        child: Text(chatProvider.getLastChat(roomData['roomId']), style: Theme.of(context).textTheme.labelMedium,)),
                     trailing: unread != null && unread != 0 ? NadalRoomNotReadTag(number: unread) : null,
                   );
                 })
