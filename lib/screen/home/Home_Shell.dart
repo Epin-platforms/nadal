@@ -59,9 +59,16 @@ class _HomeShellState extends State<HomeShell> {
       final chatProvider = context.read<ChatProvider>();
       final userProvider = context.read<UserProvider>();
 
+      print('1단계: 방 목록 초기화 시작');
       await roomsProvider.roomInitialize();
-      chatProvider.initializeSocket();
-      userProvider.fetchMySchedules(DateTime.now());
+      print('1단계 완료: 방 목록 로드됨');
+
+      print('2단계: 소켓 및 채팅 초기화 시작');
+      await chatProvider.initializeSocket();
+
+      print('3단계: 사용자 일정 초기화 시작');
+      await userProvider.fetchMySchedules(DateTime.now());
+      print('3단계 완료: 일정 로드됨');
 
       print('커뮤니티 초기화 완료');
     } catch (e) {

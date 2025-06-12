@@ -28,8 +28,9 @@ class ChatProvider extends ChangeNotifier{
     }
   }
 
-  void initializeSocket() async{
+  Future<void> initializeSocket() async{
     await socket.connect();
+    await initChatProvider(); // 소켓 연결 후 바로 채팅 데이터 로드
   }
 
   bool _socketLoading = false;
@@ -40,27 +41,45 @@ class ChatProvider extends ChangeNotifier{
     notifyListeners();
   }
 
+  bool _isInitialized = false;
+  bool get isInitialized => _isInitialized;
+
   Future initChatProvider() async{
-    final provider = AppRoute.context?.read<RoomsProvider>();
-    final rooms = provider?.rooms;
-    final quickRooms = provider?.quickRooms;
-    if(rooms != null && rooms.isNotEmpty){
-      for (final roomId in rooms.keys) {
+    if (_isInitialized) return;
+    _isInitialized = true;
+
+    try {
+      final roomsProvider = AppRoute.context?.read<RoomsProvider>();
+      if (roomsProvider == null) return;
+
+      // 두 타입의 방을 모두 처리
+      final allRoomIds = <int>[
+        ...?roomsProvider.rooms?.keys,
+        ...?roomsProvider.quickRooms?.keys,
+      ];
+
+      print('📊 초기화할 방 목록: $allRoomIds');
+
+      // 병렬 처리로 성능 개선하되 안전하게
+      final futures = allRoomIds.map((roomId) async {
         try {
-          await joinRoom(roomId);
+          if (!_joinedRooms.contains(roomId)) {
+            await joinRoom(roomId);
+            print('✅ 방 조인 성공: $roomId');
+          }
         } catch (e) {
-          print('방 조인 실패 (roomId: $roomId): $e');
+          print('❌ 방 조인 실패 (roomId: $roomId): $e');
         }
-      }
-    }
-    if(quickRooms != null && quickRooms.isNotEmpty){
-      for (final roomId in quickRooms.keys) {
-        try {
-          await joinRoom(roomId);
-        } catch (e) {
-          print('방 조인 실패 (roomId: $roomId): $e');
-        }
-      }
+      });
+
+      await Future.wait(futures);
+      print('✅ 모든 방 초기화 완료');
+
+    } catch (e) {
+      print('❌ initChatProvider 오류: $e');
+    } finally {
+      _isInitialized = false;
+      notifyListeners();
     }
   }
 
@@ -200,15 +219,38 @@ class ChatProvider extends ChangeNotifier{
         if (context.mounted) {
           try {
             final roomsProvider = context.read<RoomsProvider>();
-            roomsProvider.roomInitialize();
+            // 🔧 전체 재초기화 대신 특정 방만 업데이트
+            _syncWithRoomsProvider(roomsProvider);
           } catch (e) {
-            print('방 목록 새로고침 오류: $e');
+            print('방 목록 동기화 오류: $e');
           }
         }
       });
     } catch (e) {
       print('방 목록 새로고침 스케줄링 오류: $e');
     }
+  }
+
+  void _syncWithRoomsProvider(RoomsProvider roomsProvider) {
+    final allRoomIds = <int>[
+      ...?roomsProvider.rooms?.keys,
+      ...?roomsProvider.quickRooms?.keys,
+    ];
+
+    // ChatProvider에는 있지만 RoomsProvider에는 없는 방들 제거
+    final chatRoomIds = {..._chat.keys, ..._my.keys};
+    final toRemove = chatRoomIds.where((id) => !allRoomIds.contains(id));
+
+    for (final roomId in toRemove) {
+      print('🗑️ 동기화: 방 $roomId 제거');
+      _chat.remove(roomId);
+      _my.remove(roomId);
+      _lastReadChatId.remove(roomId);
+      _loadedChatIds.remove(roomId);
+      _joinedRooms.remove(roomId);
+    }
+
+    notifyListeners();
   }
 
   void _removeChatHandler(dynamic data) {
@@ -764,13 +806,19 @@ class ChatProvider extends ChangeNotifier{
     _updateBadgeImmediately();
   }
 
-  String getLastChat(int roomId){
-    final chats = _chat[roomId];
-    if(chats == null || chats.isEmpty){
-      return '';
-    } //채팅이 없다면 공백 리턴
-    final latestChat = chats.reduce((a, b) => a.chatId > b.chatId ? a : b);
-    return _getChatText(latestChat);
+  String getLastChat(int roomId) {
+    try {
+      final chats = _chat[roomId];
+      if (chats == null || chats.isEmpty) {
+        return '아직 채팅이 없어요';
+      }
+
+      final latestChat = chats.reduce((a, b) => a.chatId > b.chatId ? a : b);
+      return _getChatText(latestChat);
+    } catch (e) {
+      print('getLastChat 오류 (roomId: $roomId): $e');
+      return '채팅을 불러오는 중...';
+    }
   }
 
   /// 채팅 텍스트 생성

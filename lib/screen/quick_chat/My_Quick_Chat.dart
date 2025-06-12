@@ -15,41 +15,63 @@ class MyQuickChat extends StatefulWidget {
 class _MyQuickChatState extends State<MyQuickChat> {
   late ScrollController _scrollController;
   static const String _pageKey = 'quick_chat_main';
+  bool _isAdsInitialized = false;
 
   @override
   void initState() {
     _scrollController = ScrollController();
-    WidgetsBinding.instance.addPostFrameCallback((_)=> initializePageSetting());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _safeInitialize());
     super.initState();
   }
 
-  Future<void> initializePageSetting() async{
-    Future.microtask((){});
-    await _initializeAds();
-    _setupScrollListener();
-  }
-
-  /// 광고 초기화
-  Future<void> _initializeAds() async {
-    final adProvider = context.read<AdvertisementProvider>();
-
-    // 배너 광고와 네이티브 ListTile형 광고 로드
-    await adProvider.loadBannerAd('${_pageKey}_banner');
-
-    // 네이티브 ListTile형 광고 미리 로드 (최대 3개)
-    for (int i = 0; i < 3; i++) {
-      await adProvider.loadNativeListTileAd('${_pageKey}_nativeListTile_$i');
+  /// 안전한 초기화 프로세스
+  Future<void> _safeInitialize() async {
+    try {
+      if (!mounted) return;
+      await _initializeAds();
+      if (!mounted) return;
+      _setupScrollListener();
+    } catch (e) {
+      print('MyQuickChat 초기화 오류: $e');
     }
   }
 
-  /// 스크롤 리스너 설정
+  /// 광고 초기화 (에러 처리 강화)
+  Future<void> _initializeAds() async {
+    if (_isAdsInitialized || !mounted) return;
+
+    try {
+      final adProvider = context.read<AdvertisementProvider>();
+
+      // 배너 광고 로드
+      await adProvider.loadBannerAd('${_pageKey}_banner');
+
+      // 네이티브 ListTile형 광고 로드 (순차적으로)
+      for (int i = 0; i < 3; i++) {
+        if (!mounted) break;
+        await adProvider.loadNativeListTileAd('${_pageKey}_nativeListTile_$i');
+      }
+
+      _isAdsInitialized = true;
+    } catch (e) {
+      print('광고 초기화 오류: $e');
+    }
+  }
+
+  /// 스크롤 리스너 설정 (안전성 강화)
   void _setupScrollListener() {
+    if (!mounted) return;
+
     _scrollController.addListener(() {
-      // 스크롤이 맨 아래에서 200픽셀 이내에 도달했을 때
-      if (_scrollController.position.pixels >=
-          _scrollController.position.maxScrollExtent - 200) {
-        // Provider에서 중복 요청 처리를 하므로 직접 호출
-        widget.homeProvider.fetchMyLocalQuickChatRooms();
+      if (!mounted || !_scrollController.hasClients) return;
+
+      try {
+        final position = _scrollController.position;
+        if (position.pixels >= position.maxScrollExtent - 200.h) {
+          widget.homeProvider.fetchMyLocalQuickChatRooms();
+        }
+      } catch (e) {
+        print('스크롤 리스너 오류: $e');
       }
     });
   }
@@ -57,8 +79,6 @@ class _MyQuickChatState extends State<MyQuickChat> {
   @override
   void dispose() {
     _scrollController.dispose();
-    // AdManager 헬퍼 사용하여 페이지 광고 정리
-
     AdManager.disposePageAds(_pageKey);
     super.dispose();
   }
@@ -69,13 +89,14 @@ class _MyQuickChatState extends State<MyQuickChat> {
       controller: _scrollController,
       slivers: [
         // 상단 배너 광고
-        SliverToBoxAdapter(
-          child: SimpleBannerAdWidget(
-            adKey: '${_pageKey}_banner',
-            height: 50.h,
-            margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+        if (_isAdsInitialized)
+          SliverToBoxAdapter(
+            child: SimpleBannerAdWidget(
+              adKey: '${_pageKey}_banner',
+              height: 50.h,
+              margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+            ),
           ),
-        ),
 
         // 참가중인 번개챗 섹션
         _buildParticipatingRoomsSection(),
@@ -100,74 +121,161 @@ class _MyQuickChatState extends State<MyQuickChat> {
     );
   }
 
-  /// 참가중인 번개챗 섹션
+  /// 참가중인 번개챗 섹션 (안전성 강화)
   Widget _buildParticipatingRoomsSection() {
-    if (widget.roomsProvider.quickRooms!.isEmpty || widget.chatProvider.socketLoading) {
+    final quickRooms = widget.roomsProvider.quickRooms;
+    final chatProvider = widget.chatProvider;
+
+    // 🔧 엄격한 데이터 준비 상태 체크
+    if (!_isQuickRoomsDataReady(quickRooms, chatProvider)) {
+      return SliverToBoxAdapter(
+        child: SizedBox(
+          height: 150.h,
+          child: Center(child: NadalCircular()),
+        ),
+      );
+    }
+
+    if (quickRooms == null || quickRooms.isEmpty) {
       return SliverToBoxAdapter(
         child: SizedBox(
           height: 300.h,
           child: NadalEmptyList(
             title: '아직 참가중인 번개챗이 없어요',
             subtitle: '번개챗은 누구나 빠르게 경기 전용 채팅방 운영할 수 있어요\n7일간 미활동 시 자동 삭제돼요',
-            onAction: () {
-              context.push('/createRoom?isOpen=TRUE');
-            },
+            onAction: () => context.push('/createRoom?isOpen=TRUE'),
             actionText: '번개챗 만들기',
           ),
         ),
       );
     }
 
+    final quickList = _getSafeQuickList();
     return SliverList.builder(
-      itemCount: widget.roomsProvider.quickRooms!.length,
-      itemBuilder: (context, index) {
-        final roomEntry = widget.roomsProvider.getQuickList(context)[index];
-        final roomData = roomEntry.value;
-        final unread = widget.chatProvider.my[roomData['roomId']]?['unreadCount'];
-        print(widget.chatProvider.getLastChat(roomData['roomId']));
-        return ListTile(
-          onTap: () => context.push('/room/${roomData['roomId']}'),
-          leading: NadalRoomFrame(imageUrl: roomData['roomImage']),
-          title: Row(
-            children: [
-              Expanded(
-                child: RichText(
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  text: TextSpan(
-                    text: roomData['roomName'] ?? '',
-                    style: Theme.of(context).textTheme.titleMedium,
-                    children: [
-                      TextSpan(
-                        text: '(${roomData['memberCount'] ?? 0})',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Theme.of(context).hintColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          subtitle: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: 24.h),
-            child: Text(
-              widget.chatProvider.getLastChat(roomData['roomId']),
-              style: Theme.of(context).textTheme.labelMedium,
-            ),
-          ),
-          trailing: unread != null && unread != 0
-              ? NadalRoomNotReadTag(number: unread)
-              : null,
-        );
-      },
+      itemCount: quickList.length,
+      itemBuilder: (context, index) => _buildQuickRoomItem(quickList[index]),
     );
   }
 
-  /// 내 지역 번개챗 섹션
+  /// 안전한 QuickList 가져오기
+  List<MapEntry<int, Map>> _getSafeQuickList() {
+    try {
+      return widget.roomsProvider.getQuickList(context);
+    } catch (e) {
+      print('QuickList 가져오기 오류: $e');
+      return [];
+    }
+  }
+
+  /// QuickRoom 아이템 빌드
+  Widget _buildQuickRoomItem(MapEntry<int, Map> roomEntry) {
+    final roomData = roomEntry.value;
+    final roomId = roomData['roomId'] as int;
+
+    final unread = _getUnreadCountSafely(roomId);
+    final lastChatText = _getLastChatSafely(roomId);
+
+    return ListTile(
+      onTap: () => context.push('/room/$roomId'),
+      leading: NadalRoomFrame(imageUrl: roomData['roomImage']),
+      title: Row(
+        children: [
+          Expanded(
+            child: RichText(
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              text: TextSpan(
+                text: roomData['roomName']?.toString() ?? '알 수 없는 방',
+                style: Theme.of(context).textTheme.titleMedium,
+                children: [
+                  TextSpan(
+                    text: '(${roomData['memberCount'] ?? 0})',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Theme.of(context).hintColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      subtitle: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: 24.h),
+        child: Text(
+          lastChatText,
+          style: Theme.of(context).textTheme.labelMedium,
+        ),
+      ),
+      trailing: unread > 0 ? NadalRoomNotReadTag(number: unread) : null,
+    );
+  }
+
+  /// 데이터 준비 상태 체크 (개선됨)
+  bool _isQuickRoomsDataReady(Map<int, Map>? quickRooms, ChatProvider chatProvider) {
+    if (chatProvider.socketLoading) {
+      print('🔄 소켓 로딩 중...');
+      return false;
+    }
+
+    if (quickRooms == null) {
+      print('⚠️ quickRooms가 null');
+      return false;
+    }
+
+    if (quickRooms.isEmpty) {
+      print('✅ quickRooms가 비어있음 (정상)');
+      return true;
+    }
+
+    // quickRooms의 모든 방이 ChatProvider에 조인되어 있는지 확인
+    for (final roomId in quickRooms.keys) {
+      if (!chatProvider.isJoined(roomId)) {
+        print('⚠️ 방 $roomId가 아직 조인되지 않음');
+        return false;
+      }
+
+      // my 데이터가 있는지 확인
+      if (chatProvider.my[roomId] == null) {
+        print('⚠️ 방 $roomId의 my 데이터가 없음');
+        return false;
+      }
+    }
+
+    print('✅ 모든 quickRooms 데이터 준비 완료');
+    return true;
+  }
+
+  /// 안전한 unread 카운트 가져오기
+  int _getUnreadCountSafely(int roomId) {
+    try {
+      final myData = widget.chatProvider.my[roomId];
+      return myData?['unreadCount'] as int? ?? 0;
+    } catch (e) {
+      print('getUnreadCount 오류 (roomId: $roomId): $e');
+      return 0;
+    }
+  }
+
+  /// 안전한 마지막 채팅 가져오기
+  String _getLastChatSafely(int roomId) {
+    try {
+      final chats = widget.chatProvider.chat[roomId];
+      if (chats == null || chats.isEmpty) {
+        return '아직 채팅이 없어요';
+      }
+      return widget.chatProvider.getLastChat(roomId);
+    } catch (e) {
+      print('getLastChat 오류 (roomId: $roomId): $e');
+      return '채팅을 불러오는 중...';
+    }
+  }
+
+  /// 내 지역 번개챗 섹션 (경량화)
   Widget _buildLocalQuickChatSection() {
-    if (widget.homeProvider.myLocalQuickChatRooms == null) {
+    final myLocalRooms = widget.homeProvider.myLocalQuickChatRooms;
+
+    if (myLocalRooms == null) {
       return SliverToBoxAdapter(
         child: SizedBox(
           height: 300.h,
@@ -176,57 +284,51 @@ class _MyQuickChatState extends State<MyQuickChat> {
       );
     }
 
-    if(widget.homeProvider.myLocalQuickChatRooms!.isEmpty){
+    if (myLocalRooms.isEmpty) {
       return SliverToBoxAdapter(
         child: SizedBox(
           height: 300.h,
-          child: NadalEmptyList(title: '아직 주변에 번개방이 없어요', subtitle: '번개방을 만들고 친구들과 게임을 진행해보세요',
-              actionText: '방 만들기',
-              onAction: ()=> context.push('/createRoom?isOpen=TRUE')
+          child: NadalEmptyList(
+            title: '아직 주변에 번개방이 없어요',
+            subtitle: '번개방을 만들고 친구들과 게임을 진행해보세요',
+            actionText: '방 만들기',
+            onAction: () => context.push('/createRoom?isOpen=TRUE'),
           ),
         ),
       );
     }
 
+    final totalItemCount = _calculateTotalItemCount(myLocalRooms.length);
     return SliverList.builder(
-      itemCount: _calculateTotalItemCount(widget.homeProvider.myLocalQuickChatRooms!.length),
-      itemBuilder: (context, index) {
-        return _buildLocalChatItem(context, index, widget.homeProvider.myLocalQuickChatRooms!);
-      },
+      itemCount: totalItemCount,
+      itemBuilder: (context, index) => _buildLocalChatItem(context, index, myLocalRooms),
     );
   }
 
-  /// 전체 아이템 개수 계산 (원본 아이템 + 광고)
+  /// 전체 아이템 개수 계산 (동일)
   int _calculateTotalItemCount(int originalCount) {
     if (originalCount <= 3) return originalCount;
-
-    // 3개 이상일 때만 광고 삽입
-    // 4~6개 아이템마다 광고 1개 추가 (랜덤성)
-    final adCount = (originalCount / 5).floor().clamp(0, 3); // 최대 3개 광고
+    final adCount = (originalCount / 5).floor().clamp(0, 3);
     return originalCount + adCount;
   }
 
-  /// 광고 위치 결정 (랜덤하지만 일정한 간격 유지)
+  /// 광고 위치 결정 (동일)
   bool _isAdPosition(int totalIndex, int originalCount) {
     if (originalCount <= 3) return false;
 
-    // 랜덤 시드를 위해 고정된 패턴 사용 (실제 랜덤이 아닌 의사 랜덤)
     final positions = <int>[];
-
-    if (originalCount >= 4) positions.add(3); // 4번째 위치
-    if (originalCount >= 8) positions.add(7); // 8번째 위치
-    if (originalCount >= 12) positions.add(11); // 12번째 위치
+    if (originalCount >= 4) positions.add(3);
+    if (originalCount >= 8) positions.add(7);
+    if (originalCount >= 12) positions.add(11);
 
     return positions.contains(totalIndex);
   }
 
-  /// 실제 아이템 인덱스 계산
+  /// 실제 아이템 인덱스 계산 (동일)
   int _getActualItemIndex(int totalIndex, int originalCount) {
     if (originalCount <= 3) return totalIndex;
 
     int actualIndex = totalIndex;
-
-    // 광고 위치들을 빼서 실제 인덱스 계산
     if (totalIndex > 3) actualIndex--;
     if (totalIndex > 7) actualIndex--;
     if (totalIndex > 11) actualIndex--;
@@ -234,18 +336,18 @@ class _MyQuickChatState extends State<MyQuickChat> {
     return actualIndex.clamp(0, originalCount - 1);
   }
 
-  /// 광고 키 생성
+  /// 광고 키 생성 (동일)
   String _getAdKey(int adPosition) {
     final adIndex = adPosition <= 3 ? 0 : adPosition <= 7 ? 1 : 2;
     return '${_pageKey}_nativeListTile_$adIndex';
   }
 
-  /// 로컬 챗 아이템 빌드 (아이템 또는 광고)
+  /// 로컬 챗 아이템 빌드 (안전성 강화)
   Widget _buildLocalChatItem(BuildContext context, int index, List<dynamic> items) {
     final originalCount = items.length;
 
     // 광고 위치인지 확인
-    if (_isAdPosition(index, originalCount)) {
+    if (_isAdPosition(index, originalCount) && _isAdsInitialized) {
       return NativeListTileAdWidget(
         adKey: _getAdKey(index),
         padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 0.h),
@@ -254,13 +356,25 @@ class _MyQuickChatState extends State<MyQuickChat> {
 
     // 실제 아이템 표시
     final actualIndex = _getActualItemIndex(index, originalCount);
+    if (actualIndex >= items.length) {
+      return SizedBox.shrink();
+    }
+
     final item = items[actualIndex];
+    if (item == null) {
+      return SizedBox.shrink();
+    }
 
     return ListTile(
-      onTap: () => context.push('/previewRoom/${item['roomId']}'),
+      onTap: () {
+        final roomId = item['roomId'];
+        if (roomId != null) {
+          context.push('/previewRoom/$roomId');
+        }
+      },
       leading: NadalRoomFrame(imageUrl: item['roomImage']),
       title: Text(
-        item['roomName'],
+        item['roomName']?.toString() ?? '알 수 없는 방',
         style: Theme.of(context).textTheme.titleMedium,
       ),
       subtitle: Row(
@@ -278,7 +392,7 @@ class _MyQuickChatState extends State<MyQuickChat> {
           Padding(
             padding: EdgeInsets.only(left: 8.w),
             child: Text(
-              '${item['memberCount']}/200',
+              '${item['memberCount'] ?? 0}/200',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: Theme.of(context).hintColor,
               ),
@@ -289,16 +403,23 @@ class _MyQuickChatState extends State<MyQuickChat> {
     );
   }
 
-  /// 아이템 설명 생성
+  /// 아이템 설명 생성 (안전성 강화)
   String _getItemDescription(dynamic item) {
-    final description = item['description'] as String;
-    final tag = item['tag'] as String;
+    if (item == null) return '정보없음';
 
-    if (description.isNotEmpty) {
-      return description;
-    } else if (tag.isNotEmpty) {
-      return tag;
-    } else {
+    try {
+      final description = item['description']?.toString() ?? '';
+      final tag = item['tag']?.toString() ?? '';
+
+      if (description.isNotEmpty) {
+        return description;
+      } else if (tag.isNotEmpty) {
+        return tag;
+      } else {
+        return '정보없음';
+      }
+    } catch (e) {
+      print('아이템 설명 생성 오류: $e');
       return '정보없음';
     }
   }

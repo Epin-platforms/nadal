@@ -1,4 +1,5 @@
 import 'package:bootstrap_icons/bootstrap_icons.dart';
+import 'package:flutter/cupertino.dart';
 import '../../manager/project/Import_Manager.dart';
 
 class NadalBottomNav extends StatelessWidget {
@@ -116,7 +117,7 @@ class NadalBottomNav extends StatelessWidget {
                 roomsProvider.quickRooms?.keys.toList(),
               );
               return _buildIconWithBadge(
-                icon: BootstrapIcons.lightning,
+                icon: CupertinoIcons.chat_bubble_2,
                 badgeCount: unreadCount, context: context,
               );
             },
@@ -127,7 +128,7 @@ class NadalBottomNav extends StatelessWidget {
                 roomsProvider.quickRooms?.keys.toList(),
               );
               return _buildIconWithBadge(
-                icon: BootstrapIcons.lightning_fill,
+                icon: CupertinoIcons.chat_bubble_2_fill,
                 badgeCount: unreadCount, context: context,
               );
             },
