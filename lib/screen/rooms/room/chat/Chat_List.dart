@@ -25,13 +25,17 @@ class _ChatListState extends State<ChatList> {
 
   Timer? _scrollDebouncer;
 
+  // 🔧 초기화 상태 관리
+  bool _isInitialized = false;
+  Timer? _initTimer;
+
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeScrollPosition();
+      _waitForInitialization();
     });
   }
 
@@ -39,7 +43,47 @@ class _ChatListState extends State<ChatList> {
   void dispose() {
     _scrollController.dispose();
     _scrollDebouncer?.cancel();
+    _initTimer?.cancel();
     super.dispose();
+  }
+
+  // 🔧 초기화 대기
+  void _waitForInitialization() {
+    if (!mounted) return;
+
+    final roomId = widget.roomProvider.room?['roomId'] as int?;
+    if (roomId == null) return;
+
+    final chatProvider = context.read<ChatProvider>();
+
+    // 데이터가 준비되었는지 확인
+    if (_isDataReady(chatProvider, roomId)) {
+      _initializeScrollPosition();
+      _isInitialized = true;
+      return;
+    }
+
+    // 아직 준비되지 않았으면 재시도
+    _initTimer?.cancel();
+    _initTimer = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        _waitForInitialization();
+      }
+    });
+  }
+
+  // 🔧 데이터 준비 상태 확인
+  bool _isDataReady(ChatProvider chatProvider, int roomId) {
+    try {
+      final chats = chatProvider.chat[roomId];
+      final myData = chatProvider.my[roomId];
+      final isJoined = chatProvider.isJoined(roomId);
+
+      return chats != null && myData != null && isJoined && !chatProvider.socketLoading;
+    } catch (e) {
+      print('❌ 데이터 준비 상태 확인 오류: $e');
+      return false;
+    }
   }
 
   void _initializeScrollPosition() {
@@ -68,7 +112,7 @@ class _ChatListState extends State<ChatList> {
   }
 
   void _onScroll() {
-    if (!mounted) return;
+    if (!mounted || !_isInitialized) return;
     if (_isLoadingBefore || _isLoadingAfter) return;
 
     final position = _scrollController.position;
@@ -77,7 +121,7 @@ class _ChatListState extends State<ChatList> {
 
     _scrollDebouncer?.cancel();
     _scrollDebouncer = Timer(const Duration(milliseconds: 200), () {
-      if (!mounted) return;
+      if (!mounted || !_isInitialized) return;
       if (_isLoadingBefore || _isLoadingAfter) return;
 
       final pixels = position.pixels;
@@ -102,14 +146,16 @@ class _ChatListState extends State<ChatList> {
   }
 
   Future<void> _loadMoreBefore() async {
-    if (_isLoadingBefore || !_hasMoreBefore) return;
+    if (_isLoadingBefore || !_hasMoreBefore || !_isInitialized) return;
 
     final roomId = widget.roomProvider.room?['roomId'] as int?;
     if (roomId == null) return;
 
     print('📥 이전 채팅 로드 시작');
 
-    setState(() => _isLoadingBefore = true);
+    if (mounted) {
+      setState(() => _isLoadingBefore = true);
+    }
 
     try {
       final chatProvider = context.read<ChatProvider>();
@@ -135,14 +181,16 @@ class _ChatListState extends State<ChatList> {
   }
 
   Future<void> _loadMoreAfter() async {
-    if (_isLoadingAfter || !_hasMoreAfter) return;
+    if (_isLoadingAfter || !_hasMoreAfter || !_isInitialized) return;
 
     final roomId = widget.roomProvider.room?['roomId'] as int?;
     if (roomId == null) return;
 
     print('📤 이후 채팅 로드 시작');
 
-    setState(() => _isLoadingAfter = true);
+    if (mounted) {
+      setState(() => _isLoadingAfter = true);
+    }
 
     try {
       final chatProvider = context.read<ChatProvider>();
@@ -318,6 +366,38 @@ class _ChatListState extends State<ChatList> {
     );
   }
 
+  // 🔧 초기 로딩 상태 위젯
+  Widget _buildInitialLoadingState() {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(20.w),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 32.w,
+              height: 32.h,
+              child: CircularProgressIndicator(
+                strokeWidth: 3.w,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              '채팅을 불러오는 중...',
+              style: TextStyle(
+                fontSize: 16.sp,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -326,6 +406,21 @@ class _ChatListState extends State<ChatList> {
         Expanded(
           child: Consumer<ChatProvider>(
             builder: (context, chatProvider, child) {
+              // 🔧 초기화되지 않은 상태 처리
+              if (!_isInitialized) {
+                final roomId = widget.roomProvider.room?['roomId'] as int?;
+                if (roomId != null && _isDataReady(chatProvider, roomId)) {
+                  // 데이터가 준비되었으면 초기화 수행
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _initializeScrollPosition();
+                    if (mounted) {
+                      setState(() => _isInitialized = true);
+                    }
+                  });
+                }
+                return _buildInitialLoadingState();
+              }
+
               final combinedList = _buildCombinedList();
 
               if (combinedList.isEmpty) {

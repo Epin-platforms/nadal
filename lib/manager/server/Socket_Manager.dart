@@ -16,11 +16,15 @@ class SocketManager {
   static const int _maxReconnectAttempts = 5;
   static const Duration _reconnectDelay = Duration(seconds: 2);
 
+  // 🔧 Provider 처리 상태 관리
+  bool _isProcessingReconnect = false;
+
   SocketManager._internal();
 
   // Getters
   bool get isConnected => _isConnected;
   bool get isConnecting => _isConnecting;
+  bool get isProcessingReconnect => _isProcessingReconnect; // 🔧 추가
 
   // 소켓 연결
   Future<void> connect() async {
@@ -104,6 +108,7 @@ class SocketManager {
       print("❌ 소켓 연결 종료: $reason");
       _isConnected = false;
       _isConnecting = false;
+      _isProcessingReconnect = false; // 🔧 재연결 처리 상태 초기화
 
       _handleSocketDisconnected();
 
@@ -118,6 +123,7 @@ class SocketManager {
       print("❌ 소켓 연결 오류: $error");
       _isConnected = false;
       _isConnecting = false;
+      _isProcessingReconnect = false; // 🔧 재연결 처리 상태 초기화
       _scheduleReconnect();
     });
 
@@ -131,6 +137,7 @@ class SocketManager {
       print("❌ 소켓 재연결 실패");
       _isConnected = false;
       _isConnecting = false;
+      _isProcessingReconnect = false; // 🔧 재연결 처리 상태 초기화
       _scheduleReconnect();
     });
   }
@@ -150,27 +157,46 @@ class SocketManager {
     }
   }
 
-  // 소켓 재연결 처리
+  // 🔧 개선된 소켓 재연결 처리
   void _handleSocketReconnected() {
+    if (_isProcessingReconnect) {
+      print("⚠️ 이미 재연결 처리 중 - 중복 실행 방지");
+      return;
+    }
+
+    _isProcessingReconnect = true;
+    print("🔄 소켓 재연결 처리 시작");
+
+    // 🔧 비동기 처리로 변경
+    _processReconnectionAsync();
+  }
+
+  // 🔧 비동기 재연결 처리
+  Future<void> _processReconnectionAsync() async {
     final context = AppRoute.context;
-    if (context?.mounted != true) return;
+    if (context?.mounted != true) {
+      _isProcessingReconnect = false;
+      return;
+    }
 
     try {
-      // ChatProvider 재연결 처리
+      // ChatProvider 재연결 처리 (비동기로 대기)
       final chatProvider = context!.read<ChatProvider>();
-      chatProvider.onSocketReconnected();
+      await Future.microtask(() => chatProvider.onSocketReconnected());
 
       // 게임 관련 처리 (필요한 경우)
       if (_isProviderAvailable<ScheduleProvider>()) {
         final scheduleProvider = context.read<ScheduleProvider>();
         if (scheduleProvider.isGameSchedule) {
-          scheduleProvider.fetchGameTables();
+          await Future.microtask(() => scheduleProvider.fetchGameTables());
         }
       }
 
-      print("✅ 재연결 후 Provider 처리 완료");
+      print("✅ 소켓 재연결 처리 완료");
     } catch (e) {
-      print("❌ 재연결 후 Provider 처리 오류: $e");
+      print("❌ 소켓 재연결 처리 오류: $e");
+    } finally {
+      _isProcessingReconnect = false;
     }
   }
 
@@ -280,6 +306,7 @@ class SocketManager {
     _cancelReconnectTimer();
     _isConnected = false;
     _isConnecting = false;
+    _isProcessingReconnect = false; // 🔧 재연결 처리 상태 초기화
     _reconnectAttempts = 0;
 
     try {
@@ -306,5 +333,6 @@ class SocketManager {
   void dispose() {
     _cancelReconnectTimer();
     _cleanupSocket();
+    _isProcessingReconnect = false;
   }
 }

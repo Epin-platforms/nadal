@@ -25,6 +25,11 @@ class _HomeShellState extends State<HomeShell> {
   String? _pendingRoute;
   int? _pendingNotificationId;
 
+  // 🔧 초기화 상태 관리 개선
+  bool _isInitializing = false;
+  Timer? _initTimeoutTimer;
+  static const Duration _initTimeout = Duration(seconds: 30); // 초기화 타임아웃
+
   @override
   void initState() {
     super.initState();
@@ -33,16 +38,33 @@ class _HomeShellState extends State<HomeShell> {
     });
   }
 
+  @override
+  void dispose() {
+    _initTimeoutTimer?.cancel();
+    super.dispose();
+  }
+
   // 앱 초기화 프로세스 순차 실행
   void _initializeApp() async {
+    if (_isInitializing) return;
+
     try {
+      _isInitializing = true;
       print('🚀 앱 초기화 시작');
 
-      // 1. 커뮤니티 설정
-      await _setCommunity();
+      // 🔧 타임아웃 설정
+      _initTimeoutTimer = Timer(_initTimeout, () {
+        if (!_isInitialized) {
+          print('⏰ 초기화 타임아웃 - 강제 완료');
+          _forceInitializationComplete();
+        }
+      });
 
-      // 2. 딥링크 초기화
+      // 1. 딥링크 초기화 (가장 먼저)
       await _initDeepLinks();
+
+      // 2. 커뮤니티 설정
+      await _setCommunity();
 
       // 3. 기타 초기화
       await _initStep();
@@ -53,7 +75,18 @@ class _HomeShellState extends State<HomeShell> {
       print('✅ 앱 초기화 완료');
     } catch (e) {
       print('❌ 앱 초기화 오류: $e');
+      _forceInitializationComplete();
+    } finally {
+      _initTimeoutTimer?.cancel();
+      _isInitializing = false;
     }
+  }
+
+  // 🔧 강제 초기화 완료
+  void _forceInitializationComplete() {
+    _isInitialized = true;
+    _processPendingRoute();
+    print('⚠️ 초기화 강제 완료됨');
   }
 
   Future<void> _setCommunity() async {
@@ -74,25 +107,38 @@ class _HomeShellState extends State<HomeShell> {
       if (!mounted) return;
 
       print('3단계: 사용자 일정 초기화 시작');
-      await userProvider.fetchMySchedules(DateTime.now());
+      // 🔧 일정 초기화는 백그라운드에서 처리 (필수가 아님)
+      _loadSchedulesInBackground(userProvider);
       if (!mounted) return;
-      print('3단계 완료: 일정 로드됨');
 
       print('✅ 커뮤니티 초기화 완료');
     } catch (e) {
       print('❌ 커뮤니티 초기화 오류: $e');
+      // 커뮤니티 초기화 실패해도 앱은 계속 실행
     }
+  }
+
+  // 🔧 백그라운드에서 일정 로드
+  void _loadSchedulesInBackground(UserProvider userProvider) {
+    Future.microtask(() async {
+      try {
+        await userProvider.fetchMySchedules(DateTime.now());
+        print('✅ 백그라운드 일정 로드 완료');
+      } catch (e) {
+        print('❌ 백그라운드 일정 로드 오류: $e');
+      }
+    });
   }
 
   Future<void> _initStep() async {
     if (!mounted) return;
 
     try {
-      // 알림 초기화
-      notificationProvider.initialize();
+      // 알림 초기화 (백그라운드에서)
+      _initNotificationInBackground();
 
-      // 권한 체크
-      await _checkPermissions();
+      // 권한 체크 (백그라운드에서)
+      _checkPermissionsInBackground();
 
       // 푸시메시지 체크
       _checkPush();
@@ -101,17 +147,34 @@ class _HomeShellState extends State<HomeShell> {
       print('✅ 앱 초기화 단계 완료');
     } catch (e) {
       print('❌ 초기화 단계 오류: $e');
+      _isInitialized = true; // 에러가 있어도 앱은 계속 실행
     }
   }
 
-  Future<void> _checkPermissions() async {
-    try {
-      if (mounted) {
-        await PermissionManager.checkAndShowPermissions(context);
+  // 🔧 백그라운드에서 알림 초기화
+  void _initNotificationInBackground() {
+    Future.microtask(() async {
+      try {
+        await notificationProvider.initialize();
+        print('✅ 백그라운드 알림 초기화 완료');
+      } catch (e) {
+        print('❌ 백그라운드 알림 초기화 오류: $e');
       }
-    } catch (e) {
-      print('❌ 권한 체크 오류: $e');
-    }
+    });
+  }
+
+  // 🔧 백그라운드에서 권한 체크
+  void _checkPermissionsInBackground() {
+    Future.microtask(() async {
+      try {
+        if (mounted) {
+          await PermissionManager.checkAndShowPermissions(context);
+          print('✅ 백그라운드 권한 체크 완료');
+        }
+      } catch (e) {
+        print('❌ 백그라운드 권한 체크 오류: $e');
+      }
+    });
   }
 
   void _checkPush() {
@@ -210,26 +273,22 @@ class _HomeShellState extends State<HomeShell> {
         print('📱 알림 읽음 처리 시작: $notificationId');
       }
 
-      // 알림 읽음 처리
+      // 알림 읽음 처리 (백그라운드에서)
       if (notificationId != null) {
-        try {
-          await notificationProvider.markNotificationAsReadFromPush(notificationId);
-          print('✅ 알림 읽음 처리 완료: $notificationId');
-        } catch (e) {
-          print('❌ 알림 읽음 처리 오류: $e');
-        }
+        Future.microtask(() async {
+          try {
+            await notificationProvider.markNotificationAsReadFromPush(notificationId);
+            print('✅ 알림 읽음 처리 완료: $notificationId');
+          } catch (e) {
+            print('❌ 알림 읽음 처리 오류: $e');
+          }
+        });
       }
 
       if (!mounted) return;
 
-      // 홈으로 이동 후 잠시 대기
-      context.go('/my');
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      if (!mounted) return;
-
-      // 타겟 라우팅 실행
-      context.push(routing);
+      // 🔧 라우팅 처리 개선
+      await _safeNavigate(routing);
 
       print('✅ 라우팅 실행 완료: $routing');
 
@@ -237,8 +296,51 @@ class _HomeShellState extends State<HomeShell> {
       print('❌ 라우팅 실행 오류: $e');
       // 오류 시 홈으로 fallback
       if (mounted) {
+        _safeFallbackToHome();
+      }
+    }
+  }
+
+  // 🔧 안전한 네비게이션
+  Future<void> _safeNavigate(String routing) async {
+    try {
+      if (!mounted) return;
+
+      // 현재 경로 확인
+      final router = GoRouter.of(context);
+      final currentPath = router.state.uri.toString();
+
+      // 동일한 경로면 skip
+      if (currentPath == routing) {
+        print('동일한 경로이므로 네비게이션 생략: $routing');
+        return;
+      }
+
+      // 홈으로 이동 후 잠시 대기
+      if (currentPath != '/my' && currentPath != '/quick-chat' && currentPath != '/more') {
+        context.go('/my');
+        await Future.delayed(const Duration(milliseconds: 150));
+      }
+
+      if (!mounted) return;
+
+      // 타겟 라우팅 실행
+      context.push(routing);
+
+    } catch (e) {
+      print('❌ 안전한 네비게이션 오류: $e');
+      _safeFallbackToHome();
+    }
+  }
+
+  // 🔧 안전한 홈 이동
+  void _safeFallbackToHome() {
+    try {
+      if (mounted) {
         context.go('/my');
       }
+    } catch (e) {
+      print('❌ 홈 이동 fallback 오류: $e');
     }
   }
 
@@ -252,40 +354,39 @@ class _HomeShellState extends State<HomeShell> {
       _pendingRoute = null;
       _pendingNotificationId = null;
 
-      Future.microtask(() async {
-        await _navigateToRouteWithNotification(route, notificationId);
+      // 🔧 약간의 지연 후 처리
+      Future.delayed(const Duration(milliseconds: 500), () async {
+        if (mounted) {
+          await _navigateToRouteWithNotification(route, notificationId);
+        }
       });
     }
   }
 
   @override
-  void dispose() {
-    // 리소스 정리
-    _pendingRoute = null;
-    _pendingNotificationId = null;
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    notificationProvider = Provider.of<NotificationProvider>(context);
-    homeProvider = Provider.of<HomeProvider>(context);
+    return Consumer2<NotificationProvider, HomeProvider>(
+      builder: (context, notifProvider, homeProvider, child) {
+        notificationProvider = notifProvider;
+        this.homeProvider = homeProvider;
 
-    return Scaffold(
-        body: widget.child,
-        bottomNavigationBar: NadalBottomNav(
-            currentIndex: homeProvider.currentTab,
-            onTap: (tab) {
-              homeProvider.onChangedTab(tab);
-              if (tab == 0) {
-                context.go('/my');
-              } else if(tab == 1){
-                context.go('/quick-chat');
-              } else if (tab == 2) {
-                context.go('/more');
-              }
-            }
-        )
+        return Scaffold(
+            body: widget.child,
+            bottomNavigationBar: NadalBottomNav(
+                currentIndex: homeProvider.currentTab,
+                onTap: (tab) {
+                  homeProvider.onChangedTab(tab);
+                  if (tab == 0) {
+                    context.go('/my');
+                  } else if(tab == 1){
+                    context.go('/quick-chat');
+                  } else if (tab == 2) {
+                    context.go('/more');
+                  }
+                }
+            )
+        );
+      },
     );
   }
 }

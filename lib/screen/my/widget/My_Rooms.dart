@@ -5,78 +5,161 @@ import 'package:my_sports_calendar/widget/Nadal_Room_NotRead_Tag.dart';
 import '../../../manager/project/Import_Manager.dart';
 import '../../../widget/Nadal_Room_Frame.dart';
 
-class MyRooms extends StatelessWidget {
+class MyRooms extends StatefulWidget {
   const MyRooms({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final roomsProvider = Provider.of<RoomsProvider>(context);
-    final chatProvider = Provider.of<ChatProvider>(context);
+  State<MyRooms> createState() => _MyRoomsState();
+}
 
+class _MyRoomsState extends State<MyRooms> {
+  // 🔧 상태 관리 개선
+  bool _hasCheckedInitialState = false;
+  Timer? _retryTimer;
+  int _retryCount = 0;
+  static const int _maxRetries = 5;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkInitialState();
+    });
+  }
+
+  @override
+  void dispose() {
+    _retryTimer?.cancel();
+    super.dispose();
+  }
+
+  // 🔧 초기 상태 확인
+  void _checkInitialState() {
+    if (!mounted) return;
+
+    final roomsProvider = context.read<RoomsProvider>();
+    final chatProvider = context.read<ChatProvider>();
+
+    if (_isDataReady(roomsProvider, chatProvider)) {
+      setState(() => _hasCheckedInitialState = true);
+    } else {
+      _scheduleRetry();
+    }
+  }
+
+  // 🔧 재시도 스케줄링
+  void _scheduleRetry() {
+    if (_retryCount >= _maxRetries) {
+      print('❌ 최대 재시도 횟수 초과 - 강제로 로딩 완료 처리');
+      setState(() => _hasCheckedInitialState = true);
+      return;
+    }
+
+    _retryTimer?.cancel();
+    _retryCount++;
+
+    final delay = Duration(milliseconds: 500 * _retryCount);
+    print('🔄 ${delay.inMilliseconds}ms 후 데이터 준비 상태 재확인 ($_retryCount/$_maxRetries)');
+
+    _retryTimer = Timer(delay, () {
+      if (mounted) {
+        _checkInitialState();
+      }
+    });
+  }
+
+  // 🔧 간소화된 데이터 준비 상태 확인
+  bool _isDataReady(RoomsProvider roomsProvider, ChatProvider chatProvider) {
+    // 1. 기본 초기화 확인
+    if (!chatProvider.isInitialized) {
+      print('🔄 ChatProvider 초기화 중');
+      return false;
+    }
+
+    // 2. 소켓 로딩 확인
+    if (chatProvider.socketLoading) {
+      print('🔄 소켓 로딩 중');
+      return false;
+    }
+
+    // 3. 방 목록 확인
+    if (roomsProvider.rooms == null) {
+      print('🔄 방 목록 로딩 중');
+      return false;
+    }
+
+    // 4. 방이 있다면 최소한의 데이터 확인
+    if (roomsProvider.rooms!.isNotEmpty) {
+      final readyRooms = roomsProvider.rooms!.keys.where((roomId) {
+        return chatProvider.isRoomDataReady(roomId);
+      }).length;
+
+      final totalRooms = roomsProvider.rooms!.length;
+      final readyPercentage = readyRooms / totalRooms;
+
+      print('📊 방 준비 상태: $readyRooms/$totalRooms (${(readyPercentage * 100).toInt()}%)');
+
+      // 🔧 조건 완화: 70% 이상 또는 최소 3개 방이 준비되면 OK
+      if (readyPercentage >= 0.7 || (readyRooms >= 3 && totalRooms > 3)) {
+        return true;
+      }
+
+      // 🔧 5초 이상 기다렸다면 강제로 완료 처리
+      if (_retryCount >= 10) {
+        print('⏰ 타임아웃 - 현재 상태로 진행');
+        return true;
+      }
+
+      return false;
+    }
+
+    // 방이 없으면 준비 완료
+    return true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 24.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 헤더는 동일
           _buildHeader(context),
-
-          // 로딩 상태 개선
-          if(_shouldShowLoading(roomsProvider, chatProvider))
-            _buildLoadingList()
-          else if(_hasRooms(roomsProvider))
-            _buildRoomsList(roomsProvider, chatProvider, context)
-          else
-            _buildEmptyState(context)
+          _buildContent(),
         ],
       ),
     );
   }
 
-  // 🔧 로딩 상태 판단 로직 대폭 개선
-  bool _shouldShowLoading(RoomsProvider roomsProvider, ChatProvider chatProvider) {
-    // 1. RoomsProvider가 아직 초기화되지 않음
-    if (roomsProvider.rooms == null) {
-      print('🔄 rooms가 null - 로딩 중');
-      return true;
-    }
+  Widget _buildContent() {
+    return Consumer2<RoomsProvider, ChatProvider>(
+      builder: (context, roomsProvider, chatProvider, child) {
+        // 🔧 로딩 상태 확인 개선
+        if (!_hasCheckedInitialState || _shouldShowLoading(roomsProvider, chatProvider)) {
+          return _buildLoadingList();
+        }
 
-    // 2. 소켓이 아직 로딩 중
-    if (chatProvider.socketLoading) {
-      print('🔄 소켓 로딩 중');
-      return true;
-    }
+        if (_hasRooms(roomsProvider)) {
+          return _buildRoomsList(roomsProvider, chatProvider, context);
+        }
 
-    // 3. rooms가 있는데 ChatProvider에 데이터가 준비되지 않음
-    if (roomsProvider.rooms!.isNotEmpty) {
-      final isDataReady = _isAllRoomsDataReady(roomsProvider.rooms!, chatProvider);
-      if (!isDataReady) {
-        print('🔄 채팅 데이터 준비 중');
-        return true;
-      }
-    }
-
-    print('✅ 모든 데이터 준비 완료');
-    return false;
+        return _buildEmptyState(context);
+      },
+    );
   }
 
-  // 🔧 새로운 메서드: 모든 방의 데이터가 준비되었는지 확인
-  bool _isAllRoomsDataReady(Map<int, Map> rooms, ChatProvider chatProvider) {
-    // rooms가 비어있으면 준비된 것으로 간주
-    if (rooms.isEmpty) return true;
+  // 🔧 단순화된 로딩 상태 확인
+  bool _shouldShowLoading(RoomsProvider roomsProvider, ChatProvider chatProvider) {
+    // 초기 상태 확인이 완료되지 않았으면 로딩
+    if (!_hasCheckedInitialState) return true;
 
-    // 모든 방에 대해 기본 데이터가 있는지 확인 (전부 조인될 필요는 없음)
-    final totalRooms = rooms.length;
-    final joinedRooms = rooms.keys.where((roomId) =>
-    chatProvider.isJoined(roomId) && chatProvider.my[roomId] != null
-    ).length;
+    // 재연결 중이면 로딩 표시하지 않음 (데이터는 있으니까)
+    if (chatProvider.socketLoading && roomsProvider.rooms != null && roomsProvider.rooms!.isNotEmpty) {
+      return false;
+    }
 
-    // 최소 50% 이상의 방이 준비되었으면 로딩 완료로 간주
-    final readyPercentage = joinedRooms / totalRooms;
-    final isReady = readyPercentage >= 0.5;
-
-    print('📊 방 준비 상태: $joinedRooms/$totalRooms (${(readyPercentage * 100).toInt()}%)');
-    return isReady;
+    // 완전히 새로 로딩하는 경우만 로딩 표시
+    return roomsProvider.rooms == null || (!chatProvider.isInitialized && roomsProvider.rooms!.isEmpty);
   }
 
   bool _hasRooms(RoomsProvider roomsProvider) {
@@ -95,48 +178,72 @@ class MyRooms extends StatelessWidget {
         final roomData = roomEntry.value;
         final roomId = roomData['roomId'] as int;
 
-        // 안전한 데이터 접근
-        final unread = _getUnreadCountSafely(chatProvider, roomId);
-        final lastChatText = _getLastChatSafely(chatProvider, roomId);
-
-        return ListTile(
-          onTap: () => context.push('/room/$roomId'),
-          leading: NadalRoomFrame(imageUrl: roomData['roomImage']),
-          title: Row(
-            children: [
-              Expanded(
-                child: RichText(
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  text: TextSpan(
-                    text: roomData['roomName']?.toString() ?? '알 수 없는 방',
-                    style: Theme.of(context).textTheme.titleMedium,
-                    children: [
-                      TextSpan(
-                        text: '(${roomData['memberCount'] ?? 0})',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Theme.of(context).hintColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          subtitle: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: 24.h),
-            child: Text(
-              lastChatText,
-              style: Theme.of(context).textTheme.labelMedium,
-            ),
-          ),
-          trailing: unread > 0
-              ? NadalRoomNotReadTag(number: unread)
-              : null,
-        );
+        return _buildRoomItem(roomId, roomData, chatProvider);
       },
     );
+  }
+
+  // 🔧 방 아이템 위젯 분리
+  Widget _buildRoomItem(int roomId, Map roomData, ChatProvider chatProvider) {
+    return ListTile(
+      onTap: () => context.push('/room/$roomId'),
+      leading: NadalRoomFrame(imageUrl: roomData['roomImage']),
+      title: Row(
+        children: [
+          Expanded(
+            child: RichText(
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              text: TextSpan(
+                text: roomData['roomName']?.toString() ?? '알 수 없는 방',
+                style: Theme.of(context).textTheme.titleMedium,
+                children: [
+                  TextSpan(
+                    text: '(${roomData['memberCount'] ?? 0})',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Theme.of(context).hintColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      subtitle: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: 24.h),
+        child: Text(
+          _getLastChatSafely(chatProvider, roomId),
+          style: Theme.of(context).textTheme.labelMedium,
+        ),
+      ),
+      trailing: _buildTrailing(chatProvider, roomId),
+    );
+  }
+
+  // 🔧 trailing 위젯 분리
+  Widget? _buildTrailing(ChatProvider chatProvider, int roomId) {
+    final unread = _getUnreadCountSafely(chatProvider, roomId);
+
+    if (unread > 0) {
+      return NadalRoomNotReadTag(number: unread);
+    }
+
+    // 🔧 재연결 중인 방 표시
+    if (chatProvider.socketLoading && !chatProvider.isRoomDataReady(roomId)) {
+      return SizedBox(
+        width: 16.w,
+        height: 16.h,
+        child: CircularProgressIndicator(
+          strokeWidth: 2.w,
+          valueColor: AlwaysStoppedAnimation<Color>(
+            Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+          ),
+        ),
+      );
+    }
+
+    return null;
   }
 
   // 🔧 안전한 방 목록 가져오기
@@ -145,7 +252,6 @@ class MyRooms extends StatelessWidget {
       return roomsProvider.getRoomsList(context);
     } catch (e) {
       print('getRoomsList 오류: $e');
-      // 에러 시 rooms를 직접 변환하여 반환
       final rooms = roomsProvider.rooms;
       if (rooms != null) {
         return rooms.entries.toList();
@@ -158,10 +264,7 @@ class MyRooms extends StatelessWidget {
   int _getUnreadCountSafely(ChatProvider chatProvider, int roomId) {
     try {
       final myData = chatProvider.my[roomId];
-      if (myData == null) {
-        // 데이터가 없으면 0 반환 (로딩 중일 수 있음)
-        return 0;
-      }
+      if (myData == null) return 0;
       return myData['unreadCount'] as int? ?? 0;
     } catch (e) {
       print('getUnreadCount 오류 (roomId: $roomId): $e');
@@ -172,9 +275,8 @@ class MyRooms extends StatelessWidget {
   // 🔧 안전한 마지막 채팅 텍스트 가져오기
   String _getLastChatSafely(ChatProvider chatProvider, int roomId) {
     try {
-      // 조인되지 않은 방은 "참가 중..." 표시
       if (!chatProvider.isJoined(roomId)) {
-        return '참가 중...';
+        return '연결 중...';
       }
 
       final chats = chatProvider.chat[roomId];
