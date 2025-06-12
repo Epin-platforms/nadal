@@ -36,10 +36,12 @@ class _HomeShellState extends State<HomeShell> {
   // 앱 초기화 프로세스 순차 실행
   void _initializeApp() async {
     try {
+      print('🚀 앱 초기화 시작');
+
       // 1. 커뮤니티 설정
       await _setCommunity();
 
-      // 2. 딥링크 초기화 (앱 완전 초기화 후)
+      // 2. 딥링크 초기화
       await _initDeepLinks();
 
       // 3. 기타 초기화
@@ -48,12 +50,15 @@ class _HomeShellState extends State<HomeShell> {
       // 4. 초기화 완료 후 대기 중인 라우팅 처리
       _processPendingRoute();
 
+      print('✅ 앱 초기화 완료');
     } catch (e) {
-      print('앱 초기화 오류: $e');
+      print('❌ 앱 초기화 오류: $e');
     }
   }
 
   Future<void> _setCommunity() async {
+    if (!mounted) return;
+
     try {
       final roomsProvider = context.read<RoomsProvider>();
       final chatProvider = context.read<ChatProvider>();
@@ -61,22 +66,27 @@ class _HomeShellState extends State<HomeShell> {
 
       print('1단계: 방 목록 초기화 시작');
       await roomsProvider.roomInitialize();
+      if (!mounted) return;
       print('1단계 완료: 방 목록 로드됨');
 
       print('2단계: 소켓 및 채팅 초기화 시작');
       await chatProvider.initializeSocket();
+      if (!mounted) return;
 
       print('3단계: 사용자 일정 초기화 시작');
       await userProvider.fetchMySchedules(DateTime.now());
+      if (!mounted) return;
       print('3단계 완료: 일정 로드됨');
 
-      print('커뮤니티 초기화 완료');
+      print('✅ 커뮤니티 초기화 완료');
     } catch (e) {
-      print('커뮤니티 초기화 오류: $e');
+      print('❌ 커뮤니티 초기화 오류: $e');
     }
   }
 
   Future<void> _initStep() async {
+    if (!mounted) return;
+
     try {
       // 알림 초기화
       notificationProvider.initialize();
@@ -88,17 +98,19 @@ class _HomeShellState extends State<HomeShell> {
       _checkPush();
 
       _isInitialized = true;
-      print('앱 초기화 단계 완료');
+      print('✅ 앱 초기화 단계 완료');
     } catch (e) {
-      print('초기화 단계 오류: $e');
+      print('❌ 초기화 단계 오류: $e');
     }
   }
 
   Future<void> _checkPermissions() async {
     try {
-      await PermissionManager.checkAndShowPermissions(context);
+      if (mounted) {
+        await PermissionManager.checkAndShowPermissions(context);
+      }
     } catch (e) {
-      print('권한 체크 오류: $e');
+      print('❌ 권한 체크 오류: $e');
     }
   }
 
@@ -118,51 +130,50 @@ class _HomeShellState extends State<HomeShell> {
         }
       });
     } catch (e) {
-      print('푸시 메시지 체크 오류: $e');
+      print('❌ 푸시 메시지 체크 오류: $e');
     }
   }
 
-  // 딥링크 초기화 개선
+  // 딥링크 초기화
   Future<void> _initDeepLinks() async {
     try {
-      print('딥링크 초기화 시작');
+      print('🔗 딥링크 초기화 시작');
 
-      // 초기 링크 처리 (앱이 종료된 상태에서 실행된 경우)
+      // 초기 링크 처리
       final initialUri = await _appLinks.getInitialLink();
       if (initialUri != null) {
         print('초기 딥링크 감지: $initialUri');
         await _handleDeepLink(initialUri);
       }
 
-      // 런타임 링크 처리 (앱이 실행 중일 때)
+      // 런타임 링크 처리
       _appLinks.uriLinkStream.listen(
               (uri) async {
             print('런타임 딥링크 감지: $uri');
             await _handleDeepLink(uri);
           },
           onError: (err) {
-            print('딥링크 스트림 오류: $err');
+            print('❌ 딥링크 스트림 오류: $err');
           }
       );
 
-      print('딥링크 초기화 완료');
+      print('✅ 딥링크 초기화 완료');
     } catch (e) {
-      print('딥링크 초기화 오류: $e');
+      print('❌ 딥링크 초기화 오류: $e');
     }
   }
 
-  // 딥링크 처리 로직 개선
+  // 딥링크 처리 로직
   Future<void> _handleDeepLink(Uri uri) async {
     try {
-      print('딥링크 처리 시작: $uri');
-      print('딥링크 쿼리 파라미터: ${uri.queryParameters}');
+      print('🔗 딥링크 처리 시작: $uri');
 
       final params = uri.queryParameters;
       final routing = params['routing'];
       final notificationIdStr = params['notificationId'];
 
       if (routing == null || routing.isEmpty) {
-        print('라우팅 정보가 없습니다');
+        print('⚠️ 라우팅 정보가 없습니다');
         return;
       }
 
@@ -185,7 +196,7 @@ class _HomeShellState extends State<HomeShell> {
       await _navigateToRouteWithNotification(routing, notificationId);
 
     } catch (e) {
-      print('딥링크 처리 오류: $e');
+      print('❌ 딥링크 처리 오류: $e');
     }
   }
 
@@ -194,26 +205,25 @@ class _HomeShellState extends State<HomeShell> {
     try {
       if (!mounted) return;
 
-      print('라우팅 실행 시작: $routing');
+      print('🧭 라우팅 실행 시작: $routing');
       if (notificationId != null) {
-        print('알림 읽음 처리 시작: $notificationId');
+        print('📱 알림 읽음 처리 시작: $notificationId');
       }
 
-      // 알림 읽음 처리 (라우팅 전에 실행)
+      // 알림 읽음 처리
       if (notificationId != null) {
         try {
           await notificationProvider.markNotificationAsReadFromPush(notificationId);
-          print('알림 읽음 처리 완료: $notificationId');
+          print('✅ 알림 읽음 처리 완료: $notificationId');
         } catch (e) {
-          print('알림 읽음 처리 오류: $e');
-          // 읽음 처리 실패해도 라우팅은 계속 진행
+          print('❌ 알림 읽음 처리 오류: $e');
         }
       }
 
+      if (!mounted) return;
+
       // 홈으로 이동 후 잠시 대기
       context.go('/my');
-
-      // 라우팅 실행 전 짧은 지연
       await Future.delayed(const Duration(milliseconds: 100));
 
       if (!mounted) return;
@@ -221,10 +231,10 @@ class _HomeShellState extends State<HomeShell> {
       // 타겟 라우팅 실행
       context.push(routing);
 
-      print('라우팅 실행 완료: $routing');
+      print('✅ 라우팅 실행 완료: $routing');
 
     } catch (e) {
-      print('라우팅 실행 오류: $e');
+      print('❌ 라우팅 실행 오류: $e');
       // 오류 시 홈으로 fallback
       if (mounted) {
         context.go('/my');
@@ -232,11 +242,10 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
-
   // 대기 중인 라우팅 처리
   void _processPendingRoute() {
     if (_pendingRoute != null && _isInitialized) {
-      print('대기 중인 라우팅 처리: $_pendingRoute');
+      print('📝 대기 중인 라우팅 처리: $_pendingRoute');
       final route = _pendingRoute!;
       final notificationId = _pendingNotificationId;
 

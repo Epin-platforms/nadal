@@ -92,7 +92,9 @@ class _RoomAnnouncedWidgetState extends State<RoomAnnouncedWidget> {
                         },
                         splashRadius: 20,
                         padding: EdgeInsets.zero,
-                      ),
+                      )
+                    else
+                      SizedBox(width: 12.w,)
                   ],
                 ),
               ],

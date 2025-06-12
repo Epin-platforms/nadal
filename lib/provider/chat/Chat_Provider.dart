@@ -265,6 +265,82 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
+  // === 새로 추가된 Public 메서드들 ===
+
+  // 소켓 연결 성공 시 호출
+  void onSocketConnected() {
+    // 추가 처리가 필요하면 여기에 구현
+    print('✅ ChatProvider: 소켓 연결됨');
+  }
+
+  // 소켓 재연결 시 호출
+  void onSocketReconnected() {
+    try {
+      // 모든 방에 대해 재연결 처리
+      for (final roomId in _joinedRooms.toList()) {
+        refreshRoomData(roomId);
+      }
+      print('✅ ChatProvider: 소켓 재연결 처리 완료');
+    } catch (e) {
+      print('❌ ChatProvider: 소켓 재연결 처리 오류: $e');
+    }
+  }
+
+  // 특정 방 조인 (Public)
+  Future<void> joinRoom(int roomId) async {
+    try {
+      await _joinRoom(roomId);
+      notifyListeners();
+    } catch (e) {
+      print('❌ 방 조인 오류 ($roomId): $e');
+    }
+  }
+
+  // 방 데이터 새로고침 (Public)
+  Future<void> refreshRoomData(int roomId) async {
+    try {
+      await _loadMyRoomData(roomId);
+
+      // 최신 채팅만 가져오기
+      final myData = _my[roomId];
+      if (myData != null) {
+        final lastRead = myData['lastRead'] as int? ?? 0;
+        final response = await serverManager.get(
+            'chat/reconnect?roomId=$roomId&lastChatId=$lastRead'
+        );
+
+        if (response.statusCode == 200 && response.data != null) {
+          final data = response.data as Map<String, dynamic>;
+          final chatsData = data['data'] as List? ?? [];
+          final unreadCount = data['unreadCount'] as int? ?? 0;
+
+          final newChats = chatsData
+              .map((e) => Chat.fromJson(json: e))
+              .toList();
+
+          _loadedChatIds.putIfAbsent(roomId, () => <int>{});
+          _chat.putIfAbsent(roomId, () => <Chat>[]);
+
+          for (Chat chat in newChats) {
+            if (!_loadedChatIds[roomId]!.contains(chat.chatId)) {
+              _chat[roomId]!.add(chat);
+              _loadedChatIds[roomId]!.add(chat.chatId);
+            }
+          }
+
+          _chat[roomId]!.sort((a, b) => a.createAt.compareTo(b.createAt));
+          myData['unreadCount'] = unreadCount;
+          _updateBadge();
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      print('❌ 방 데이터 새로고침 오류 ($roomId): $e');
+    }
+  }
+
+  // === 기존 메서드들 ===
+
   // 읽음 상태 업데이트
   Future<void> updateLastRead(int roomId) async {
     try {
@@ -417,41 +493,7 @@ class ChatProvider extends ChangeNotifier {
   Future<void> refreshRoomFromBackground(int roomId) async {
     try {
       if (_joinedRooms.contains(roomId)) {
-        await _loadMyRoomData(roomId);
-
-        // 최신 채팅만 가져오기
-        final myData = _my[roomId];
-        if (myData != null) {
-          final lastRead = myData['lastRead'] as int? ?? 0;
-          final response = await serverManager.get(
-              'chat/reconnect?roomId=$roomId&lastChatId=$lastRead'
-          );
-
-          if (response.statusCode == 200 && response.data != null) {
-            final data = response.data as Map<String, dynamic>;
-            final chatsData = data['data'] as List? ?? [];
-            final unreadCount = data['unreadCount'] as int? ?? 0;
-
-            final newChats = chatsData
-                .map((e) => Chat.fromJson(json: e))
-                .toList();
-
-            _loadedChatIds.putIfAbsent(roomId, () => <int>{});
-            _chat.putIfAbsent(roomId, () => <Chat>[]);
-
-            for (Chat chat in newChats) {
-              if (!_loadedChatIds[roomId]!.contains(chat.chatId)) {
-                _chat[roomId]!.add(chat);
-                _loadedChatIds[roomId]!.add(chat.chatId);
-              }
-            }
-
-            _chat[roomId]!.sort((a, b) => a.createAt.compareTo(b.createAt));
-            myData['unreadCount'] = unreadCount;
-            _updateBadge();
-            notifyListeners();
-          }
-        }
+        await refreshRoomData(roomId);
       }
     } catch (e) {
       print('❌ 백그라운드 새로고침 오류 ($roomId): $e');

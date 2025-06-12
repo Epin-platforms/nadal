@@ -19,4 +19,11 @@ class DateTimeManager{
       return null;
     }
   }
+
+  static bool isSameDay(DateTime startDate, DateTime endDate){
+    if(startDate.year == endDate.year && startDate.month == endDate.month && startDate.day == endDate.day){
+      return true;
+    }
+    return false;
+  }
 }

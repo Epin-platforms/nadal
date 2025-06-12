@@ -6,7 +6,6 @@ import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
 import 'package:my_sports_calendar/model/app/Notifications_Model.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:app_badge_plus/app_badge_plus.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 const String _channelId = 'epin.nadal.chat.channel';
 const String _channelName = 'Nadal_Chat_ver1.0.0';
@@ -31,7 +30,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     }
   }
 
-  // 백그라운드에서도 로컬 알림 표시 (iOS 중요)
+  // 백그라운드에서도 로컬 알림 표시
   try {
     await _showBackgroundLocalNotification(message.data);
   } catch (e) {
@@ -295,12 +294,12 @@ class NotificationProvider extends ChangeNotifier {
         await _requestIOSPermissions();
       }
 
-      // FCM 권한 요청 (iOS 개선)
+      // FCM 권한 요청
       NotificationSettings settings = await _firebaseMessaging.requestPermission(
         alert: true,
         badge: true,
         sound: true,
-        provisional: false, // 명시적 권한 요청
+        provisional: false,
         criticalAlert: false,
         announcement: false,
       );
@@ -470,7 +469,6 @@ class NotificationProvider extends ChangeNotifier {
       const AndroidInitializationSettings androidInitializationSettings =
       AndroidInitializationSettings(_androidNotiIcon);
 
-      // iOS 설정 개선
       DarwinInitializationSettings iosInitializationSettings =
       DarwinInitializationSettings(
         requestAlertPermission: true,
@@ -594,7 +592,6 @@ class NotificationProvider extends ChangeNotifier {
         showProgress: false,
       );
 
-      // iOS 설정 개선
       final DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
         presentSound: alarm,
         presentAlert: alarm,
@@ -620,7 +617,7 @@ class NotificationProvider extends ChangeNotifier {
 
       // 배지 업데이트
       if (badge > 0) {
-        await Future.delayed(Duration(milliseconds: 100.w.toInt()));
+        await Future.delayed(Duration(milliseconds: 100));
         await AppBadgePlus.updateBadge(badge);
       }
     } catch (e) {
@@ -629,7 +626,9 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   void _handleNotificationTapWithRefresh(Map<String, dynamic> data) async {
-    if (AppRoute.context != null) {
+    if (AppRoute.context == null) return;
+
+    try {
       final notificationIdStr = data['notificationId'] as String?;
       if (notificationIdStr != null) {
         final notificationId = int.tryParse(notificationIdStr);
@@ -639,40 +638,41 @@ class NotificationProvider extends ChangeNotifier {
       }
 
       if (data['routing'] != null) {
-        try {
-          final routing = data['routing'] as String;
+        final routing = data['routing'] as String;
 
-          if (routing.contains('/room/')) {
-            final roomIdMatch = RegExp(r'/room/(\d+)').firstMatch(routing);
-            if (roomIdMatch != null) {
-              final roomId = int.parse(roomIdMatch.group(1)!);
-              await _refreshRoomDataSafely(roomId);
-            }
-          } else if (routing.contains('/schedule/')) {
-            final scheduleIdMatch =
-            RegExp(r'/schedule/(\d+)').firstMatch(routing);
-            if (scheduleIdMatch != null) {
-              final scheduleId = int.parse(scheduleIdMatch.group(1)!);
-              await _refreshScheduleDataSafely(scheduleId);
-            }
+        if (routing.contains('/room/')) {
+          final roomIdMatch = RegExp(r'/room/(\d+)').firstMatch(routing);
+          if (roomIdMatch != null) {
+            final roomId = int.parse(roomIdMatch.group(1)!);
+            await _refreshRoomDataSafely(roomId);
           }
-
-          await _navigateToRoute(routing);
-        } catch (e) {
-          print('알림 라우팅 오류: $e');
+        } else if (routing.contains('/schedule/')) {
+          final scheduleIdMatch =
+          RegExp(r'/schedule/(\d+)').firstMatch(routing);
+          if (scheduleIdMatch != null) {
+            final scheduleId = int.parse(scheduleIdMatch.group(1)!);
+            await _refreshScheduleDataSafely(scheduleId);
+          }
         }
+
+        await _navigateToRoute(routing);
       }
+    } catch (e) {
+      print('알림 라우팅 오류: $e');
     }
   }
 
   Future<void> _navigateToRoute(String routing) async {
     try {
-      final router = GoRouter.of(AppRoute.context!);
+      final context = AppRoute.context;
+      if (context?.mounted != true) return;
 
+      final router = GoRouter.of(context!);
       final currentUri = router.state.uri.toString();
+
       if (currentUri != routing) {
         router.go('/my');
-        await Future.delayed(Duration(milliseconds: 100.w.toInt()));
+        await Future.delayed(Duration(milliseconds: 100));
         router.push(routing);
       }
     } catch (e) {
@@ -682,58 +682,63 @@ class NotificationProvider extends ChangeNotifier {
 
   Future<void> _refreshRoomDataSafely(int roomId) async {
     try {
-      final chatProvider = AppRoute.context?.read<ChatProvider>();
-      final roomsProvider = AppRoute.context?.read<RoomsProvider>();
+      final context = AppRoute.context;
+      if (context?.mounted != true) return;
 
-      if (chatProvider != null && roomsProvider != null) {
-        await roomsProvider.updateRoom(roomId);
+      final chatProvider = context!.read<ChatProvider>();
+      final roomsProvider = context.read<RoomsProvider>();
 
-        if (!chatProvider.isJoined(roomId)) {
-          await chatProvider.joinRoom(roomId);
-        } else {
-          await chatProvider.onReconnectChat(roomId);
-          await chatProvider.setMyRoom(roomId);
-        }
+      // 방 정보 업데이트
+      await roomsProvider.updateRoom(roomId);
+
+      // 채팅 데이터 새로고침
+      if (!chatProvider.isJoined(roomId)) {
+        await chatProvider.joinRoom(roomId);
+      } else {
+        await chatProvider.refreshRoomData(roomId);
       }
+
+      print('✅ 방 데이터 새로고침 완료: $roomId');
     } catch (e) {
-      print('방 데이터 새로고침 오류 (roomId: $roomId): $e');
+      print('❌ 방 데이터 새로고침 오류 (roomId: $roomId): $e');
     }
   }
 
   Future<void> _refreshScheduleDataSafely(int scheduleId) async {
     try {
-      print('스케줄 데이터 새로고침 (scheduleId: $scheduleId)');
+      print('📅 스케줄 데이터 새로고침: $scheduleId');
+      // 스케줄 관련 새로고침 로직 필요시 구현
     } catch (e) {
-      print('스케줄 데이터 새로고침 오류 (scheduleId: $scheduleId): $e');
+      print('❌ 스케줄 데이터 새로고침 오류 (scheduleId: $scheduleId): $e');
     }
   }
 }
 
 void _handleNotificationTap(Map<String, dynamic> data) {
-  if (AppRoute.context != null) {
+  final context = AppRoute.context;
+  if (context?.mounted != true) return;
+
+  try {
     final notificationIdStr = data['notificationId'] as String?;
     if (notificationIdStr != null) {
       final notificationId = int.tryParse(notificationIdStr);
       if (notificationId != null) {
-        final notificationProvider =
-        AppRoute.context?.read<NotificationProvider>();
-        notificationProvider?.markNotificationAsReadFromPush(notificationId);
+        final notificationProvider = context!.read<NotificationProvider>();
+        notificationProvider.markNotificationAsReadFromPush(notificationId);
       }
     }
 
     if (data['routing'] != null) {
-      try {
-        final router = GoRouter.of(AppRoute.context!);
-        final routing = data['routing'] as String;
+      final router = GoRouter.of(context!);
+      final routing = data['routing'] as String;
+      final currentUri = router.state.uri.toString();
 
-        final currentUri = router.state.uri.toString();
-        if (currentUri != routing) {
-          router.go('/my');
-          router.push(routing);
-        }
-      } catch (e) {
-        print('알림 라우팅 오류: $e');
+      if (currentUri != routing) {
+        router.go('/my');
+        router.push(routing);
       }
     }
+  } catch (e) {
+    print('알림 탭 처리 오류: $e');
   }
 }

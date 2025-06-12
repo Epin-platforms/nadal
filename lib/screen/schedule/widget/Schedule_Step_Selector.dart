@@ -1,6 +1,4 @@
 import '../../../manager/project/Import_Manager.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class ScheduleStepSelector extends StatelessWidget {
   final int currentStep;
@@ -33,6 +31,8 @@ class ScheduleStepSelector extends StatelessWidget {
     return index == currentStep;
   }
 
+  final currentColor = ThemeManager.freshBlue;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -40,7 +40,6 @@ class ScheduleStepSelector extends StatelessWidget {
     final onPrimaryColor = theme.colorScheme.onPrimary;
     final lineColor = theme.highlightColor;
     final backgroundColor = theme.scaffoldBackgroundColor;
-
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 24.h, horizontal: 16.w),
       child: Stack(
@@ -98,14 +97,14 @@ class ScheduleStepSelector extends StatelessWidget {
                             decoration: BoxDecoration(
                               // 현재 스텝은 코랄 오렌지 배경, 완료된 스텝은 primary, 나머지는 연한 배경
                               color: isCurrent
-                                  ? const Color(0xFFFF6B35) // 현재 스텝만 코랄 오렌지 배경
+                                  ? currentColor // 현재 스텝만 코랄 오렌지 배경
                                   : isCompleted
                                   ? primaryColor
                                   : lineColor.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(10.r),
                               border: Border.all(
                                 color: isCurrent
-                                    ? const Color(0xFFFF6B35) // 현재 스텝 테두리도 코랄 오렌지
+                                    ? currentColor // 현재 스텝 테두리도 코랄 오렌지
                                     : isCompleted
                                     ? primaryColor
                                     : lineColor.withValues(alpha: 0.5),
@@ -113,13 +112,13 @@ class ScheduleStepSelector extends StatelessWidget {
                               ),
                               boxShadow: isCurrent ? [
                                 BoxShadow(
-                                  color: const Color(0xFFFF6B35).withValues(alpha: 0.4), // 코랄 오렌지 그림자
+                                  color: currentColor.withValues(alpha: 0.4), // 코랄 오렌지 그림자
                                   blurRadius: 12.r,
                                   offset: Offset(0, 4.h),
                                   spreadRadius: 2.r,
                                 ),
                                 BoxShadow(
-                                  color: const Color(0xFFFF6B35).withValues(alpha: 0.2), // 코랄 오렌지 외곽 그림자
+                                  color: currentColor.withValues(alpha: 0.2), // 코랄 오렌지 외곽 그림자
                                   blurRadius: 20.r,
                                   offset: Offset(0, 8.h),
                                   spreadRadius: 4.r,
@@ -213,7 +212,7 @@ class ScheduleStepSelector extends StatelessWidget {
       ) {
     if (isCurrent) {
       // 현재 스텝 텍스트: 코랄 오렌지 색상으로 강조
-      return const Color(0xFFFF6B35);
+      return currentColor;
     } else if (isCompleted) {
       // 완료된 스텝 텍스트: 일반 텍스트 색상
       return theme.textTheme.bodyMedium?.color ?? Colors.black;

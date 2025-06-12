@@ -138,27 +138,27 @@ class SocketManager {
   // 소켓 연결 성공 처리
   void _handleSocketConnected() {
     final context = AppRoute.context;
-    if (context == null) return;
+    if (context?.mounted != true) return;
 
     try {
-      // ChatProvider 초기화 (소켓 리스너만 설정)
-      final chatProvider = context.read<ChatProvider>();
-      chatProvider._setSocketListeners();
-      print("✅ ChatProvider 소켓 리스너 설정 완료");
+      // ChatProvider 알림 (이미 초기화되어 있음)
+      final chatProvider = context!.read<ChatProvider>();
+      chatProvider.onSocketConnected();
+      print("✅ ChatProvider 소켓 연결 완료");
     } catch (e) {
-      print("❌ 소켓 연결 후 Provider 초기화 오류: $e");
+      print("❌ 소켓 연결 후 Provider 처리 오류: $e");
     }
   }
 
   // 소켓 재연결 처리
   void _handleSocketReconnected() {
     final context = AppRoute.context;
-    if (context == null) return;
+    if (context?.mounted != true) return;
 
     try {
       // ChatProvider 재연결 처리
-      final chatProvider = context.read<ChatProvider>();
-      chatProvider.handleReconnection();
+      final chatProvider = context!.read<ChatProvider>();
+      chatProvider.onSocketReconnected();
 
       // 게임 관련 처리 (필요한 경우)
       if (_isProviderAvailable<ScheduleProvider>()) {
@@ -168,19 +168,19 @@ class SocketManager {
         }
       }
 
-      print("✅ 재연결 후 Provider 초기화 완료");
+      print("✅ 재연결 후 Provider 처리 완료");
     } catch (e) {
-      print("❌ 재연결 후 Provider 초기화 오류: $e");
+      print("❌ 재연결 후 Provider 처리 오류: $e");
     }
   }
 
   // 소켓 연결 해제 처리
   void _handleSocketDisconnected() {
     final context = AppRoute.context;
-    if (context == null) return;
+    if (context?.mounted != true) return;
 
     try {
-      final chatProvider = context.read<ChatProvider>();
+      final chatProvider = context!.read<ChatProvider>();
       chatProvider.onDisconnect();
       print("✅ 연결 해제 후 Provider 정리 완료");
     } catch (e) {
@@ -293,9 +293,9 @@ class SocketManager {
   bool _isProviderAvailable<T>() {
     try {
       final context = AppRoute.context;
-      if (context == null) return false;
+      if (context?.mounted != true) return false;
 
-      Provider.of<T>(context, listen: false);
+      Provider.of<T>(context!, listen: false);
       return true;
     } catch (e) {
       return false;
