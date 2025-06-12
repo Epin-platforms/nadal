@@ -482,7 +482,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                           isActive: true,
                           title: '스케줄 수정하기',
                           onPressed: () {
-                              provider.startUpdate();
+                              provider.updateSchedule();
                           },
                         )
                       ],

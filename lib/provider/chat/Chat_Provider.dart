@@ -245,7 +245,22 @@ class ChatProvider extends ChangeNotifier{
         return;
       }
 
-      _chat.putIfAbsent(roomId, () => <Chat>[]).add(chat);
+      _chat.putIfAbsent(roomId, () => <Chat>[]);
+
+      // 🔧 수정: 올바른 위치에 삽입 (시간순 정렬 유지)
+      final chats = _chat[roomId]!;
+      int insertIndex = chats.length;
+
+      // 이진 탐색으로 삽입 위치 찾기
+      for (int i = chats.length - 1; i >= 0; i--) {
+        if (chats[i].createAt.isBefore(chat.createAt) ||
+            chats[i].createAt.isAtSameMomentAs(chat.createAt)) {
+          insertIndex = i + 1;
+          break;
+        }
+      }
+
+      chats.insert(insertIndex, chat);
       _loadedChatIds[roomId]!.add(chat.chatId);
 
       final context = AppRoute.context;
@@ -287,37 +302,36 @@ class ChatProvider extends ChangeNotifier{
         return;
       }
 
-      final lastChat = chats.lastOrNull;
-      if (lastChat?.chatId == null) {
-        print('⚠️ 마지막 채팅이 null입니다');
-        return;
-      }else if(lastChat!.chatId < _my[roomId]!['lastRead']){
-        print("⚠️ 마지막 채팅이 저장된 채팅보다 작습니다");
+      // 🔧 수정: reduce를 사용하여 가장 큰 chatId를 가진 채팅 찾기
+      final latestChat = chats.reduce((a, b) => a.chatId > b.chatId ? a : b);
+
+      if (latestChat.chatId <= 0) {
+        print('⚠️ 유효하지 않은 chatId입니다: ${latestChat.chatId}');
         return;
       }
-
-      final lastReadId = lastChat.chatId;
 
       // 현재 lastRead와 비교하여 필요한 경우에만 업데이트
-      final currentLastRead = _lastReadChatId[roomId];
-      if (currentLastRead != null && currentLastRead >= lastReadId) {
-        print('⚠️ 이미 최신 상태입니다 (current: $currentLastRead, new: $lastReadId)');
+      final currentLastRead = _my[roomId]?['lastRead'] as int? ?? 0;
+      if (currentLastRead >= latestChat.chatId) {
+        print('⚠️ 이미 최신 상태입니다 (current: $currentLastRead, new: ${latestChat.chatId})');
         return;
       }
+
+      print('📊 업데이트 예정: $currentLastRead -> ${latestChat.chatId}');
 
       // 로컬 상태 업데이트
       final myData = _my[roomId];
       if (myData != null) {
-        myData['lastRead'] = lastReadId;
+        myData['lastRead'] = latestChat.chatId;
         myData['unreadCount'] = 0;
-        _lastReadChatId[roomId] = lastReadId;
+        _lastReadChatId[roomId] = latestChat.chatId;
       }
 
       _updateBadgeImmediately();
       notifyListeners();
 
       // 서버 업데이트
-      await _sendLastReadToServerSync(roomId, lastReadId);
+      await _sendLastReadToServerSync(roomId, latestChat.chatId);
 
       print('✅ updateMyLastReadInServer 완료');
     } catch (e) {
@@ -341,6 +355,18 @@ class ChatProvider extends ChangeNotifier{
       }
     } catch (e) {
       print('❌ 서버 lastRead 업데이트 오류: $e');
+    }
+  }
+
+  void _sortChatsByCreateTime(int roomId) {
+    final chats = _chat[roomId];
+    if (chats == null || chats.isEmpty) return;
+
+    try {
+      chats.sort((a, b) => a.createAt.compareTo(b.createAt));
+      print('✅ 채팅 리스트 정렬 완료 (roomId: $roomId)');
+    } catch (e) {
+      print('❌ 채팅 리스트 정렬 오류: $e');
     }
   }
 
@@ -394,6 +420,9 @@ class ChatProvider extends ChangeNotifier{
             .map((e) => Chat.fromJson(json: e))
             .toList();
 
+        // 🔧 수정: 채팅을 시간순으로 정렬
+        newChats.sort((a, b) => a.createAt.compareTo(b.createAt));
+
         if (newChats.isNotEmpty) {
           print('- 가장 오래된 채팅: ID=${newChats.first.chatId}, createAt=${newChats.first.createAt}');
           print('- 가장 최신 채팅: ID=${newChats.last.chatId}, createAt=${newChats.last.createAt}');
@@ -405,6 +434,10 @@ class ChatProvider extends ChangeNotifier{
         final myData = _my[roomId];
         if (myData != null) {
           myData['unreadCount'] = unreadCount;
+          // 🔧 수정: 서버에서 받은 lastReadChatId로 설정
+          if (lastReadChatId != null) {
+            myData['lastRead'] = lastReadChatId;
+          }
         }
 
         // 배지 업데이트
