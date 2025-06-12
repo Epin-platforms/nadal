@@ -24,7 +24,7 @@ class ImageChatBubble extends StatelessWidget {
               return Row(
                 children: [
                   _buildCachedImage(images[0], height, width),
-                  const SizedBox(width: 2,),
+                  SizedBox(width: 2.w),
                   _buildCachedImage(images[1], height, width),
                 ],
               );
@@ -36,11 +36,11 @@ class ImageChatBubble extends StatelessWidget {
                   Row(
                     children: [
                       _buildCachedImage(images[0], height, width),
-                      const SizedBox(width: 2,),
+                      SizedBox(width: 2.w),
                       _buildCachedImage(images[1], height, width),
                     ],
                   ),
-                  const SizedBox(height: 2,),
+                  SizedBox(height: 2.h),
                   _buildCachedImage(images[2], height, ScreenUtil().screenWidth * 0.5  + 2),
                 ],
               );
@@ -52,15 +52,15 @@ class ImageChatBubble extends StatelessWidget {
                   Row(
                     children: [
                       _buildCachedImage(images[0], height, width),
-                      const SizedBox(width: 2,),
+                      SizedBox(width: 2.w),
                       _buildCachedImage(images[1], height, width),
                     ],
                   ),
-                  const SizedBox(height: 2,),
+                  SizedBox(height: 2.h),
                   Row(
                     children: [
                       _buildCachedImage(images[2], height, width),
-                      const SizedBox(width: 2,),
+                      SizedBox(width: 2.w),
                       _buildCachedImage(images[3], height, width),
                     ],
                   )
@@ -77,12 +77,12 @@ class ImageChatBubble extends StatelessWidget {
                     child: Row(
                       children: [
                         Flexible(child: _buildCachedImage(images[0], height, width)),
-                        const SizedBox(width: 2,),
+                        SizedBox(width: 2.w),
                         Flexible(child: _buildCachedImage(images[1], height, width)),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 2,),
+                  SizedBox(height: 2.h),
                   SizedBox(
                     width: ScreenUtil().screenWidth * 0.5  + 2,
                     height: ScreenUtil().screenWidth * 0.25,
@@ -91,11 +91,11 @@ class ImageChatBubble extends StatelessWidget {
                         Flexible(
                           child:  _buildCachedImage(images[2], height, width),
                         ),
-                        const SizedBox(width: 2,),
+                        SizedBox(width: 2.w),
                         Flexible(
                           child:  _buildCachedImage(images[3], height, width),
                         ),
-                        const SizedBox(width: 2,),
+                        SizedBox(width: 2.w),
                         Flexible(
                           child:  _buildCachedImage(images[4], height, width),
                         ),
@@ -112,7 +112,7 @@ class ImageChatBubble extends StatelessWidget {
 
   Widget _buildCachedImage(String url, double height, double? width){
     return  CachedNetworkImage(
-      cacheKey:  url,
+      cacheKey: url,
       imageUrl: url,
       imageBuilder: (context, imageProvider) => GestureDetector(
         onTap: (){
@@ -127,12 +127,98 @@ class ImageChatBubble extends StatelessWidget {
           ),
         ),
       ),
-      placeholder: (context, url) => Container(),
+      placeholder: (context, url) => Container(
+        height: height,
+        width: width,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(15.r),
+          color: Theme.of(context).highlightColor,
+        ),
+        child: Center(
+          child: SizedBox(
+            width: 16.w,
+            height: 16.h,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.w,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
+        ),
+      ),
+      errorWidget: (context, url, error) => _buildErrorWidget(context, height, width, error),
+    );
+  }
+
+  // 🔧 개선된 에러 위젯
+  Widget _buildErrorWidget(BuildContext context, double height, double? width, dynamic error) {
+    final theme = Theme.of(context);
+
+    // 403 에러 체크
+    bool isExpired = false;
+    String errorMessage = '이미지 로드 실패';
+    IconData errorIcon = Icons.broken_image_outlined;
+
+    if (error != null) {
+      final errorString = error.toString().toLowerCase();
+      if (errorString.contains('403') || errorString.contains('forbidden')) {
+        isExpired = true;
+        errorMessage = '유효기간 만료';
+        errorIcon = Icons.access_time_outlined;
+      } else if (errorString.contains('404') || errorString.contains('not found')) {
+        errorMessage = '이미지 없음';
+        errorIcon = Icons.image_not_supported_outlined;
+      } else if (errorString.contains('network') || errorString.contains('timeout')) {
+        errorMessage = '네트워크 오류';
+        errorIcon = Icons.wifi_off_outlined;
+      }
+    }
+
+    return Container(
+      height: height,
+      width: width,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15.r),
+        color: isExpired
+            ? theme.colorScheme.errorContainer.withValues(alpha: 0.1)
+            : theme.highlightColor,
+        border: Border.all(
+          color: isExpired
+              ? theme.colorScheme.error.withValues(alpha: 0.3)
+              : theme.colorScheme.outline.withValues(alpha: 0.2),
+          width: 1.w,
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            errorIcon,
+            size: (height * 0.3).clamp(16.0, 24.0),
+            color: isExpired
+                ? theme.colorScheme.error
+                : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            errorMessage,
+            style: TextStyle(
+              fontSize: 10.sp,
+              color: isExpired
+                  ? theme.colorScheme.error
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 }
 
-// 개선된 ImageBubbleOne - setState 제거 및 안전성 강화
+// 🔧 개선된 ImageBubbleOne
 class ImageBubbleOne extends StatefulWidget {
   final String? imageUrl;
   final double maxWidth;
@@ -158,7 +244,6 @@ class _ImageBubbleOneState extends State<ImageBubbleOne> {
 
   @override
   void dispose() {
-    // 안전하게 listener 제거
     _cleanupImageStream();
     super.dispose();
   }
@@ -183,7 +268,6 @@ class _ImageBubbleOneState extends State<ImageBubbleOne> {
       _stream = imageProvider.resolve(const ImageConfiguration());
 
       _listener = ImageStreamListener((ImageInfo info, bool _) {
-        // mounted 체크로 안전성 확보
         if (!mounted) {
           _cleanupImageStream();
           return;
@@ -193,14 +277,12 @@ class _ImageBubbleOneState extends State<ImageBubbleOne> {
           final double imageAspectRatio = info.image.width / info.image.height;
           final double newHeight = widget.maxWidth / imageAspectRatio;
 
-          // setState 대신 더 안전한 방식 사용
           if (mounted && _imageHeight != newHeight) {
             setState(() {
               _imageHeight = newHeight;
             });
           }
         } catch (e) {
-          // 에러 발생 시 기본 정사각형으로 설정
           if (mounted && _imageHeight == null) {
             setState(() {
               _imageHeight = widget.maxWidth;
@@ -208,10 +290,8 @@ class _ImageBubbleOneState extends State<ImageBubbleOne> {
           }
         }
 
-        // 완료 후 listener 정리
         _cleanupImageStream();
       }, onError: (exception, stackTrace) {
-        // 에러 발생 시 기본값 설정 및 정리
         if (mounted && _imageHeight == null) {
           setState(() {
             _imageHeight = widget.maxWidth;
@@ -224,7 +304,6 @@ class _ImageBubbleOneState extends State<ImageBubbleOne> {
         _stream!.addListener(_listener!);
       }
     } catch (e) {
-      // 초기화 실패 시 기본값 설정
       if (mounted && _imageHeight == null) {
         setState(() {
           _imageHeight = widget.maxWidth;
@@ -233,10 +312,78 @@ class _ImageBubbleOneState extends State<ImageBubbleOne> {
     }
   }
 
+  // 🔧 개선된 에러 위젯 (ImageBubbleOne용)
+  Widget _buildErrorWidget(BuildContext context, dynamic error) {
+    final theme = Theme.of(context);
+
+    bool isExpired = false;
+    String errorMessage = '이미지 로드 실패';
+    IconData errorIcon = Icons.broken_image_outlined;
+
+    if (error != null) {
+      final errorString = error.toString().toLowerCase();
+      if (errorString.contains('403') || errorString.contains('forbidden')) {
+        isExpired = true;
+        errorMessage = '유효기간 만료';
+        errorIcon = Icons.access_time_outlined;
+      } else if (errorString.contains('404') || errorString.contains('not found')) {
+        errorMessage = '이미지 없음';
+        errorIcon = Icons.image_not_supported_outlined;
+      } else if (errorString.contains('network') || errorString.contains('timeout')) {
+        errorMessage = '네트워크 오류';
+        errorIcon = Icons.wifi_off_outlined;
+      }
+    }
+
+    return Container(
+      width: widget.maxWidth,
+      height: _imageHeight ?? widget.maxWidth,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15.r),
+        color: isExpired
+            ? theme.colorScheme.errorContainer.withValues(alpha: 0.1)
+            : theme.highlightColor,
+        border: Border.all(
+          color: isExpired
+              ? theme.colorScheme.error.withValues(alpha: 0.3)
+              : theme.colorScheme.outline.withValues(alpha: 0.2),
+          width: 1.w,
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            errorIcon,
+            size: widget.maxWidth * 0.2,
+            color: isExpired
+                ? theme.colorScheme.error
+                : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            errorMessage,
+            style: TextStyle(
+              fontSize: 12.sp,
+              color: isExpired
+                  ? theme.colorScheme.error
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 이미지 URL이 없는 경우
     if (widget.imageUrl == null) {
+      return _buildErrorWidget(context, null);
+    }
+
+    if (_imageHeight == null) {
       return Container(
         width: widget.maxWidth,
         height: widget.maxWidth,
@@ -244,49 +391,62 @@ class _ImageBubbleOneState extends State<ImageBubbleOne> {
           borderRadius: BorderRadius.circular(15.r),
           color: Theme.of(context).highlightColor,
         ),
-        alignment: Alignment.center,
-        child: Icon(
-          Icons.image_not_supported_outlined,
-          size: widget.maxWidth * 0.6,
-          color: Theme.of(context).hintColor,
-        ),
-      );
-    }
-
-    // 이미지 높이가 아직 계산되지 않은 경우 (로딩 상태)
-    if (_imageHeight == null) {
-      return Container(
-        width: widget.maxWidth,
-        height: widget.maxWidth, // 초기 정사각형 placeholder
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(15.r),
-          color: Theme.of(context).highlightColor,
-        ),
         child: CachedNetworkImage(
           imageUrl: widget.imageUrl!,
           fit: BoxFit.cover,
-          placeholder: (context, url) => Container(
-            color: Theme.of(context).highlightColor,
+          placeholder: (context, url) => Center(
+            child: SizedBox(
+              width: 24.w,
+              height: 24.h,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.w,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
           ),
-          errorWidget: (context, url, error) => Icon(
-            Icons.image_not_supported_outlined,
-            size: widget.maxWidth * 0.6,
-            color: Theme.of(context).hintColor,
-          ),
+          errorWidget: (context, url, error) => _buildErrorWidget(context, error),
         ),
       );
     }
 
-    // 정상적인 이미지 표시
-    return Container(
-      width: widget.maxWidth,
-      height: _imageHeight!,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15.r),
-        image: DecorationImage(
-          image: CachedNetworkImageProvider(widget.imageUrl!),
-          fit: BoxFit.cover,
+    return GestureDetector(
+      onTap: () => context.push('/image?url=${widget.imageUrl}'),
+      child: CachedNetworkImage(
+        imageUrl: widget.imageUrl!,
+        imageBuilder: (context, imageProvider) => Container(
+          width: widget.maxWidth,
+          height: _imageHeight!,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15.r),
+            image: DecorationImage(
+              image: imageProvider,
+              fit: BoxFit.cover,
+            ),
+          ),
         ),
+        placeholder: (context, url) => Container(
+          width: widget.maxWidth,
+          height: _imageHeight!,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15.r),
+            color: Theme.of(context).highlightColor,
+          ),
+          child: Center(
+            child: SizedBox(
+              width: 24.w,
+              height: 24.h,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.w,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
+          ),
+        ),
+        errorWidget: (context, url, error) => _buildErrorWidget(context, error),
       ),
     );
   }
@@ -313,7 +473,7 @@ class SendingImagesPlaceHolder extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _buildImageCache(images.first, height, width),
-                  const SizedBox(width: 2,),
+                  SizedBox(width: 2.w),
                   _buildImageCache(images.last, height, width),
                 ],
               );
@@ -326,9 +486,9 @@ class SendingImagesPlaceHolder extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _buildImageCache(images[0], height, width),
-                        const SizedBox(width: 2,),
+                        SizedBox(width: 2.w),
                         _buildImageCache(images[1], height, width),
-                        const SizedBox(height: 2,),
+                        SizedBox(height: 2.h),
                         _buildImageCache(images[2], height, width),
                       ])
                 ],
@@ -342,16 +502,16 @@ class SendingImagesPlaceHolder extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _buildImageCache(images[0], height, width),
-                      const SizedBox(width: 2,),
+                      SizedBox(width: 2.w),
                       _buildImageCache(images[1], height, width),
                     ],
                   ),
-                  const SizedBox(height: 2,),
+                  SizedBox(height: 2.h),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _buildImageCache(images[2], height, width),
-                      const SizedBox(width: 2,),
+                      SizedBox(width: 2.w),
                       _buildImageCache(images[3], height, width),
                     ],
                   )
@@ -368,12 +528,12 @@ class SendingImagesPlaceHolder extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Flexible(child: _buildImageCache(images[0], height, width)),
-                        const SizedBox(width: 2,),
+                        SizedBox(width: 2.w),
                         Flexible(child: _buildImageCache(images[1], height, width)),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 2,),
+                  SizedBox(height: 2.h),
                   SizedBox(
                     width: ScreenUtil().screenWidth * 0.5  + 2,
                     height: ScreenUtil().screenWidth * 0.25,
@@ -383,11 +543,11 @@ class SendingImagesPlaceHolder extends StatelessWidget {
                         Flexible(
                           child:  _buildImageCache(images[2], height, width),
                         ),
-                        const SizedBox(width: 2,),
+                        SizedBox(width: 2.w),
                         Flexible(
                             child: _buildImageCache(images[3], height, width)
                         ),
-                        const SizedBox(width: 2,),
+                        SizedBox(width: 2.w),
                         Flexible(
                             child: _buildImageCache(images[4], height, width)
                         ),
