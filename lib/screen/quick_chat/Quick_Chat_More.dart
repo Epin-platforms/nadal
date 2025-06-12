@@ -39,6 +39,7 @@ class _QuickChatMoreState extends State<QuickChatMore> {
     _shouldShowServerAd = _generateRandomProbability() < _serverAdProbability;
 
     // 네이티브 광고는 항상 미리 로드 (대체용)
+    await _adProvider.loadBannerAd('${_pageKey}_more_banner');
     await _adProvider.loadMediumAd('${_pageKey}_medium');
 
     // 서버 광고 표시 확률이면 서버 광고 로드 시도
@@ -91,25 +92,7 @@ class _QuickChatMoreState extends State<QuickChatMore> {
     return CustomScrollView(
       slivers: [
         SliverToBoxAdapter(
-          child: Padding(
-              padding: EdgeInsetsGeometry.only(left: 16.w, top: 14.h, bottom: 12.h, right: 12.w),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('개최중인 대회🎾', style: Theme.of(context).textTheme.titleMedium,),
-                  InkWell(
-                    onTap: ()=> context.push('/league'),
-                    borderRadius: BorderRadius.circular(15),
-                    child: Container(
-                      padding: EdgeInsetsGeometry.symmetric(vertical: 4.h, horizontal: 8.w),
-                      child: Text('더보기 >', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Theme.of(context).colorScheme.primary, fontSize: 14.sp, fontWeight: FontWeight.w700),),
-                    ),
-                  )
-                ],
-              )),
-        ),
-        SliverToBoxAdapter(
-          child: LeagueWidget(),
+          child: SimpleBannerAdWidget(adKey: '${_pageKey}_more_banner'),
         ),
         widget.homeProvider.hotQuickChatRooms == null ?
         SliverToBoxAdapter(
@@ -123,7 +106,7 @@ class _QuickChatMoreState extends State<QuickChatMore> {
         SliverToBoxAdapter(
           child: Padding(
               padding: EdgeInsetsGeometry.only(left: 16.w, top: 14.h, bottom: 12.h),
-              child: Text('요즘 핫한 나달 인기방🔥', style: Theme.of(context).textTheme.titleMedium,)),
+              child: Text('요즘 핫한 나스달 인기방🔥', style: Theme.of(context).textTheme.titleMedium,)),
         ),
         if(widget.homeProvider.hotQuickChatRooms != null && widget.homeProvider.hotQuickChatRooms!.isEmpty)
           SliverToBoxAdapter(
@@ -201,7 +184,7 @@ class _QuickChatMoreState extends State<QuickChatMore> {
           SliverToBoxAdapter(
             child: Padding(
                 padding: EdgeInsetsGeometry.only(left: 16.w, top: 14.h, bottom: 12.h),
-                child: Text('🏆실시간 나달 랭킹', style: Theme.of(context).textTheme.titleMedium,)),
+                child: Text('🏆실시간 나스달 랭킹', style: Theme.of(context).textTheme.titleMedium,)),
           ),
         if(widget.homeProvider.ranking.isNotEmpty)
           SliverList.builder(

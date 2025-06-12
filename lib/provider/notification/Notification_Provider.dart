@@ -10,7 +10,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 const String _channelId = 'epin.nadal.chat.channel';
 const String _channelName = 'Nadal_Chat_ver1.0.0';
-const String _channelDesc = '나달 알림';
+const String _channelDesc = '나스달 알림';
 const String _androidNotiIcon = '@drawable/android_noti_icon';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =

@@ -24,7 +24,7 @@ class InspectionDialog extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              '현재 나달 서비스는 시스템 점검 중입니다.',
+              '현재 나스달 서비스는 시스템 점검 중입니다.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14.sp),
             ),

@@ -47,7 +47,7 @@ class _LoginPageState extends State<LoginPage> {
               ),
 
               Text(
-                '오늘부터 나달과 함께하는 스포츠 라이프!',
+                '오늘부터 나스달과 함께하는 스포츠 라이프!',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
 

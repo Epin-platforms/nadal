@@ -225,10 +225,6 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
-  // 기존 라우팅 처리 (호환성 유지)
-  Future<void> _navigateToRoute(String routing) async {
-    await _navigateToRouteWithNotification(routing, null);
-  }
 
   // 대기 중인 라우팅 처리
   void _processPendingRoute() {

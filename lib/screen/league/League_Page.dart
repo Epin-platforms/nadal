@@ -88,161 +88,154 @@ class _LeaguePageState extends State<LeaguePage> {
         builder: (context, child) {
           provider = Provider.of<LeagueProvider>(context);
 
-          return Scaffold(
-            appBar: NadalAppbar(
-              title: '대회',
-            ),
-            body: SafeArea(
-              child: Column(
-                children: [
-                  // 검색창
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-                    child: TextField(
-                      controller: _controller,
-                      onChanged: _onSearchChanged,
-                      decoration: InputDecoration(
-                        hintText: '대회명, 지역, 장소, 종목으로 검색',
-                        hintStyle: TextStyle(
-                          fontSize: 14.sp,
-                          color: Colors.grey.shade500,
-                        ),
-                        prefixIcon: Icon(
-                          Icons.search,
-                          size: 20.r,
-                          color: Colors.grey.shade500,
-                        ),
-                        suffixIcon: provider.searchQuery.isNotEmpty
-                            ? IconButton(
-                          icon: Icon(
-                            Icons.clear,
-                            size: 20.r,
-                            color: Colors.grey.shade500,
-                          ),
-                          onPressed: () {
-                            _controller.clear();
-                            provider.clearSearch();
-                          },
-                        )
-                            : null,
-                        filled: true,
-                        fillColor: Theme.of(context).cardColor,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12.r),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12.r),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12.r),
-                          borderSide: BorderSide(
-                            color: Theme.of(context).colorScheme.primary,
-                            width: 1.w,
-                          ),
-                        ),
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 16.w,
-                          vertical: 12.h,
-                        ),
+          return Column(
+            children: [
+              // 검색창
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+                child: TextField(
+                  controller: _controller,
+                  onChanged: _onSearchChanged,
+                  decoration: InputDecoration(
+                    hintText: '대회명, 지역, 장소, 종목으로 검색',
+                    hintStyle: TextStyle(
+                      fontSize: 14.sp,
+                      color: Colors.grey.shade500,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      size: 20.r,
+                      color: Colors.grey.shade500,
+                    ),
+                    suffixIcon: provider.searchQuery.isNotEmpty
+                        ? IconButton(
+                      icon: Icon(
+                        Icons.clear,
+                        size: 20.r,
+                        color: Colors.grey.shade500,
+                      ),
+                      onPressed: () {
+                        _controller.clear();
+                        provider.clearSearch();
+                      },
+                    )
+                        : null,
+                    filled: true,
+                    fillColor: Theme.of(context).cardColor,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                      borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.primary,
+                        width: 1.w,
                       ),
                     ),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16.w,
+                      vertical: 12.h,
+                    ),
                   ),
+                ),
+              ),
 
-                  // 검색 로딩 상태 표시 (서버 검색 모드일 때만)
-                  if (provider.loading && provider.leagues == null)
-                    Expanded(
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            NadalCircular(),
-                            SizedBox(height: 16.h),
-                            Text(
-                              '대회 정보를 불러오는 중...',
-                              style: TextStyle(
-                                fontSize: 14.sp,
-                                color: Colors.grey.shade600,
+              // 검색 로딩 상태 표시 (서버 검색 모드일 때만)
+              if (provider.loading && provider.leagues == null)
+                Expanded(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        NadalCircular(),
+                        SizedBox(height: 16.h),
+                        Text(
+                          '대회 정보를 불러오는 중...',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else if (provider.leagues == null)
+                Expanded(
+                  child: Center(
+                    child: NadalCircular(),
+                  ),
+                )
+              else if (provider.filteredLeagues.isEmpty)
+                  Expanded(
+                    child: NadalEmptyList(
+                      title: provider.isSearchMode
+                          ? '"${provider.searchQuery}"에 대한 검색 결과가 없어요'
+                          : '대회 정보가 없어요',
+                      subtitle: provider.isSearchMode
+                          ? '다른 검색어로 시도해보세요'
+                          : '대회 정보는 매달 월요일 업데이트 돼요',
+                    ),
+                  )
+                else
+                // 대회 목록
+                  Expanded(
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                      itemCount: _calculateItemCount(provider.filteredLeagues.length) + (provider.loading ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        // 로딩 인디케이터 (마지막에 표시)
+                        if (index == _calculateItemCount(provider.filteredLeagues.length) && provider.loading) {
+                          return Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16.h),
+                            child: Center(
+                              child: SizedBox(
+                                width: 24.r,
+                                height: 24.r,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.w,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else if (provider.leagues == null)
-                    Expanded(
-                      child: Center(
-                        child: NadalCircular(),
-                      ),
-                    )
-                  else if (provider.filteredLeagues.isEmpty)
-                      Expanded(
-                        child: NadalEmptyList(
-                          title: provider.isSearchMode
-                              ? '"${provider.searchQuery}"에 대한 검색 결과가 없어요'
-                              : '대회 정보가 없어요',
-                          subtitle: provider.isSearchMode
-                              ? '다른 검색어로 시도해보세요'
-                              : '대회 정보는 매달 월요일 업데이트 돼요',
-                        ),
-                      )
-                    else
-                    // 대회 목록
-                      Expanded(
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-                          itemCount: _calculateItemCount(provider.filteredLeagues.length) + (provider.loading ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            // 로딩 인디케이터 (마지막에 표시)
-                            if (index == _calculateItemCount(provider.filteredLeagues.length) && provider.loading) {
-                              return Padding(
-                                padding: EdgeInsets.symmetric(vertical: 16.h),
-                                child: Center(
-                                  child: SizedBox(
-                                    width: 24.r,
-                                    height: 24.r,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.w,
-                                      color: Theme.of(context).colorScheme.primary,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }
+                          );
+                        }
 
-                            // 광고 위치에 도달했을 때 (예: 3개 아이템마다)
-                            if (index > 0 && index % 4 == 0) {
-                              return FutureBuilder<Advertisement>(
-                                // API 호출로 광고 가져오기
-                                future: adProvider.fetchServerAd(),
-                                builder: (context, snapshot) {
-                                  if (snapshot.connectionState == ConnectionState.waiting) {
-                                    return Container(); // 로딩 중 플레이스홀더 표시
-                                  } else if (snapshot.hasData) {
-                                    return _buildAdCard(snapshot.data!);
-                                  } else {
-                                    return const SizedBox.shrink(); // 광고가 없으면 공간 차지하지 않음
-                                  }
-                                },
-                              );
-                            }
+                        // 광고 위치에 도달했을 때 (예: 3개 아이템마다)
+                        if (index > 0 && index % 4 == 0) {
+                          return FutureBuilder<Advertisement>(
+                            // API 호출로 광고 가져오기
+                            future: adProvider.fetchServerAd(),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState == ConnectionState.waiting) {
+                                return Container(); // 로딩 중 플레이스홀더 표시
+                              } else if (snapshot.hasData) {
+                                return _buildAdCard(snapshot.data!);
+                              } else {
+                                return const SizedBox.shrink(); // 광고가 없으면 공간 차지하지 않음
+                              }
+                            },
+                          );
+                        }
 
-                            // 실제 아이템 인덱스 계산 (광고 제외)
-                            final tournamentIndex = index - (index ~/ 4);
+                        // 실제 아이템 인덱스 계산 (광고 제외)
+                        final tournamentIndex = index - (index ~/ 3);
 
-                            if (tournamentIndex < provider.filteredLeagues.length) {
-                              return _buildTournamentCard(provider.filteredLeagues[tournamentIndex]);
-                            }
+                        if (tournamentIndex < provider.filteredLeagues.length) {
+                          return _buildTournamentCard(provider.filteredLeagues[tournamentIndex]);
+                        }
 
-                            return null;
-                          },
-                        ),
-                      ),
-                ],
-              ),
-            ),
+                        return null;
+                      },
+                    ),
+                  ),
+            ],
           );
         }
     );

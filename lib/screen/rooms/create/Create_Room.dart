@@ -33,8 +33,14 @@ class CreateRoom extends StatelessWidget {
                               children: [
                                   SizedBox(height: 40.h,),
                                   Text('나만의 ${isOpen ? '번개방' : '클럽'}을 시작해볼까요?', style: theme.textTheme.titleLarge,),
+                                  if(isOpen)...[
+                                    SizedBox(height: 8.h,),
+                                    Text('번개방은 누구나 자유롭게 생성하고 삭제 할 수 있어요!', style: theme.textTheme.bodySmall,),
+                                    SizedBox(height: 4.h,),
+                                    Text('한달 간 활동 내역이 없으면 자동 삭제되니 주의해주세요', style: theme.textTheme.bodySmall,)
+                                  ],
                                   SizedBox(height: 24.h,),
-                                  NadalTextField(controller: provider.roomNameController, label: '${isOpen ? '번개방' : '클럽'}명', maxLength: 30,),
+                                  NadalTextField(controller: provider.roomNameController, label: isOpen ? '번개방 제목' : '클럽 명', maxLength: 30,),
                                   SizedBox(height: 36.h),
                                   Row(
                                     children: [ 
@@ -160,7 +166,7 @@ class CreateRoom extends StatelessWidget {
                                         padding: EdgeInsets.only(top: 4),
                                         child: Text('태그는 쉼표(,)로 구분해서 여러개를 만들수있어요', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.secondary),)),
                                   SizedBox(height: 16,),
-                                  NadalTextField(controller: provider.descriptionController, label: '${isOpen ? '번개방' : '클럽'}설명', isMaxLines: true, keyboardType: TextInputType.multiline,),
+                                  NadalTextField(controller: provider.descriptionController, label: '${isOpen ? '번개방' : '클럽'} 설명', isMaxLines: true, keyboardType: TextInputType.multiline,),
                                   SizedBox(height: 50,)
                               ],
                             ),

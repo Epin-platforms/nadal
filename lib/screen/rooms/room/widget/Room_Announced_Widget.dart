@@ -50,7 +50,7 @@ class _RoomAnnouncedWidgetState extends State<RoomAnnouncedWidget> {
         decoration: BoxDecoration(
           color: theme.cardColor,
         ),
-        padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 16.w),
+        padding: EdgeInsets.symmetric(vertical: 8.h),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -58,13 +58,27 @@ class _RoomAnnouncedWidgetState extends State<RoomAnnouncedWidget> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(displayText, style: theme.textTheme.labelMedium),
+                Row(
+                  children: [
+                    SizedBox(width: 12.w,),
+                    Container(
+                      padding: EdgeInsetsGeometry.symmetric(vertical: 2.r, horizontal: 4.w),
+                      decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(2),
+                          color: Theme.of(context).colorScheme.secondary
+                      ),
+                      child: Text('공지', style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.onSecondary, fontSize: 8.sp),),
+                    ),
+                    SizedBox(width: 4.w,),
+                    Text('작성자: $displayText', style: theme.textTheme.labelSmall),
+                  ],
+                ),
                 Row(
                   children: [
                     Text(
                       DateFormat('yyyy년 MM월 dd일', 'ko_KR')
                           .format(DateTimeManager.parseUtcToLocal(announce['createAt'])),
-                      style: theme.textTheme.labelMedium?.copyWith(color: theme.hintColor),
+                      style: theme.textTheme.labelSmall?.copyWith(color: theme.hintColor),
                     ),
                     if (showToggle)
                       IconButton(
@@ -87,20 +101,23 @@ class _RoomAnnouncedWidgetState extends State<RoomAnnouncedWidget> {
             const SizedBox(height: 4),
       
             /// 공지 텍스트 (줄임 여부)
-            AnimatedCrossFade(
-              crossFadeState: isExpanded || !showToggle
-                  ? CrossFadeState.showFirst
-                  : CrossFadeState.showSecond,
-              duration: const Duration(milliseconds: 200),
-              firstChild: Text(
-                description,
-                style: theme.textTheme.bodySmall,
-              ),
-              secondChild: Text(
-                description,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall,
+            Padding(
+              padding: EdgeInsetsGeometry.symmetric(horizontal: 12.w),
+              child: AnimatedCrossFade(
+                crossFadeState: isExpanded || !showToggle
+                    ? CrossFadeState.showFirst
+                    : CrossFadeState.showSecond,
+                duration: const Duration(milliseconds: 200),
+                firstChild: Text(
+                  description,
+                  style: theme.textTheme.bodySmall,
+                ),
+                secondChild: Text(
+                  description,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall,
+                ),
               ),
             ),
           ],

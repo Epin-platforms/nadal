@@ -357,7 +357,7 @@ class _ChatListState extends State<ChatList> {
     if (roomMembers.isNotEmpty) {
       final totalMembers = roomMembers.keys.length;
       final readMembers = roomMembers.values
-          .where((e) => (e['lastRead'] as int? ?? 0) > chat.chatId)
+          .where((e) => (e['lastRead'] as int? ?? 0) >= chat.chatId)
           .length;
       readCount = totalMembers - readMembers;
     }

@@ -9,8 +9,8 @@ import '../../widget/Share_Bottom_Sheet.dart';
 // 0. 프로필 공유
 void shareApp(BuildContext context, String uid) {
   final shareParameter = ShareParameter(
-    title: "함께 나달에서 경기해요!",
-    subTitle: '나달에서 일정을 만들고 친구와 함게해보세요',
+    title: "함께 나스달에서 경기해요!",
+    subTitle: '나스달에서 일정을 만들고 친구와 함께해보세요',
     routing: '/user/$uid',
   );
 

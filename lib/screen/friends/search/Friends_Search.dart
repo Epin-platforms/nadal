@@ -40,6 +40,22 @@ class _FriendsSearchState extends State<FriendsSearch> {
     super.dispose();
   }
 
+  void _searchNadalFriend(){
+    DialogManager.showInputDialog(
+        context: context,
+        title: '사용자 찾기',
+        content: '찾으시는 사용자의 메일\n혹은 전화번호를 입력해주세요',
+        confirmText: '검색',
+        helper: '전화번호는 \'-\' 제외, 이메일은 주소 전체를 입력',
+        maxLength: 30,
+        keyType: TextInputType.text,
+        icon: Icon(BootstrapIcons.search),
+        cancelText: '최소',
+        onConfirm: (value){
+          provider.searchUser(value, context);
+        }
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,30 +70,11 @@ class _FriendsSearchState extends State<FriendsSearch> {
                   title: '연락처로 찾기',
                   actions: [
                     NadalIconButton(
-                        onTap: () {
-                          shareApp(context, FirebaseAuth.instance.currentUser!.uid);
+                        onTap: () async{
+                           await provider.fetchContacts(reset: true);
+                           SnackBarManager.showCleanSnackBar(context, '동기화가 완료되었습니다');
                         },
-                        icon: CupertinoIcons.share
-                    ),
-                    SizedBox(width: 8.w,),
-                    NadalIconButton(
-                        onTap: (){
-                          DialogManager.showInputDialog(
-                              context: context,
-                              title: '사용자 찾기',
-                              content: '찾으시는 사용자의 메일\n혹은 전화번호를 입력해주세요',
-                              confirmText: '검색',
-                              helper: '전화번호는 \'-\' 제외, 이메일은 주소 전체를 입력',
-                              maxLength: 30,
-                              keyType: TextInputType.text,
-                              icon: Icon(BootstrapIcons.search),
-                              cancelText: '최소',
-                              onConfirm: (value){
-                                 provider.searchUser(value, context);
-                              }
-                          );
-                        },
-                        icon: BootstrapIcons.person_add,
+                        icon: Icons.rotate_left_outlined,
                     )
                   ],
                 ),
@@ -88,11 +85,13 @@ class _FriendsSearchState extends State<FriendsSearch> {
                         if(provider.myContactList.isEmpty)
                           Expanded(
                             child: NadalEmptyList(
-                              title: '음.. 나달을 사용하는 사용자가 없네요',
+                              title: '음.. 나스달을 사용하는 사용자가 없네요',
                               subtitle: '친구를 초대해 함께 경기를 진행해보세요',
-                              actionText: '친구 초대',
-                              onAction: (){
-                                shareApp(context, FirebaseAuth.instance.currentUser!.uid);
+                              actionText: '연락처 동기화',
+                              icon: Icon(Icons.rotate_left_outlined),
+                              onAction: () async{
+                                await provider.fetchContacts(reset: true);
+                                SnackBarManager.showCleanSnackBar(context, '동기화가 완료되었습니다');
                               },
                             ),
                           )
@@ -133,11 +132,46 @@ class _FriendsSearchState extends State<FriendsSearch> {
                                 );
                               },
                            ),
-                         )
+                         ),
+                        SafeArea(
+                          child: Padding(
+                              padding: EdgeInsetsGeometry.fromLTRB(16.w, 15.r, 16.w, Platform.isAndroid ? 15.r : 0),
+                              child: Row(
+                                children: [
+                                  Flexible(child: InkWell(
+                                    onTap: (){
+                                      shareApp(context, FirebaseAuth.instance.currentUser!.uid);
+                                    },
+                                    child: NadalSolidContainer(
+                                      color: Theme.of(context).primaryColor,
+                                      child: Text('친구 부르기',
+                                        style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.w700),),
+                                    ),
+                                  )),
+                                  SizedBox(width: 8.w,),
+                                  Flexible(child:
+                                  InkWell(
+                                    onTap: (){
+                                      _searchNadalFriend();
+                                    },
+                                    child: Container(
+                                      height: 48.h,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        color: Theme.of(context).colorScheme.primary,
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Text('나스달 친구 찾기', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Theme.of(context).colorScheme.onPrimary, fontWeight: FontWeight.w700),),
+                                    ),
+                                  ))
+                                ],
+                              ),
+                          ),
+                        )
                       ],
                     )
                 ),
-                    ),
+               ),
 
               if(provider.searchLoading)
                 Positioned.fill(

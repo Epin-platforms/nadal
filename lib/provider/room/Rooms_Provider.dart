@@ -134,8 +134,7 @@ class RoomsProvider extends ChangeNotifier{
   //
   // quick room 관련 기능들
   //
-  List<MapEntry<int, Map<dynamic, dynamic>>> getQuickList(BuildContext context) =>
-      _getQuickList(context);
+  List<MapEntry<int, Map<dynamic, dynamic>>> getQuickList(BuildContext context) => _getQuickList(context);
 
   List<MapEntry<int, Map<dynamic, dynamic>>> _getQuickList(BuildContext context) {
     if (_quickRooms == null || _quickRooms!.isEmpty) {

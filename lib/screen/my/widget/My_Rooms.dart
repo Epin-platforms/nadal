@@ -43,7 +43,7 @@ class MyRooms extends StatelessWidget {
               ],
             ),
           ),
-          if(roomsProvider.rooms == null)
+          if(roomsProvider.rooms == null || chatProvider.socketLoading)
             ListView.separated(
                 shrinkWrap: true,
                 physics: NeverScrollableScrollPhysics(),

@@ -67,11 +67,16 @@ class FriendsProvider extends ChangeNotifier{
   int _contactOffset = 0;
   bool _contactHasMore = true;
 
-  Future<void> fetchContacts() async {
+  Future<void> fetchContacts({bool reset = false}) async {
     final permission = await Permission.contacts.request();
 
     if (permission.isGranted) {
       if(!_contactHasMore || _contactLoading) return;
+      if(reset){ //리셋이 참이라면
+        _contactHasMore = true;
+        _contactOffset = 0;
+        _myContactList.clear();
+      }
       _contactLoading = true;
       notifyListeners();
       try {
@@ -184,5 +189,44 @@ class FriendsProvider extends ChangeNotifier{
   void removeUser(String uid){
     _friends.removeWhere((e)=> e['friendUid'] == uid);
     notifyListeners();
+  }
+
+  //
+  //날 팔로우하지만 상대방이 날 팔로우 안할때
+  //
+  List<Map<String, dynamic>>? _followerList;
+  List<Map<String, dynamic>>? get followerList => _followerList;
+
+  bool _hasMoreFollower = true;
+  int? _lastFid;
+
+  bool _followerLoading = false;
+  bool get followerLoading => _followerLoading;
+
+  Future<void> fetchFollower() async{
+    if(_followerLoading || !_hasMoreFollower) return;
+    _followerLoading = true;
+    try{
+      final id = _lastFid ?? 0;
+      final res = await serverManager.get('user/follower-list?lastFid=$id');
+      _followerList ??= []; // 이렇게 수정 (할당 연산자 사용)
+      if(res.statusCode == 200){
+        final list = List<Map<String, dynamic>>.from(res.data);
+        if(list.length < 15){
+          _hasMoreFollower = false;
+        }
+        if(list.isNotEmpty){
+          _lastFid = list.lastOrNull?['fid'];
+        }
+        _followerList!.addAll(list);
+      }
+      notifyListeners();
+    }catch(error){
+      _followerList = [];
+      print('날 팔로우한 친구 불러오기 오류 $error');
+    }finally{
+      _followerLoading = false;
+      notifyListeners();
+    }
   }
 }

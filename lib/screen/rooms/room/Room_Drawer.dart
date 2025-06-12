@@ -289,7 +289,7 @@ class _RoomDrawerState extends State<RoomDrawer> {
                               title: '클럽을 나가시겠어요?', 
                               content: '떠난 뒤에는 이 방의 채팅 기록을 다시 볼 수 없어요.\n정말 나가시겠어요?', 
                               confirmText: '남아있을게요', 
-                              cancelText: '나갈레요', 
+                              cancelText: '나갈래요',
                               onCancel: ()=> provider.exitRoom(context));
                         }
                       },

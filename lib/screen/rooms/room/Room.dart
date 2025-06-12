@@ -42,6 +42,7 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
 
     // 🔧 방을 나갈 때 마지막으로 한 번 더 lastRead 업데이트
     if (_hasInitializedLastRead) {
+      print('나가면서 마지막 읽은 채팅 업데이트됨');
       chatProvider.updateMyLastReadInServer(widget.roomId);
     }
 
@@ -100,7 +101,6 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
 
         // lastRead 업데이트 실행
         await chatProvider.updateMyLastReadInServer(widget.roomId);
-        await chatProvider.enterRoomUpdateLastRead(widget.roomId);
 
         _hasInitializedLastRead = true;
         print('✅ lastRead 업데이트 성공');
@@ -219,58 +219,49 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
 
     final roomName = provider.room?['roomName']?.toString() ?? '채팅방';
 
-    return PopScope(
-      canPop: true,
-      onPopInvoked: (didPop) {
-        // 🔧 방을 나갈 때 마지막으로 한 번 더 lastRead 업데이트
-        if (didPop && _hasInitializedLastRead) {
-          chatProvider.updateMyLastReadInServer(widget.roomId);
-        }
-      },
-      child: IosPopGesture(
-        child: Scaffold(
-            key: _globalKey,
-            appBar: NadalAppbar(
-              centerTitle: false,
-              title: roomName,
-              actions: [
-                NadalIconButton(
-                  onTap: ()=> context.push('/room/${widget.roomId}/schedule'),
-                  icon: BootstrapIcons.calendar2,
-                  size: 22.r,
-                ),
-                SizedBox(width: 8.w),
-                NadalIconButton(
-                  onTap: ()=> context.push('/room/${widget.roomId}/information'),
-                  icon: BootstrapIcons.list,
-                )
-              ],
-            ),
-            body: SafeArea(
-                child: Stack(
-                  children: [
-                    Column(
-                      children: [
-                        if(provider.lastAnnounce.isNotEmpty)
-                          SizedBox(height: 60.h),
+    return IosPopGesture(
+      child: Scaffold(
+          key: _globalKey,
+          appBar: NadalAppbar(
+            centerTitle: false,
+            title: roomName,
+            actions: [
+              NadalIconButton(
+                onTap: ()=> context.push('/room/${widget.roomId}/schedule'),
+                icon: BootstrapIcons.calendar2,
+                size: 22.r,
+              ),
+              SizedBox(width: 8.w),
+              NadalIconButton(
+                onTap: ()=> context.push('/room/${widget.roomId}/information'),
+                icon: BootstrapIcons.list,
+              )
+            ],
+          ),
+          body: SafeArea(
+              child: Stack(
+                children: [
+                  Column(
+                    children: [
+                      if(provider.lastAnnounce.isNotEmpty)
+                        SizedBox(height: 60.h),
                         Expanded(
                             child: ChatList(
                               roomProvider: provider,
                             )
                         ),
-                        SizedBox(height: 10.h),
-                        ChatField(roomProvider: provider),
-                      ],
-                    ),
-                    if(provider.lastAnnounce.isNotEmpty)
-                      Positioned(
-                          top: 0, right: 0, left: 0,
-                          child: RoomAnnouncedWidget(announce: provider.lastAnnounce)
-                      )
-                  ],
-                )
-            )
-        ),
+                      SizedBox(height: 10.h),
+                      ChatField(roomProvider: provider),
+                    ],
+                  ),
+                  if(provider.lastAnnounce.isNotEmpty)
+                    Positioned(
+                        top: 0, right: 0, left: 0,
+                        child: RoomAnnouncedWidget(announce: provider.lastAnnounce)
+                    )
+                ],
+              )
+          )
       ),
     );
   }

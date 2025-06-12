@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:my_sports_calendar/manager/project/Import_Manager.dart';
 import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -49,7 +48,7 @@ class HomeProvider extends ChangeNotifier{
   ///
   /// 번개챗
   ///
-  final List<String> _quickChatMenu = ['내 채팅', '둘러보기'];
+  final List<String> _quickChatMenu = ['내 번개챗', '대회', '둘러보기'];
   List<String> get quickChatMenu => _quickChatMenu;
 
   int _currentMenu = 0;
@@ -140,5 +139,19 @@ class HomeProvider extends ChangeNotifier{
     }
   }
 
+ //
+ // 친구 위젯 관리
+ //
+ final _friendMenu = ['내 친구', '날 팔로우 중인 친구'];
+ int _currentFriendMenu = 0;
 
+ List<String> get friendMenu => _friendMenu;
+ int get currentFriendMenu => _currentFriendMenu;
+
+ void setFriendMenu(int index){
+   if(index != _currentFriendMenu){
+     _currentFriendMenu = index;
+     notifyListeners();
+   }
+ }
 }
