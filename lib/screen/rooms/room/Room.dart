@@ -102,7 +102,7 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
   }
 
   // 🔧 lastRead 업데이트 스케줄링
-  void _scheduleLastReadUpdate() {
+  Future<void> _scheduleLastReadUpdate() async{
     if (_isDisposed || !_hasInitializedLastRead) return;
 
     _needsLastReadUpdate = true;
@@ -228,7 +228,7 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
       provider.socketListener(isOn: true);
 
       // 🔧 lastRead 업데이트 - 초기화 완료 후 스케줄링
-      _scheduleLastReadUpdate();
+      await _scheduleLastReadUpdate();
       _hasInitializedLastRead = true;
 
       print('✅ 방 설정 완료');

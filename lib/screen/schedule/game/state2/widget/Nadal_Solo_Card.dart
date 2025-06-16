@@ -81,8 +81,8 @@ class NadalSoloCard extends StatelessWidget {
               children: [
                 Text(
                   TextFormManager.profileText(
-                      user['name'],
                       user['nickName'],
+                      user['name'],
                       user['birthYear'],
                       user['gender'],
                       useNickname: user['gender'] == null

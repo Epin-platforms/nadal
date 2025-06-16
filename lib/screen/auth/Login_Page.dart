@@ -1,3 +1,4 @@
+import 'package:my_sports_calendar/manager/project/ThemeMode_Manager.dart';
 import 'package:my_sports_calendar/screen/auth/login/Apple_Button.dart';
 import 'package:my_sports_calendar/screen/auth/login/Google_Button.dart';
 import 'package:my_sports_calendar/screen/auth/login/Kakao_Button.dart';
@@ -24,6 +25,17 @@ class _LoginPageState extends State<LoginPage> {
     super.initState();
   }
 
+  String logoPathByBrightness(){
+    final themeMode = ThemeModeManager().currentTheme;
+    if(themeMode == ThemeMode.system){
+      final brightness = MediaQuery.of(context).platformBrightness;
+      return brightness == Brightness.dark ? "assets/image/app/login_logo_dark.png" : "assets/image/app/login_logo.png";
+    }else if(themeMode == ThemeMode.dark){
+      return "assets/image/app/login_logo_dark.png";
+    }else{
+      return "assets/image/app/login_logo.png";
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,15 +48,7 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               SizedBox(height: 100.h),
               // 앱 로고
-              Builder(
-                builder: (context) {
-                  final brightness = MediaQuery.of(context).platformBrightness;
-                  final logoPath = brightness == Brightness.dark
-                      ? "assets/image/app/login_logo_dark.png"
-                      : "assets/image/app/login_logo.png";
-                  return Image.asset(logoPath);
-                }
-              ),
+              Image.asset(logoPathByBrightness()),
 
               Text(
                 '오늘부터 나스달과 함께하는 스포츠 라이프!',

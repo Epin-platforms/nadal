@@ -38,9 +38,8 @@ class ChatProvider extends ChangeNotifier {
       notifyListeners();
 
       await socket.connect();
-      _setSocketListeners();
       await _loadAllRoomChats();
-
+      await _setSocketListeners();
       _isInitialized = true;
       print('✅ 채팅 시스템 초기화 완료');
     } catch (e) {
@@ -158,7 +157,7 @@ class ChatProvider extends ChangeNotifier {
   }
 
   // 소켓 리스너 설정
-  void _setSocketListeners() {
+  Future<void> _setSocketListeners() async{
     socket.on("error", _handleError);
     socket.on("multipleDevice", _handleMultipleDevice);
     socket.on("chat", _handleNewChat);
@@ -325,24 +324,32 @@ class ChatProvider extends ChangeNotifier {
   // 🔧 재연결 프로세스
   Future<void> _processReconnection() async {
     try {
-      final roomIds = _joinedRooms.toList();
-      print('🔄 재연결할 방 목록: $roomIds');
+      final roomsProvider = AppRoute.context?.read<RoomsProvider>();
+      if (roomsProvider == null) return;
 
-      if (roomIds.isEmpty) {
+      final allRoomIds = <int>[
+        ...?roomsProvider.rooms?.keys,
+        ...?roomsProvider.quickRooms?.keys,
+      ];
+
+      print('🔄 재연결할 방 목록: $allRoomIds');
+
+      if (allRoomIds.isEmpty) {
         _finishReconnect();
         return;
       }
 
-      _pendingReconnectRooms.addAll(roomIds);
+      _pendingReconnectRooms.addAll(allRoomIds);
 
       // 병렬로 재연결 처리, 하지만 제한된 동시성
       const batchSize = 3; // 동시에 3개씩만 처리
-      for (int i = 0; i < roomIds.length; i += batchSize) {
-        final batch = roomIds.skip(i).take(batchSize);
+      for (int i = 0; i < allRoomIds.length; i += batchSize) {
+        final batch = allRoomIds.skip(i).take(batchSize);
         final futures = batch.map((roomId) => _reconnectRoom(roomId));
         await Future.wait(futures, eagerError: false);
       }
 
+      await _setSocketListeners();
       _finishReconnect();
     } catch (e) {
       print('❌ 재연결 프로세스 오류: $e');

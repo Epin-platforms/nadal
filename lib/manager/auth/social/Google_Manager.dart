@@ -24,6 +24,7 @@ class GoogleManager {
 
       if (googleUser == null) {
         // 사용자가 로그인을 취소한 경우
+        AppRoute.popLoading();
         return;
       }
 
@@ -42,22 +43,25 @@ class GoogleManager {
       // Firebase 로그인
       final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
 
-      // 사용자 정보 업데이트 (안전하게)
+      // 🔧 사용자 정보 업데이트 (이메일 포함)
       await _updateUserInfo(userCredential, googleUser);
 
+      AppRoute.popLoading();
     } on PlatformException catch (e) {
+      AppRoute.popLoading();
       // iOS/Android 플랫폼 에러
       DialogManager.errorHandler('로그인 중 오류가 발생했습니다: ${e.message}');
     } on FirebaseAuthException catch (e) {
+      AppRoute.popLoading();
       FirebaseAuthExceptionHandler.firebaseHandler(e.code);
     } on Exception catch (e) {
+      AppRoute.popLoading();
       DialogManager.errorHandler('Google 로그인에 실패했습니다');
       print('Google 로그인 오류: $e');
     } catch (e) {
+      AppRoute.popLoading();
       DialogManager.errorHandler('예상치 못한 오류가 발생했습니다');
       print('Google 로그인 예외: $e');
-    } finally {
-      AppRoute.popLoading();
     }
   }
 
@@ -66,13 +70,27 @@ class GoogleManager {
       final user = userCredential.user;
       if (user == null) return;
 
+      // 🔧 이메일 우선 업데이트 (구글 계정 이메일 보장)
+      if (googleUser.email.isNotEmpty && user.email != googleUser.email) {
+        try {
+          // 신규 사용자의 경우 updateEmail 사용
+          if (user.metadata.creationTime != null &&
+              user.metadata.lastSignInTime != null &&
+              user.metadata.creationTime!.millisecondsSinceEpoch ==
+                  user.metadata.lastSignInTime!.millisecondsSinceEpoch) {
+            // 첫 로그인인 경우
+            await user.updateEmail(googleUser.email);
+          }
+        } catch (emailError) {
+          print('이메일 업데이트 실패 (무시): $emailError');
+          // 이메일 업데이트 실패해도 로그인은 계속 진행
+        }
+      }
+
       // displayName 업데이트
       if (googleUser.displayName != null && user.displayName != googleUser.displayName) {
         await user.updateDisplayName(googleUser.displayName);
       }
-
-      // 이메일은 credential을 통해 이미 설정되므로 별도 업데이트 불필요
-      // verifyBeforeUpdateEmail은 기존 사용자만 사용 가능하므로 제거
 
       // 프로필 사진 업데이트
       if (googleUser.photoUrl != null && user.photoURL != googleUser.photoUrl) {

@@ -288,7 +288,7 @@ class ScheduleEditProvider extends ChangeNotifier{
       }
 
       final res = await serverManager.put('schedule/update', data: updateData);
-
+      AppRoute.popLoading();
       if(res.statusCode == 200){
         final context = AppRoute.context;
         if (context?.mounted == true) {
@@ -299,10 +299,9 @@ class ScheduleEditProvider extends ChangeNotifier{
         _handleUpdateError('서버 응답 오류: ${res.statusCode}');
       }
     } catch(error) {
+      AppRoute.popLoading();
       print('일정 수정 오류: $error');
       _handleUpdateError('네트워크 오류가 발생했습니다');
-    } finally {
-      AppRoute.popLoading();
     }
   }
 

@@ -24,10 +24,11 @@ class _ChatListState extends State<ChatList> {
   bool _isLoadingAfter = false;
 
   Timer? _scrollDebouncer;
-
-  // 🔧 초기화 상태 관리
-  bool _isInitialized = false;
   Timer? _initTimer;
+
+  // 🔧 초기화 상태 관리 (setState 최소화)
+  bool _isInitialized = false;
+  bool _dataReady = false;
 
   @override
   void initState() {
@@ -47,7 +48,7 @@ class _ChatListState extends State<ChatList> {
     super.dispose();
   }
 
-  // 🔧 초기화 대기
+  // 🔧 초기화 대기 (디바운싱 적용)
   void _waitForInitialization() {
     if (!mounted) return;
 
@@ -56,14 +57,22 @@ class _ChatListState extends State<ChatList> {
 
     final chatProvider = context.read<ChatProvider>();
 
-    // 데이터가 준비되었는지 확인
-    if (_isDataReady(chatProvider, roomId)) {
+    // 데이터 준비 상태 확인
+    final isReady = _isDataReady(chatProvider, roomId);
+
+    if (isReady && !_isInitialized) {
       _initializeScrollPosition();
       _isInitialized = true;
+      _dataReady = true;
+
+      // 한 번만 setState 호출
+      if (mounted) {
+        setState(() {});
+      }
       return;
     }
 
-    // 아직 준비되지 않았으면 재시도
+    // 아직 준비되지 않았으면 재시도 (디바운싱)
     _initTimer?.cancel();
     _initTimer = Timer(const Duration(milliseconds: 300), () {
       if (mounted) {
@@ -72,7 +81,7 @@ class _ChatListState extends State<ChatList> {
     });
   }
 
-  // 🔧 데이터 준비 상태 확인
+  // 🔧 데이터 준비 상태 확인 (예외 처리 강화)
   bool _isDataReady(ChatProvider chatProvider, int roomId) {
     try {
       final chats = chatProvider.chat[roomId];
@@ -129,17 +138,13 @@ class _ChatListState extends State<ChatList> {
 
       const double threshold = 400.0;
 
-      print('📱 스크롤 위치: $pixels / $maxScrollExtent (threshold: $threshold)');
-
       // reverse ListView: 위로 스크롤 = 이전 채팅 로드
       if (pixels >= maxScrollExtent - threshold && _hasMoreBefore && !_isLoadingBefore) {
-        print('🔄 이전 채팅 로드 트리거');
         _loadMoreBefore();
       }
 
       // reverse ListView: 아래로 스크롤 = 이후 채팅 로드
       if (pixels <= threshold && _hasMoreAfter && !_isLoadingAfter) {
-        print('🔄 이후 채팅 로드 트리거');
         _loadMoreAfter();
       }
     });
@@ -153,9 +158,9 @@ class _ChatListState extends State<ChatList> {
 
     print('📥 이전 채팅 로드 시작');
 
-    if (mounted) {
-      setState(() => _isLoadingBefore = true);
-    }
+    // 로딩 상태 설정 (setState 한 번만)
+    _isLoadingBefore = true;
+    if (mounted) setState(() {});
 
     try {
       final chatProvider = context.read<ChatProvider>();
@@ -163,20 +168,15 @@ class _ChatListState extends State<ChatList> {
 
       print('📥 이전 채팅 로드 완료: hasMore=$hasMore');
 
-      if (mounted) {
-        setState(() {
-          _hasMoreBefore = hasMore;
-          _isLoadingBefore = false;
-        });
-      }
+      // 결과 업데이트 (setState 한 번만)
+      _hasMoreBefore = hasMore;
+      _isLoadingBefore = false;
+      if (mounted) setState(() {});
     } catch (e) {
       print('❌ 이전 채팅 로드 오류: $e');
-      if (mounted) {
-        setState(() {
-          _hasMoreBefore = false;
-          _isLoadingBefore = false;
-        });
-      }
+      _hasMoreBefore = false;
+      _isLoadingBefore = false;
+      if (mounted) setState(() {});
     }
   }
 
@@ -188,9 +188,9 @@ class _ChatListState extends State<ChatList> {
 
     print('📤 이후 채팅 로드 시작');
 
-    if (mounted) {
-      setState(() => _isLoadingAfter = true);
-    }
+    // 로딩 상태 설정 (setState 한 번만)
+    _isLoadingAfter = true;
+    if (mounted) setState(() {});
 
     try {
       final chatProvider = context.read<ChatProvider>();
@@ -198,23 +198,19 @@ class _ChatListState extends State<ChatList> {
 
       print('📤 이후 채팅 로드 완료: hasMore=$hasMore');
 
-      if (mounted) {
-        setState(() {
-          _hasMoreAfter = hasMore;
-          _isLoadingAfter = false;
-        });
-      }
+      // 결과 업데이트 (setState 한 번만)
+      _hasMoreAfter = hasMore;
+      _isLoadingAfter = false;
+      if (mounted) setState(() {});
     } catch (e) {
       print('❌ 이후 채팅 로드 오류: $e');
-      if (mounted) {
-        setState(() {
-          _hasMoreAfter = false;
-          _isLoadingAfter = false;
-        });
-      }
+      _hasMoreAfter = false;
+      _isLoadingAfter = false;
+      if (mounted) setState(() {});
     }
   }
 
+  // 🔧 통합 리스트 생성 (태그 정렬 문제 해결)
   List<dynamic> _buildCombinedList() {
     final roomId = widget.roomProvider.room?['roomId'] as int?;
     if (roomId == null) return [];
@@ -223,8 +219,16 @@ class _ChatListState extends State<ChatList> {
     final chats = chatProvider.chat[roomId] ?? [];
     final roomLogs = widget.roomProvider.roomLog;
 
+    // 빈 상태 처리
     if (chats.isEmpty && roomLogs.isEmpty) return [];
-    if (chats.isEmpty) return roomLogs.cast<dynamic>();
+
+    // 🔧 채팅이 없을 때 태그만 있는 경우 - 정렬 적용
+    if (chats.isEmpty) {
+      final sortedLogs = List<RoomLog>.from(roomLogs);
+      // 최신 순으로 정렬 (reverse ListView에 맞춤)
+      sortedLogs.sort((a, b) => b.createAt.compareTo(a.createAt));
+      return sortedLogs.cast<dynamic>();
+    }
 
     final chatDates = chats.map((chat) => chat.createAt).toList();
     if (chatDates.isEmpty) return chats.cast<dynamic>();
@@ -232,6 +236,7 @@ class _ChatListState extends State<ChatList> {
     final oldestDate = chatDates.reduce((a, b) => a.isBefore(b) ? a : b);
     final newestDate = chatDates.reduce((a, b) => a.isAfter(b) ? a : b);
 
+    // 관련 로그만 필터링
     final filteredLogs = roomLogs.where((log) {
       return log.createAt.isAfter(oldestDate.subtract(const Duration(hours: 1))) &&
           log.createAt.isBefore(newestDate.add(const Duration(hours: 1)));
@@ -239,6 +244,7 @@ class _ChatListState extends State<ChatList> {
 
     final combinedList = <dynamic>[...chats, ...filteredLogs];
 
+    // 일관된 정렬 (최신 순)
     combinedList.sort((a, b) {
       final aDate = a is Chat ? a.createAt : (a as RoomLog).createAt;
       final bDate = b is Chat ? b.createAt : (b as RoomLog).createAt;
@@ -318,6 +324,7 @@ class _ChatListState extends State<ChatList> {
     );
   }
 
+  // 🔧 로딩 인디케이터 (애니메이션 최소화)
   Widget _buildLoadingIndicator(String type) {
     return Container(
       height: 60.h,
@@ -366,7 +373,7 @@ class _ChatListState extends State<ChatList> {
     );
   }
 
-  // 🔧 초기 로딩 상태 위젯
+  // 🔧 초기 로딩 상태 위젯 (애니메이션 최소화)
   Widget _buildInitialLoadingState() {
     return Center(
       child: Padding(
@@ -406,15 +413,17 @@ class _ChatListState extends State<ChatList> {
         Expanded(
           child: Consumer<ChatProvider>(
             builder: (context, chatProvider, child) {
-              // 🔧 초기화되지 않은 상태 처리
+              // 🔧 초기화되지 않은 상태 처리 (setState 최소화)
               if (!_isInitialized) {
                 final roomId = widget.roomProvider.room?['roomId'] as int?;
-                if (roomId != null && _isDataReady(chatProvider, roomId)) {
+                if (roomId != null && _isDataReady(chatProvider, roomId) && !_dataReady) {
                   // 데이터가 준비되었으면 초기화 수행
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     _initializeScrollPosition();
                     if (mounted) {
-                      setState(() => _isInitialized = true);
+                      _isInitialized = true;
+                      _dataReady = true;
+                      setState(() {});
                     }
                   });
                 }
@@ -444,12 +453,11 @@ class _ChatListState extends State<ChatList> {
               return Column(
                 children: [
                   // 🔧 상단 로딩 인디케이터 (이후 채팅 로드용)
-                  if (_isLoadingAfter)
-                    _buildLoadingIndicator('after'),
+                  if (_isLoadingAfter) _buildLoadingIndicator('after'),
 
-                  // 메인 채팅 리스트
+                  // 메인 채팅 리스트 (ListView.builder로 최적화)
                   Expanded(
-                    child: ListView.separated(
+                    child: ListView.builder(
                       controller: _scrollController,
                       reverse: true,
                       itemCount: combinedList.length,
@@ -457,20 +465,24 @@ class _ChatListState extends State<ChatList> {
                         final item = combinedList[index];
 
                         if (item is Chat) {
-                          return _buildChatItem(item, index, combinedList);
+                          return Padding(
+                            padding: EdgeInsets.only(bottom: 4.h),
+                            child: _buildChatItem(item, index, combinedList),
+                          );
                         } else if (item is RoomLog) {
-                          return _buildLogItem(item, index, combinedList);
+                          return Padding(
+                            padding: EdgeInsets.only(bottom: 4.h),
+                            child: _buildLogItem(item, index, combinedList),
+                          );
                         }
 
                         return const SizedBox.shrink();
                       },
-                      separatorBuilder: (context, index) => SizedBox(height: 4.h),
                     ),
                   ),
 
                   // 🔧 하단 로딩 인디케이터 (이전 채팅 로드용)
-                  if (_isLoadingBefore)
-                    _buildLoadingIndicator('before'),
+                  if (_isLoadingBefore) _buildLoadingIndicator('before'),
                 ],
               );
             },

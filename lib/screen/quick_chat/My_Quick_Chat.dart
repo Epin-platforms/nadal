@@ -46,7 +46,6 @@ class _MyQuickChatState extends State<MyQuickChat> {
   // 🔧 초기 상태 확인
   void _checkInitialState() {
     if (!mounted) return;
-
     if (_isQuickRoomsDataReady(widget.roomsProvider.quickRooms, widget.chatProvider)) {
       setState(() => _hasCheckedInitialState = true);
     } else {
@@ -65,8 +64,7 @@ class _MyQuickChatState extends State<MyQuickChat> {
     _retryTimer?.cancel();
     _retryCount++;
 
-    final delay = Duration(milliseconds: 500 * _retryCount);
-    print('🔄 ${delay.inMilliseconds}ms 후 퀵챗 데이터 준비 상태 재확인 ($_retryCount/$_maxRetries)');
+    final delay = Duration(milliseconds: 100);
 
     _retryTimer = Timer(delay, () {
       if (mounted) {

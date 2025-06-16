@@ -8,16 +8,16 @@ class TextFormManager{
   }
 
   static String profileText(String? nickName, String? name, int? birthYear, String? gender, {bool useNickname = true}){
-
-    if(name == null){
-      if(nickName == null) return '(알수없음)';
-      return nickName;
-    }
-
-    String birth = (birthYear ?? '').toString();
-    String gender0 = gender == 'M' ? '남' : gender == 'F'  ? '여' : '';
-
-    return useNickname  ? name : '$name/$birth/$gender0';
+      if(useNickname){
+        return nickName ?? '(알수없음)';
+      }else{
+        if(name == null){
+          return '(알수없음)';
+        }
+        String birth = (birthYear ?? '').toString();
+        String gender0 = gender == 'M' ? '남' : gender == 'F'  ? '여' : '';
+        return '$name/$birth/$gender0';
+      }
   }
 
   /// 초성 우선 한글 정렬

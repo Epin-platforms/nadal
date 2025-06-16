@@ -148,7 +148,7 @@ class RoomEdit extends StatelessWidget {
                                           height: 48.h,
                                           alignment: Alignment.centerLeft,
                                           child: Text('참가코드', style: theme.textTheme.titleSmall,)),
-                                      Expanded(child: NadalTextField(controller: provider.enterCodeController, label: '비밀번호', maxLength: 10, keyboardType: TextInputType.number, helper: '4자리 이상 10자리 이하의 숫자를 입력해 주세요!',)),
+                                      Expanded(child: NadalTextField(controller: provider.enterCodeController, label: '비밀번호', maxLength: 10, keyboardType: TextInputType.number, helper: '4자리 이상 10자리 이하의 숫자를 입력해 주세요!', initText: provider.originRoom['enterCode'],)),
                                     ],
                                   ),
                                 SizedBox(height: 16,),

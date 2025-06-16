@@ -150,7 +150,7 @@ class _UserProfileState extends State<UserProfile> with SingleTickerProviderStat
               duration: Duration(milliseconds: 500),
               delay: Duration(milliseconds: 150),
               child: Text(
-                provider.user!['affiliationName'] ?? '무소속',
+                provider.user!['affiliationName'] ?? '소속 없음',
                 style: textTheme.bodyMedium?.copyWith(
                   color: Colors.white.withValues(alpha: 0.8),
                 ),

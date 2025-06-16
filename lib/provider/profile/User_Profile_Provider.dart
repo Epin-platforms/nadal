@@ -7,10 +7,12 @@ import 'package:my_sports_calendar/provider/friends/Friend_Provider.dart';
 class UserProfileProvider extends ChangeNotifier{
   late String _uid;
   String get uid => _uid;
+
   UserProfileProvider(String? uid){
     if(uid == null){
       _user = {};
-      notifyListeners();
+      AppRoute.context?.pop();
+      DialogManager.showBasicDialog(title: '알수없는 사용자 입니다', content: '이미 탈퇴한 사용자입니다', confirmText: '확인');
     }else{
       _uid = uid;
       setIsFollow(uid);
@@ -34,7 +36,8 @@ class UserProfileProvider extends ChangeNotifier{
 
     }catch(e){
       print(e);
-      _user = {};
+      AppRoute.context?.pop();
+      DialogManager.showBasicDialog(title: '알수없는 사용자 입니다', content: '이미 탈퇴한 사용자입니다', confirmText: '확인');
     }finally{
       notifyListeners();
     }

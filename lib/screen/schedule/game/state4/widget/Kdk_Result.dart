@@ -100,7 +100,7 @@ class _KdkResultState extends State<KdkResult> {
                       Container(
                           width: 30.w,
                           alignment: Alignment.center,
-                          child: Text('${index+1}', style: theme.textTheme.labelMedium)),
+                          child: Text('${member['ranking']}', style: theme.textTheme.labelMedium)),
                       Container(
                           width: 80.w,
                           alignment: Alignment.center,

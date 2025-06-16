@@ -54,43 +54,82 @@ class KakaoManager {
     return await kakao.UserApi.instance.me();
   }
 
+  // ✅ getKakaoToken 메서드 개선 - 본인정보 불러오기용
   Future<kakao.OAuthToken?> getKakaoToken() async {
     try {
-      // 카카오톡 설치 여부 확인 후 로그인 시도
-      final bool isInstalled = await kakao.isKakaoTalkInstalled();
+      print('카카오 토큰 획득 시작');
 
-      if (isInstalled) {
-        kakao.OAuthToken authToken;
-        try {
-          authToken = await kakao.UserApi.instance.loginWithKakaoTalk();
-          await kakao.TokenManagerProvider.instance.manager.setToken(authToken);
-        } catch (error) {
-          // 카카오톡 로그인 실패 시 카카오 계정 로그인으로 fallback
-          authToken = await kakao.UserApi.instance.loginWithKakaoAccount();
-          await kakao.TokenManagerProvider.instance.manager.setToken(authToken);
-        }
-        return authToken;
+      // 1. 기존 토큰이 있는지 확인
+      kakao.OAuthToken? existingToken;
+      try {
+        existingToken = await kakao.TokenManagerProvider.instance.manager.getToken();
+        print('기존 토큰 확인: ${existingToken != null}');
+      } catch (e) {
+        print('기존 토큰 확인 실패: $e');
       }
 
-      // 카카오 계정 로그인 시도
-      kakao.OAuthToken authToken = await kakao.UserApi.instance.loginWithKakaoAccount();
+      // 2. 토큰이 있고 유효하면 바로 반환
+      if (existingToken != null) {
+        try {
+          // 토큰 유효성 확인
+          await kakao.UserApi.instance.accessTokenInfo();
+          print('기존 토큰 유효함');
+          return existingToken;
+        } catch (e) {
+          print('기존 토큰 무효: $e');
+          // 기존 토큰이 무효하면 새로 로그인
+        }
+      }
+
+      // 3. 새로운 토큰 획득
+      print('새로운 카카오 토큰 획득 시도');
+
+      // 카카오톡 설치 여부 확인 후 로그인 시도
+      final bool isInstalled = await kakao.isKakaoTalkInstalled();
+      print('카카오톡 설치됨: $isInstalled');
+
+      kakao.OAuthToken authToken;
+
+      if (isInstalled) {
+        try {
+          print('카카오톡 앱으로 로그인 시도');
+          authToken = await kakao.UserApi.instance.loginWithKakaoTalk();
+          print('카카오톡 로그인 성공');
+        } catch (error) {
+          print('카카오톡 로그인 실패, 웹 로그인으로 전환: $error');
+          // 카카오톡 로그인 실패 시 카카오 계정 로그인으로 fallback
+          authToken = await kakao.UserApi.instance.loginWithKakaoAccount();
+          print('카카오 계정 로그인 성공');
+        }
+      } else {
+        print('카카오 계정으로 로그인 시도');
+        authToken = await kakao.UserApi.instance.loginWithKakaoAccount();
+        print('카카오 계정 로그인 성공');
+      }
+
+      // 4. 토큰 저장
       await kakao.TokenManagerProvider.instance.manager.setToken(authToken);
-      AppRoute.popLoading();
+      print('카카오 토큰 저장 완료');
+
       return authToken;
+
     } on kakao.KakaoAuthException catch (e) {
-      print('카카오 인증 오류: $e');
-      AppRoute.popLoading();
-      DialogManager.errorHandler('카카오 로그인에 실패하였습니다');
+      print('카카오 인증 오류: ${e.error} - ${e.errorDescription}');
+
+      // 사용자가 취소한 경우는 에러 메시지 표시하지 않음
+      if (e.error != 'UserCancel') {
+        DialogManager.errorHandler('카카오 로그인에 실패하였습니다');
+      }
       return null;
+
     } on kakao.KakaoClientException catch (e) {
-      print('카카오 클라이언트 오류: $e');
-      AppRoute.popLoading();
-      DialogManager.errorHandler('카카오 로그인에 실패하였습니다');
+      print('카카오 클라이언트 오류: ${e.reason} - ${e.message}');
+      DialogManager.errorHandler('카카오 연결에 실패하였습니다');
       return null;
+
     } catch (e) {
       print('카카오 토큰 획득 실패: $e');
-      AppRoute.popLoading();
-      DialogManager.errorHandler('카카오 로그인에 실패하였습니다');
+      DialogManager.errorHandler('카카오 정보를 불러오는데 실패하였습니다');
       return null;
     }
   }

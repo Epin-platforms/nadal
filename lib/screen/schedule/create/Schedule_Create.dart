@@ -4,6 +4,7 @@ import 'package:my_sports_calendar/manager/game/Game_Manager.dart';
 import 'package:my_sports_calendar/provider/schedule/Schedule_Create_Provider.dart';
 import 'package:my_sports_calendar/widget/Nadal_Switch_Button.dart';
 
+import '../../../manager/picker/Number_Picker.dart';
 import '../../../manager/project/Import_Manager.dart';
 
 class ScheduleCreate extends StatefulWidget {
@@ -359,53 +360,91 @@ class _ScheduleCreateState extends State<ScheduleCreate> {
                                             })
                                           ],
                                         ),
-                                        if(provider.useGenderLimit)
-                                          SizedBox(
-                                            height: 80.h,
-                                            child: Row(
-                                              children: [
-                                                Flexible(
-                                                    child: Row(
-                                                      children: [
-                                                        Text('남자', style: theme.textTheme.titleMedium,),
-                                                        SizedBox(width: 8.w,),
-                                                        Expanded(
-                                                          child: ListWheelScrollView(
-                                                              itemExtent: 33.h,
-                                                              onSelectedItemChanged: (value){
-                                                                provider.setMaleGenderLimit(value);
-                                                              },
-                                                              children: List.generate(99, (index)=> Text('$index', style: theme.textTheme.bodyLarge?.copyWith(
-                                                                color : provider.maleLimit == index ?  theme.colorScheme.primary : theme.highlightColor, fontWeight: provider.maleLimit == index ? FontWeight.w600 : FontWeight.w400
-                                                              ),))
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    )
-                                                ),
-                                                SizedBox(width: 8.w,),
-                                                Flexible(
-                                                    child: Row(
-                                                      children: [
-                                                        Text('여자', style: theme.textTheme.titleMedium,),
-                                                        SizedBox(width: 8.w,),
-                                                        Expanded(
-                                                          child: ListWheelScrollView(
-                                                              itemExtent: 33.h,
-                                                              onSelectedItemChanged: (value){
-                                                                provider.setFemaleGenderLimit(value);
-                                                              },
-                                                              children: List.generate(99, (index)=> Text('$index', style: theme.textTheme.bodyLarge?.copyWith(
-                                                                  color : provider.femaleLimit == index ?  theme.colorScheme.primary : theme.highlightColor, fontWeight: provider.femaleLimit == index ? FontWeight.w600 : FontWeight.w400
-                                                              ),))
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    )
-                                                ),
-                                              ],
-                                            ),
+                                        if(provider.useGenderLimit)...[
+                                          SizedBox(height: 8.h,),
+                                          Row(
+                                            children: [
+                                              Flexible(
+                                                  child: Row(
+                                                    children: [
+                                                      Text('최대 남자 참가', style: theme.textTheme.titleMedium,),
+                                                      SizedBox(width: 8.w,),
+                                                      Expanded(
+                                                          child: InkWell(
+                                                            borderRadius: BorderRadius.circular(3),
+                                                            onTap: (){
+                                                              Navigator.of(context).push(
+                                                                  MaterialPageRoute(builder: (_)=> NumberPicker(
+                                                                    onSelect: (value){
+                                                                      provider.setMaleGenderLimit(value);
+                                                                    },
+                                                                    title: '최대 남자 참가자 수',
+                                                                    unit: '명',
+                                                                    initialValue: provider.maleLimit ?? 0,
+                                                                  ))
+                                                              );
+                                                            },
+                                                            child: Container(
+                                                              alignment: Alignment.center,
+                                                              decoration: BoxDecoration(
+                                                                  borderRadius: BorderRadius.circular(3),
+                                                                  border: Border.all(
+                                                                    color: theme.highlightColor,
+                                                                    width: 1.2,
+                                                                  )
+                                                              ),
+                                                              child: Text('${provider.maleLimit ?? 0} 명', style: theme.textTheme.bodyLarge?.copyWith(
+                                                                  color: theme.colorScheme.secondary,
+                                                                  fontWeight: FontWeight.w500
+                                                              ),),
+                                                            ),
+                                                          ))
+                                                    ],
+                                                  )
+                                              ),
+                                              SizedBox(width: 8.w,),
+                                              Flexible(
+                                                  child: Row(
+                                                    children: [
+                                                      Text('최대 여자 참가', style: theme.textTheme.titleMedium,),
+                                                      SizedBox(width: 8.w,),
+                                                      Expanded(
+                                                          child: InkWell(
+                                                            borderRadius: BorderRadius.circular(3),
+                                                            onTap: (){
+                                                              Navigator.of(context).push(
+                                                                  MaterialPageRoute(builder: (_)=> NumberPicker(
+                                                                    onSelect: (value){
+                                                                      provider.setFemaleGenderLimit(value);
+                                                                    },
+                                                                    title: '최대 여자 참가자 수',
+                                                                    unit: '명',
+                                                                    initialValue: provider.femaleLimit ?? 0,
+                                                                  ))
+                                                              );
+                                                            },
+                                                            child: Container(
+                                                              alignment: Alignment.center,
+                                                              decoration: BoxDecoration(
+                                                                  borderRadius: BorderRadius.circular(3),
+                                                                  border: Border.all(
+                                                                    color: theme.highlightColor,
+                                                                    width: 1.2,
+                                                                  )
+                                                              ),
+                                                              child: Text('${provider.femaleLimit ?? 0} 명', style: theme.textTheme.bodyLarge?.copyWith(
+                                                                  color: theme.colorScheme.secondary,
+                                                                  fontWeight: FontWeight.w500
+                                                              ),),
+                                                            ),
+                                                          ))
+                                                    ],
+                                                  )
+                                              ),
+                                            ],
                                           ),
+                                        ],
+
                                         if(provider.tag == "게임" && provider.isKDK != null && provider.isSingle != null)
                                          Padding(
                                              padding: EdgeInsets.only(top: 8.h),

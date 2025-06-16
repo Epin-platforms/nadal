@@ -388,6 +388,7 @@ class RoomProvider extends ChangeNotifier {
 
     try {
       final chatProvider = context.read<ChatProvider>();
+      final roomsProvider = context.read<RoomsProvider>();
       final router = GoRouter.of(context);
       final roomId = _room?['roomId'] as int?;
 
@@ -396,6 +397,7 @@ class RoomProvider extends ChangeNotifier {
       final res = await serverManager.delete('room/$roomId');
 
       if (res.statusCode == 200) {
+        roomsProvider.removeRoom(roomId);
         await chatProvider.removeRoom(roomId);
         router.go('/my');
         SnackBarManager.showCleanSnackBar(
@@ -416,6 +418,7 @@ class RoomProvider extends ChangeNotifier {
 
     try {
       final isOpen = _room?['isOpen'] == 1;
+      final roomsProvider = context.read<RoomsProvider>();
       final chatProvider = context.read<ChatProvider>();
       final router = GoRouter.of(context);
       final roomId = _room?['roomId'] as int?;
@@ -425,6 +428,7 @@ class RoomProvider extends ChangeNotifier {
       final res = await serverManager.delete('roomMember/exit/$roomId');
 
       if (res.statusCode == 200) {
+        roomsProvider.removeRoom(roomId);
         await chatProvider.removeRoom(roomId);
         isOpen ? router.go('/quick-chat') : router.go('/my');
         SnackBarManager.showCleanSnackBar(

@@ -6,6 +6,14 @@ class NameField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NadalTextField(controller: registerProvider.nameController, label: '이름', maxLength: 10,);
+    return Consumer<RegisterProvider>(
+      builder: (context, provider, child) {
+        return NadalTextField(
+          controller: provider.nameController,
+          label: '이름',
+          maxLength: 10,
+        );
+      },
+    );
   }
 }

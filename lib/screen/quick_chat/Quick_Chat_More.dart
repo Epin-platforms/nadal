@@ -198,7 +198,7 @@ class _QuickChatMoreState extends State<QuickChatMore> {
                     size: 46.r,
                   ),
                   title: Text('${_getRankingBadge(index)}${member['nickName']}', style: Theme.of(context).textTheme.titleMedium,),
-                  subtitle: Text(member['roomName'] ?? '무소속', style: Theme.of(context).textTheme.bodySmall,),
+                  subtitle: Text(member['roomName'] ?? '소속 없음', style: Theme.of(context).textTheme.bodySmall,),
                   trailing: Text('${(member['totalFluctuation'] as num) > 0 ? '+' : ''}${(member['totalFluctuation'] as num).toDouble().toStringAsFixed(2)}', style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: (member['totalFluctuation'] as num) > 0 ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error
                   ),),

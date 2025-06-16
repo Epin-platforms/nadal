@@ -8,22 +8,34 @@ class GenderField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Flexible(
-          child: InkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: ()=> registerProvider.setGender('M'),
-              child: NadalSelectableBox(selected: registerProvider.selectedGender == 'M', text: '남자'))
-        ),
-        SizedBox(width: 8,),
-        Flexible(
-            child: InkWell(
-                borderRadius: BorderRadius.circular(10),
-                onTap: ()=> registerProvider.setGender('F'),
-                child: NadalSelectableBox(selected: registerProvider.selectedGender == 'F', text: '여자'))
-        ),
-      ],
+    return Consumer<RegisterProvider>(
+      builder: (context, provider, child) {
+        return Row(
+          children: [
+            Flexible(
+                child: InkWell(
+                    borderRadius: BorderRadius.circular(10.r),
+                    onTap: () => provider.setGender('M'),
+                    child: NadalSelectableBox(
+                        selected: provider.selectedGender == 'M',
+                        text: '남자'
+                    )
+                )
+            ),
+            SizedBox(width: 8.w),
+            Flexible(
+                child: InkWell(
+                    borderRadius: BorderRadius.circular(10.r),
+                    onTap: () => provider.setGender('F'),
+                    child: NadalSelectableBox(
+                        selected: provider.selectedGender == 'F',
+                        text: '여자'
+                    )
+                )
+            ),
+          ],
+        );
+      },
     );
   }
 }

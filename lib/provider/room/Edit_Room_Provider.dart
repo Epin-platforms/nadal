@@ -20,6 +20,7 @@ class EditRoomProvider extends ChangeNotifier{
     _tagController = TextEditingController(text: '#');
     _enterCodeController = TextEditingController();
   }
+
   late Map _originRoom;
   Map get originRoom => _originRoom;
 
@@ -112,15 +113,16 @@ class EditRoomProvider extends ChangeNotifier{
   }
 
 
-  removeTag(int index){
+  void removeTag(int index){
     _tags.removeAt(index);
     notifyListeners();
   }
+
   //방 참가코드
   late final TextEditingController _enterCodeController;
   TextEditingController get enterCodeController => _enterCodeController;
 
-  updateRoom(bool isAllHaveVerificationCode) async{
+  Future<void> updateRoom(bool isAllHaveVerificationCode) async{
     if(_roomNameController.text.isEmpty || _roomNameController.text.length > 30){
       DialogManager.warningHandler('흠.. 클럽명이 이상해요 🤔');
       return;
@@ -132,16 +134,13 @@ class EditRoomProvider extends ChangeNotifier{
       return;
     }else if(!_useNickname && !isAllHaveVerificationCode){
       DialogManager.showBasicDialog(
-        title: '인증되지 않은 멤버가 있어요',
-        content: '본명 기능을 사용하려면 모든 멤버가 인증되어야 해요.\n닉네임으로 활동을 전환하고 계속 저장할까요?',
-        confirmText: '닉네임으로 전환',
-        cancelText: '아니요',
+          title: '인증되지 않은 멤버가 있어요',
+          content: '본명 기능 이용을 위해, 모든 멤버가 본인 인증을 완료해야 합니다.',
         onConfirm: (){
           _useNickname = true;
           notifyListeners();
-
-          updateRoom(isAllHaveVerificationCode);
-        }
+        },
+        confirmText: '확인'
       );
       return;
     }
@@ -240,7 +239,7 @@ class EditRoomProvider extends ChangeNotifier{
   }
 
 
-  _startUpdate(updateField) async{
+  Future<void> _startUpdate(updateField) async{
     AppRoute.pushLoading();
     bool? state;
     try{

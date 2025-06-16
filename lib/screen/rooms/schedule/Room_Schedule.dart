@@ -25,8 +25,10 @@ class _RoomScheduleState extends State<RoomSchedule> {
             NadalIconButton(icon: BootstrapIcons.calendar2_plus, size: 22, onTap: (){
               final date = provider.selectedDay;
               final roomId = provider.roomId;
-              final canUseGenderLimit = context.read<RoomProvider>().room?['useNickName'] == 0;
-              context.push('/create/schedule', extra: ScheduleParams(date: date, roomId: roomId, canUseGenderLimit: canUseGenderLimit));
+              final canUseGenderLimit = context.read<RoomProvider>().room?['useNickname'] == 0;
+              print(canUseGenderLimit);
+              context.push('/create/schedule', extra: ScheduleParams(date: date, roomId: roomId,
+                  canUseGenderLimit: canUseGenderLimit));
             })
           ],
         ),
@@ -68,13 +70,14 @@ class _RoomScheduleState extends State<RoomSchedule> {
                         )
                     ),
                     RoomCalendar(provider: provider,),
+                    Divider(),
                     if(provider.getEventsForDay(provider.selectedDay).isEmpty)
                       SizedBox(
                         height: 300,
                         child: NadalEmptyList(title: '이 날은 아직 비어 있어요', subtitle: '일정을 하나 추가해볼까요?', onAction: () async{
                           final date = provider.selectedDay;
                           final roomId = provider.roomId;
-                          final canUseGenderLimit = context.read<RoomProvider>().room?['useNickName'] == false;
+                          final canUseGenderLimit = context.read<RoomProvider>().room?['useNickname'] == 0;
                           final DateTime? res = await context.push('/create/schedule', extra: ScheduleParams(date: date, roomId: roomId, canUseGenderLimit: canUseGenderLimit));
 
                           if(res != null){
@@ -86,7 +89,7 @@ class _RoomScheduleState extends State<RoomSchedule> {
                       ListView.separated(
                           shrinkWrap: true,
                           physics: NeverScrollableScrollPhysics(),
-                          padding: EdgeInsets.zero,
+                          padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 12.w),
                           itemCount: provider.getEventsForDay(provider.selectedDay).length,
                           itemBuilder: (context, index){
                             final item = provider.getEventsForDay(provider.selectedDay)[index];

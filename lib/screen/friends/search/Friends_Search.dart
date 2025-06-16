@@ -117,7 +117,7 @@ class _FriendsSearchState extends State<FriendsSearch> {
                                   ),
                                   contentPadding: EdgeInsets.symmetric(vertical: 16.r, horizontal: 16.r),
                                   title: Text(item['nickName'],  style: Theme.of(context).textTheme.titleMedium,),
-                                  subtitle: Text(item['roomName'] ?? '무소속',
+                                  subtitle: Text(item['roomName'] ?? '소속 없음',
                                     style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor),),
                                   trailing: SizedBox(
                                     width: 80.w,

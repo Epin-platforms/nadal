@@ -265,7 +265,7 @@ class _GameState1State extends State<GameState1> {
                     ),
                   ),
                   subtitle: Text(
-                    member['roomName'] ?? '무소속',
+                    member['roomName'] ?? '소속 없음',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurface.withValues(alpha: 0.6),
                     ),

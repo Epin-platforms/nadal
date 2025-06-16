@@ -14,6 +14,15 @@ class RoomPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = Provider.of<RoomPreviewProvider>(context);
     final theme = Theme.of(context);
+
+    if(provider.room == null){
+      return Material(
+        child: Center(
+          child: NadalCircular(),
+        ),
+      );
+    }
+
     final isOpen = provider.room!['isOpen'] == 1;
     return IosPopGesture(
         child: Scaffold(
