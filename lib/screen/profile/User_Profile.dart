@@ -119,7 +119,7 @@ class _UserProfileState extends State<UserProfile> with SingleTickerProviderStat
             FadeInDown(
               duration: Duration(milliseconds: 500),
               child: GestureDetector(
-                onTap: ()=> context.push('/image?url=${provider.user!['profileImage']}'),
+                onTap: ()=> context.push('/image?url=${provider.user!['profileImage'] ?? 'profile'}'),
                 child: Hero(
                   tag: 'profile-${provider.user!['uid']}',
                   child: NadalProfileFrame(

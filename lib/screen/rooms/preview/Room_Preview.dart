@@ -46,11 +46,14 @@ class RoomPreview extends StatelessWidget {
                   }
                   return Stack(
                     children: [
-                      Container(
-                        height: MediaQuery.of(context).size.height * 0.5,
-                        width: MediaQuery.of(context).size.width,
-                        decoration: BoxDecoration(
-                            image: DecorationImage(image:  provider.room!['roomImage'] == null ? AssetImage('assets/image/default/room_default.png') : NetworkImage(provider.room!['roomImage']), fit: BoxFit.cover)
+                      GestureDetector(
+                        onTap: ()=> context.push('/image?url=${provider.room!['roomImage']  ?? 'roomImage'}'),
+                        child: Container(
+                          height: MediaQuery.of(context).size.height * 0.5,
+                          width: MediaQuery.of(context).size.width,
+                          decoration: BoxDecoration(
+                              image: DecorationImage(image:  provider.room!['roomImage'] == null ? AssetImage('assets/image/default/room_default.png') : NetworkImage(provider.room!['roomImage']), fit: BoxFit.cover)
+                          ),
                         ),
                       ),
                       // 드래그 가능한 바텀시트

@@ -1,5 +1,6 @@
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:hive/hive.dart';
 import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 import 'package:my_sports_calendar/manager/permission/Permission_Manager.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -146,7 +147,22 @@ class _ImageViewState extends State<ImageView> {
             InteractiveViewer(
                 maxScale: 5.0,
                 minScale: 0.5,
-                child: CachedNetworkImage(
+                child:
+                widget.imageUrl == 'profile' ?
+                Padding(
+                    padding: EdgeInsetsGeometry.only(bottom: 80),
+                    child: Center(child: NadalEmptyProfile(size: ScreenUtil().screenWidth, useBackground: false)))
+                : widget.imageUrl == "roomImage" ?
+                    Container(
+                      width: ScreenUtil().screenWidth,
+                      decoration: BoxDecoration(
+                        image: DecorationImage(
+                            image: AssetImage('assets/image/default/room_default.png'),
+                            fit: BoxFit.fitWidth
+                        )
+                      ),
+                    ) :
+                CachedNetworkImage(
                     width: ScreenUtil().screenWidth,
                     fit: BoxFit.fitWidth,
                     cacheKey: widget.imageUrl,

@@ -149,7 +149,6 @@ flutter:
     - assets/image/default/
     - assets/lottie/
     - assets/image/bank/
-    - assets/image/background/
     - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see

@@ -109,7 +109,7 @@ class _RoomDrawerState extends State<RoomDrawer> {
                   children: [
                     SizedBox(height: 40.h,),
                     Center(child: GestureDetector(
-                        onTap: ()=> context.push('/image?url=${room['roomImage']}'),
+                        onTap: ()=> context.push('/image?url=${room['roomImage']  ?? 'roomImage'}'),
                         child: NadalRoomFrame(size: 80.r, imageUrl: room['roomImage']))),
                     SizedBox(height: 12.h,),
                     Padding(

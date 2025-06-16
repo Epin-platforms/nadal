@@ -23,7 +23,7 @@ class _MyProfileCardState extends State<MyProfileCard> {
       child: Column(
         children: [
           InkWell(
-              onTap: ()=> context.push('/image?url=${user['profileImage']}'),
+              onTap: ()=> context.push('/image?url=${user['profileImage'] ?? 'profile'}'),
               borderRadius: BorderRadius.circular(50),
               child: NadalProfileFrame(imageUrl: user['profileImage'], size: 70.r,)),
           Padding(
