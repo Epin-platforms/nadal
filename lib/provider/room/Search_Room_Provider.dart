@@ -1,198 +1,269 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:my_sports_calendar/manager/form/widget/Text_Form_Manager.dart';
 import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum SearchMode{
-  recently, auto, result
-}
+enum SearchMode { recently, auto, result }
 
-class SearchRoomProvider extends ChangeNotifier{
+class SearchRoomProvider extends ChangeNotifier {
   SearchMode _mode = SearchMode.recently;
   SearchMode get mode => _mode;
 
-  void onChangedMode(SearchMode value){
-    if(_mode != value){
-      _mode = value;
-      notifyListeners();
-    }
-  }
+  late final SharedPreferences _prefs;
+  static const String _recentlySearchKey = "epin.nadal.rooms_search_key";
+  static const int _maxRecentSearches = 10;
+  static const int _maxSearchLength = 50;
 
-  late final SharedPreferences prefs;
-  final _recentlySearchKey = "epin.nadal.rooms_search_key";
+  // Getters
+  List<String> get recentlySearch => List.unmodifiable(_recentlySearch);
+  Map<String, List<Map>> get searchResults => Map.unmodifiable(_searchResults);
+  List<Map> get resultRooms => _searchResults[_lastSearch] ?? [];
+  List<String> get autoTextSearch => List.unmodifiable(_autoTextSearch);
+  bool get isOpen => _isOpen;
+  bool get submitted => _submitted;
+  String get lastSearch => _lastSearch;
+  TextEditingController get searchController => _searchController;
+  FocusNode get searchNode => _searchNode;
 
-  List<String> get recentlySearch => _recentlySearch;
-
-  Map<String, List<Map>> get searchResults => _searchResults;
-  List<Map> get resultRooms => searchResults[_lastSearch] ?? [];
-  List<String> get autoTextSearch => _autoTextSearch;
-
-  List<String> _recentlySearch  = [];
+  // Private fields
+  List<String> _recentlySearch = [];
   Map<String, List<Map>> _searchResults = {};
   List<String> _autoTextSearch = [];
-
   late final bool _isOpen;
-  bool get isOpen => _isOpen;
+  bool _submitted = false;
+  String _lastSearch = '';
+  Map<String, int> _searchOffsets = {};
+  late final TextEditingController _searchController;
+  late final FocusNode _searchNode;
+  Timer? _debounce;
 
-  SearchRoomProvider(Map user, bool isOpen){
+  SearchRoomProvider(Map user, bool isOpen) {
     _isOpen = isOpen;
+    _initializeControllers();
     _getRecentlySearch();
+  }
+
+  void _initializeControllers() {
     _searchController = TextEditingController();
     _searchNode = FocusNode();
-
-    _searchController.addListener(_modeLister);
-    _searchController.addListener(_onSearchChanged);
-    _searchNode.addListener(_modeLister);
+    _searchController.addListener(_onSearchTextChanged);
+    _searchNode.addListener(_onFocusChanged);
   }
 
-
-  //최근 검색 목록 가져오기 //최초 프로바이더 만들때만 가져오기
-  Future<void> _getRecentlySearch() async{
-    prefs = await SharedPreferences.getInstance();
-
-    if(prefs.containsKey(_recentlySearchKey)){
-      _recentlySearch = prefs.getStringList(_recentlySearchKey)!;
-      notifyListeners();
-    }
-  }
-
-  @override //꺼질떄 업데이트
-  dispose(){
+  @override
+  void dispose() {
     _updateRecentlySearch();
-    _searchController.removeListener(_modeLister);
-    _searchController.removeListener(_onSearchChanged);
-    _searchNode.removeListener(_modeLister);
-    _searchController.dispose();
-    _searchNode.dispose();
+    _cleanupControllers();
     _debounce?.cancel();
     super.dispose();
   }
 
-  //최근 검색목록 저장
-  void _updateRecentlySearch(){
-    prefs.setStringList(_recentlySearchKey, _recentlySearch);
+  void _cleanupControllers() {
+    _searchController.removeListener(_onSearchTextChanged);
+    _searchNode.removeListener(_onFocusChanged);
+    _searchController.dispose();
+    _searchNode.dispose();
   }
 
-  void _addRecentlySearch(String value){
-    if(_recentlySearch.contains(value)){ //가장 최근으로 업데이트
-      _recentlySearch.remove(value);
-      _recentlySearch.add(value);
-    }else{
-      _recentlySearch.add(value);
-    }
-    notifyListeners();
+  // Mode management
+  void _onFocusChanged() {
+    _updateMode();
   }
 
-  //사용자가 없에는 코드
-  void removeRecentlySearch(int index){
-    _recentlySearch.removeAt(index);
-    notifyListeners();
+  void _onSearchTextChanged() {
+    _updateMode();
+    _handleAutoComplete();
   }
 
-  late final TextEditingController _searchController;
-  late final FocusNode _searchNode;
-  TextEditingController get searchController => _searchController;
-  FocusNode get searchNode => _searchNode;
-
-
-  void _modeLister(){
-    if (_searchController.text.isEmpty && resultRooms.isEmpty) {
-      print("모드가 최근검색으로 변경됨");
-      onChangedMode(SearchMode.recently);
-    } else if (_searchNode.hasFocus) {
-      print("모드가 자동검색으로 변경됨");
-      onChangedMode(SearchMode.auto);
-    } else {
-      print("모드가 결과로 변경됨");
-      onChangedMode(SearchMode.result);
-    }
-  }
-
-  //자동완성 딜레이로 읽기
-  Timer? _debounce;
-
-  void _onSearchChanged() {
-    if(_searchController.text.trim().length < 2) return;
-    // 기존 타이머 있으면 취소
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-
-    // 새 타이머 시작 (500ms 후 실행)
-    _debounce = Timer(const Duration(milliseconds: 500), () {
-      final query = _searchController.text.trim();
-      if (query.isNotEmpty) {
-        searchAutoText();
-      }
-    });
-  }
-
-
-  Future<void> searchAutoText() async{
-    int queryToInt = _isOpen ? 1 : 0;
-    final res = await serverManager.get('room/autoText?isOpen=$queryToInt&text=${_searchController.text}');
-
-    if(res.statusCode == 200){
-      final data = extractAutoComplete(res.data);
-      _autoTextSearch = List.from(data);
+  void _updateMode() {
+    final newMode = _determineMode();
+    if (_mode != newMode) {
+      _mode = newMode;
       notifyListeners();
     }
   }
 
-  List<String> extractAutoComplete(List serverResult) {
-    final Set<String> suggestions = {};
-
-    for (final row in serverResult) {
-      if (row['tagSnippet'] != null) {
-        final tags = List<String>.from(row['tagSnippet']);
-        suggestions.addAll(tags);
-      }
-
-      if (row['descriptionSnippet'] != null) {
-        suggestions.add(row['descriptionSnippet']);
-      }
-
-      if (row['roomName'] != null) {
-        suggestions.add(row['roomName']);
-      }
+  SearchMode _determineMode() {
+    if (_searchController.text.isEmpty && resultRooms.isEmpty) {
+      return SearchMode.recently;
+    } else if (_searchNode.hasFocus && _searchController.text.isNotEmpty) {
+      return SearchMode.auto;
+    } else {
+      return SearchMode.result;
     }
-
-    return suggestions.toList();
   }
 
-  //결과가져오기
-  //결과를 가져왔는지 체크
-  bool _submitted = false;
-  bool get submitted => _submitted;
+  // Recent search management
+  Future<void> _getRecentlySearch() async {
+    try {
+      _prefs = await SharedPreferences.getInstance();
+      final searches = _prefs.getStringList(_recentlySearchKey);
+      if (searches != null) {
+        _recentlySearch = searches;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('최근 검색 목록 로드 실패: $e');
+    }
+  }
 
-  String _lastSearch = '';
-  String get lastSearch => _lastSearch;
+  void _updateRecentlySearch() {
+    try {
+      _prefs.setStringList(_recentlySearchKey, _recentlySearch);
+    } catch (e) {
+      debugPrint('최근 검색 목록 저장 실패: $e');
+    }
+  }
 
-  Map<String, int> _searchOffsets = {}; // key: 검색어, value: offset
+  void _addRecentlySearch(String value) {
+    if (!_isValidSearchText(value)) return;
 
+    final normalizedValue = _normalizeSearchText(value);
 
-  Future<void> onSubmit(String text) async {
-    if(text.length < 2) return;
+    // 기존 항목 제거 후 최신으로 추가
+    _recentlySearch.remove(normalizedValue);
+    _recentlySearch.add(normalizedValue);
 
-    if (_searchController.text != text) {
-      _searchController.text = text;
+    // 최대 개수 제한
+    if (_recentlySearch.length > _maxRecentSearches) {
+      _recentlySearch.removeRange(0, _recentlySearch.length - _maxRecentSearches);
     }
 
+    notifyListeners();
+  }
+
+  void removeRecentlySearch(int index) {
+    if (index >= 0 && index < _recentlySearch.length) {
+      _recentlySearch.removeAt(index);
+      notifyListeners();
+    }
+  }
+
+  // Auto-complete handling
+  void _handleAutoComplete() {
+    final text = _searchController.text.trim();
+    if (text.length < 2) {
+      _autoTextSearch.clear();
+      return;
+    }
+
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      if (_searchController.text.trim() == text) {
+        _searchAutoText(text);
+      }
+    });
+  }
+
+  Future<void> _searchAutoText(String text) async {
+    if (!_isValidSearchText(text)) return;
+
+    try {
+      final normalizedText = _normalizeSearchText(text);
+      final queryToInt = _isOpen ? 1 : 0;
+      final encodedText = Uri.encodeComponent(normalizedText);
+
+      final res = await serverManager.get(
+          'room/autoText?isOpen=$queryToInt&text=$encodedText'
+      );
+
+      if (res.statusCode == 200 && mounted) {
+        final data = _extractAutoComplete(res.data);
+        _autoTextSearch = data;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('자동완성 검색 실패: $e');
+      _autoTextSearch.clear();
+      if (mounted) notifyListeners();
+    }
+  }
+
+  List<String> _extractAutoComplete(dynamic serverResult) {
+    if (serverResult == null) return [];
+
+    try {
+      final List<dynamic> results = serverResult is List ? serverResult : [];
+      final Set<String> suggestions = {};
+
+      for (final row in results) {
+        if (row is! Map) continue;
+
+        // 태그 처리
+        final tagSnippet = row['tagSnippet'];
+        if (tagSnippet is List) {
+          for (final tag in tagSnippet) {
+            if (tag is String && tag.isNotEmpty) {
+              suggestions.add(tag);
+            }
+          }
+        }
+
+        // 설명 처리
+        final descriptionSnippet = row['descriptionSnippet'];
+        if (descriptionSnippet is String && descriptionSnippet.isNotEmpty) {
+          suggestions.add(descriptionSnippet);
+        }
+
+        // 방 이름 처리
+        final roomName = row['roomName'];
+        if (roomName is String && roomName.isNotEmpty) {
+          suggestions.add(roomName);
+        }
+      }
+
+      return suggestions.take(10).toList(); // 최대 10개로 제한
+    } catch (e) {
+      debugPrint('자동완성 데이터 추출 실패: $e');
+      return [];
+    }
+  }
+
+  // Search execution
+  Future<void> onSubmit(String text) async {
+    if (!_isValidSearchText(text)) return;
+
+    final normalizedText = _normalizeSearchText(text);
+
+    // UI 업데이트
+    if (_searchController.text != normalizedText) {
+      _searchController.text = normalizedText;
+    }
     _searchNode.unfocus();
+
+    // 상태 초기화
     _submitted = false;
-    _addRecentlySearch(text);
+    _addRecentlySearch(normalizedText);
 
+    try {
+      await _executeSearch(normalizedText);
+    } catch (e) {
+      debugPrint('검색 실행 실패: $e');
+      if (mounted) {
+        _submitted = true;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> _executeSearch(String text) async {
     final offset = _searchOffsets[text] ?? 0;
-    final query = TextFormManager.encodeQueryParam(text);
-    int queryToInt = _isOpen ? 1 : 0;
-    final res = await serverManager.get('room/search?text=$query&offset=$offset&isOpen=$queryToInt');
+    final encodedText = Uri.encodeComponent(text);
+    final queryToInt = _isOpen ? 1 : 0;
 
-    if (res.statusCode == 200) {
-      final results = List<Map<String, dynamic>>.from(res.data);
+    final res = await serverManager.get(
+        'room/search?text=$encodedText&offset=$offset&isOpen=$queryToInt'
+    );
 
-      // 기존 결과에 누적 저장
-      final prev = _searchResults[text] ?? [];
-      _searchResults[text] = [...prev, ...results];
+    if (res.statusCode == 200 && mounted) {
+      final results = _parseSearchResults(res.data);
+
+      // 기존 결과에 누적
+      final prevResults = _searchResults[text] ?? [];
+      _searchResults[text] = [...prevResults, ...results];
       _searchOffsets[text] = offset + results.length;
 
       _lastSearch = text;
@@ -201,4 +272,34 @@ class SearchRoomProvider extends ChangeNotifier{
     }
   }
 
+  List<Map<String, dynamic>> _parseSearchResults(dynamic data) {
+    if (data == null) return [];
+
+    try {
+      if (data is List) {
+        return data
+            .where((item) => item is Map)
+            .cast<Map<String, dynamic>>()
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('검색 결과 파싱 실패: $e');
+      return [];
+    }
+  }
+
+  // Input validation and normalization
+  bool _isValidSearchText(String text) {
+    return text.trim().isNotEmpty &&
+        text.trim().length >= 2 &&
+        text.trim().length <= _maxSearchLength;
+  }
+
+  String _normalizeSearchText(String text) {
+    return text.trim().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  // Helper for checking if widget is still mounted
+  bool get mounted => !(_searchController.hasListeners == false);
 }

@@ -1,23 +1,25 @@
 import 'package:intl/intl.dart';
 import 'package:my_sports_calendar/manager/project/Import_Manager.dart';
 
-class TextFormManager{
-  static String chatCreateAt(DateTime createAt){
+class TextFormManager {
+  // 채팅 시간 포맷
+  static String chatCreateAt(DateTime createAt) {
     final isAm = createAt.hour < 12;
     return '${isAm ? '오전' : '오후'} ${DateFormat('hh:mm').format(createAt)}';
   }
 
-  static String profileText(String? nickName, String? name, int? birthYear, String? gender, {bool useNickname = true}){
-      if(useNickname){
-        return nickName ?? '(알수없음)';
-      }else{
-        if(name == null){
-          return '(알수없음)';
-        }
-        String birth = (birthYear ?? '').toString();
-        String gender0 = gender == 'M' ? '남' : gender == 'F'  ? '여' : '';
-        return '$name/$birth/$gender0';
+  // 프로필 텍스트 생성
+  static String profileText(String? nickName, String? name, int? birthYear, String? gender, {bool useNickname = true}) {
+    if (useNickname) {
+      return nickName ?? '(알수없음)';
+    } else {
+      if (name == null) {
+        return '(알수없음)';
       }
+      String birth = (birthYear ?? '').toString();
+      String gender0 = gender == 'M' ? '남' : gender == 'F' ? '여' : '';
+      return '$name/$birth/$gender0';
+    }
   }
 
   /// 초성 우선 한글 정렬
@@ -60,38 +62,46 @@ class TextFormManager{
     return codeUnit >= 0xAC00 && codeUnit <= 0xD7A3;
   }
 
-  //요일 반환
-  static String returnWeek({required DateTime date}){
-    return date.weekday == 1 ? '월' : date.weekday == 2 ? '화' : date.weekday == 3 ? '수' : date.weekday == 4 ? '목' : date.weekday == 5 ? '금' : date.weekday == 6 ? '토' : '일';
+  // 요일 반환
+  static String returnWeek({required DateTime date}) {
+    return date.weekday == 1 ? '월' :
+    date.weekday == 2 ? '화' :
+    date.weekday == 3 ? '수' :
+    date.weekday == 4 ? '목' :
+    date.weekday == 5 ? '금' :
+    date.weekday == 6 ? '토' : '일';
   }
 
-  static String createFormToScheduleDate(DateTime date, bool isAllDay){
+  // 스케줄 날짜 포맷
+  static String createFormToScheduleDate(DateTime date, bool isAllDay) {
     final isAm = date.hour < 12;
-    if(DateTime.now().year != date.year){
-      return '${DateFormat('yyyy년\nM월 d일').format(date)} (${returnWeek(date: date)})${isAllDay ? '' : '\n\n${isAm? '오전' : '오후'} ${DateFormat('h:mm').format(date)}'}';
-    }else{
-      return '${DateFormat('M월 d일').format(date)} (${returnWeek(date: date)})${isAllDay ? '' : '\n\n${isAm? '오전' : '오후'} ${DateFormat('h:mm').format(date)}'}';
+    if (DateTime.now().year != date.year) {
+      return '${DateFormat('yyyy년\nM월 d일').format(date)} (${returnWeek(date: date)})${isAllDay ? '' : '\n\n${isAm ? '오전' : '오후'} ${DateFormat('h:mm').format(date)}'}';
+    } else {
+      return '${DateFormat('M월 d일').format(date)} (${returnWeek(date: date)})${isAllDay ? '' : '\n\n${isAm ? '오전' : '오후'} ${DateFormat('h:mm').format(date)}'}';
     }
   }
 
-  static String? stateToText(int? state){
-    switch(state){
-      case 0 : return '모집중';
-      case 1 : return '모집종료';
-      case 2 : return '추첨중';
-      case 3 : return '게임중';
-      case 4 : return '종료';
-      default : return null;
+  // 상태 텍스트 변환
+  static String? stateToText(int? state) {
+    switch (state) {
+      case 0: return '모집중';
+      case 1: return '모집종료';
+      case 2: return '추첨중';
+      case 3: return '게임중';
+      case 4: return '종료';
+      default: return null;
     }
   }
 
+  // 시간 경과 표시
   static String timeAgo({required dynamic item}) {
     DateTime? date;
 
-    //createAt은 timeStamp이므로 local로 변경
-    if(item is String){
+    // createAt은 timeStamp이므로 local로 변경
+    if (item is String) {
       date = DateTimeManager.parseUtcToLocalSafe(item);
-    }else{
+    } else {
       date = item;
     }
 
@@ -113,8 +123,9 @@ class TextFormManager{
     }
   }
 
+  // 숫자 콤마 포맷
   static String formatNumberWithCommas(int number) {
-    String numStr = number.toString(); // 숫자를 문자열로 변환
+    String numStr = number.toString();
     StringBuffer formatted = StringBuffer();
 
     int count = 0;
@@ -126,34 +137,108 @@ class TextFormManager{
       }
     }
 
-    return formatted.toString().split('').reversed.join(); // 문자열 뒤집기
+    return formatted.toString().split('').reversed.join();
   }
 
-  static String fromToDate(dynamic from, dynamic to, {bool isAllDay = false}){
+  // 기간 표시
+  static String fromToDate(dynamic from, dynamic to, {bool isAllDay = false}) {
     DateTime fromDate = (from is String) ? DateTime.parse(from) : from;
     DateTime toDate = (to is String) ? DateTime.parse(to) : to;
 
-    if(isAllDay){
+    if (isAllDay) {
       final String allDayForm = DateTime.now().year == fromDate.year ? 'M월 d일 (E)' : 'yyyy년 M월 d일 (E)';
       return '${DateFormat(allDayForm, 'ko').format(fromDate)} 종일';
-    }else{
+    } else {
       final String form = DateTime.now().year == fromDate.year ? 'M월 d일 (E) H:mm' : 'yyyy년 M월 d일 (E) H:mm';
       final String toForm = fromDate.year == toDate.year && fromDate.month == toDate.month && fromDate.day == toDate.day ? 'H:mm' : form;
       return '${DateFormat(form, 'ko').format(fromDate)} ~ ${DateFormat(toForm, 'ko').format(toDate)} ';
     }
   }
 
-  static String formToLocal(String local){
-    if(local.length > 4){
-      return local.substring(0,2);
-    }else if(local.length == 3) {
+  // 지역명 포맷
+  static String formToLocal(String local) {
+    if (local.length > 4) {
+      return local.substring(0, 2);
+    } else if (local.length == 3) {
       return local;
-    }else{
-      return '${local.substring(0,1)}${local.substring(2,3)}';
+    } else {
+      return '${local.substring(0, 1)}${local.substring(2, 3)}';
     }
   }
 
-  static String encodeQueryParam(String input) {
-    return Uri.encodeComponent(input.trim());
+  // === 검색 관련 기능 ===
+
+  // URL 안전한 쿼리 파라미터 인코딩
+  static String encodeQueryParam(String text) {
+    if (text.isEmpty) return '';
+
+    try {
+      // 기본 정제
+      final sanitized = text.trim();
+      if (sanitized.isEmpty) return '';
+
+      // 길이 제한
+      final limited = sanitized.length > 100 ? sanitized.substring(0, 100) : sanitized;
+
+      // URI 인코딩 (특수문자 포함)
+      return Uri.encodeComponent(limited);
+    } catch (e) {
+      debugPrint('쿼리 파라미터 인코딩 실패: $e');
+      return '';
+    }
+  }
+
+  // 검색어 검증
+  static bool isValidSearchText(String text) {
+    if (text.isEmpty) return false;
+
+    final trimmed = text.trim();
+    if (trimmed.length < 2 || trimmed.length > 100) return false;
+
+    // 위험한 패턴 체크
+    if (_containsDangerousPatterns(trimmed)) return false;
+
+    return true;
+  }
+
+  // 위험한 패턴 검사 (내부 함수)
+  static bool _containsDangerousPatterns(String text) {
+    try {
+      // 기본적인 위험 패턴들
+      final dangerousPatterns = [
+        RegExp(r'^[\s]+$'), // 공백만 있는 경우
+        RegExp(r'<script', caseSensitive: false), // 스크립트 태그
+        RegExp(r'javascript:', caseSensitive: false), // 자바스크립트
+        RegExp(r'--'), // SQL 주석
+        RegExp(r';\s*drop\s+', caseSensitive: false), // DROP 명령
+        RegExp(r';\s*delete\s+', caseSensitive: false), // DELETE 명령
+        RegExp(r'union\s+select', caseSensitive: false), // UNION SELECT
+      ];
+
+      for (final pattern in dangerousPatterns) {
+        if (pattern.hasMatch(text)) return true;
+      }
+
+      return false;
+    } catch (e) {
+      debugPrint('위험 패턴 검사 실패: $e');
+      return true; // 오류 시 안전을 위해 위험하다고 판단
+    }
+  }
+
+  // 텍스트 정규화
+  static String normalizeText(String text) {
+    return text
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ') // 연속된 공백을 하나로
+        .replaceAll(RegExp(r'[\r\n\t]'), ' '); // 개행문자를 공백으로
+  }
+
+  // 검색어 정제 (# 허용)
+  static String sanitizeSearchText(String text) {
+    if (text.isEmpty) return '';
+
+    final normalized = normalizeText(text);
+    return normalized.length > 100 ? normalized.substring(0, 100) : normalized;
   }
 }
