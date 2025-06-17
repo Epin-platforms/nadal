@@ -7,14 +7,44 @@ class RoomsProvider extends ChangeNotifier {
   Map<int, Map>? _rooms;           // 일반 클럽 (isOpen = 0)
   Map<int, Map>? _quickRooms;      // 번개챗 (isOpen = 1)
 
+  // 🔧 초기화 상태 관리
+  bool _isInitialized = false;
+  bool _isInitializing = false;
+
   // Getters
   Map<int, Map>? get rooms => _rooms;
   Map<int, Map>? get quickRooms => _quickRooms;
+  bool get isInitialized => _isInitialized;
+  bool get isInitializing => _isInitializing;
 
-  // 방 목록 초기화
+  // 🔧 단일 초기화 메서드 (ChatProvider 초기화 전에 호출)
+  Future<void> initializeRooms() async {
+    if (_isInitialized || _isInitializing) {
+      debugPrint('🔄 RoomsProvider 이미 초기화됨 또는 진행 중 - 스킵');
+      return;
+    }
+
+    try {
+      _isInitializing = true;
+      notifyListeners();
+
+      debugPrint('🚀 RoomsProvider 초기화 시작');
+      await roomInitialize();
+
+      _isInitialized = true;
+      debugPrint('✅ RoomsProvider 초기화 완료');
+    } catch (e) {
+      debugPrint('❌ RoomsProvider 초기화 실패: $e');
+    } finally {
+      _isInitializing = false;
+      notifyListeners();
+    }
+  }
+
+  // 방 목록 초기화 (내부 메서드)
   Future<void> roomInitialize() async {
     try {
-      print('🚀 방 목록 초기화 시작');
+      debugPrint('🚀 방 목록 초기화 시작');
 
       final response = await serverManager.get('room/rooms');
 
@@ -38,28 +68,42 @@ class RoomsProvider extends ChangeNotifier {
               room['roomId'] as int: room,
         };
 
-        print('✅ 방 목록 초기화 완료');
-        print('- 일반 클럽: ${_rooms!.length}개');
-        print('- 번개챗: ${_quickRooms!.length}개');
+        debugPrint('✅ 방 목록 초기화 완료');
+        debugPrint('- 일반 클럽: ${_rooms!.length}개');
+        debugPrint('- 번개챗: ${_quickRooms!.length}개');
       } else {
-        print('⚠️ 방 목록이 비어있음');
+        debugPrint('⚠️ 방 목록이 비어있음');
         _rooms = {};
         _quickRooms = {};
       }
     } catch (e) {
-      print('❌ 방 목록 초기화 오류: $e');
+      debugPrint('❌ 방 목록 초기화 오류: $e');
       _rooms = {};
       _quickRooms = {};
-    } finally {
-      notifyListeners();
     }
   }
 
-  // 특정 방 정보 업데이트
+  // 🔧 모든 방 ID 가져오기 (ChatProvider용)
+  List<int> getAllRoomIds() {
+    final allIds = <int>[];
+
+    if (_rooms != null) {
+      allIds.addAll(_rooms!.keys);
+    }
+
+    if (_quickRooms != null) {
+      allIds.addAll(_quickRooms!.keys);
+    }
+
+    return allIds;
+  }
+
+  // 특정 방 정보 업데이트 (실시간 업데이트용)
   Future<bool?> updateRoom(int roomId, {bool isOpenRoom = false}) async {
     try {
       if (_rooms == null || _quickRooms == null) {
-        await roomInitialize();
+        debugPrint('⚠️ RoomsProvider가 초기화되지 않음 - 초기화 후 재시도');
+        await initializeRooms();
         return null;
       }
 
@@ -68,7 +112,7 @@ class RoomsProvider extends ChangeNotifier {
       final currentRoom = targetRooms[roomId];
       final updateAt = currentRoom?['updateAt'];
 
-      print('🔄 방 업데이트 요청: roomId=$roomId, updateAt=$updateAt');
+      debugPrint('🔄 방 업데이트 요청: roomId=$roomId, updateAt=$updateAt');
 
       final res = await serverManager.get('room/reGet/$roomId?updateAt=$updateAt');
 
@@ -91,14 +135,14 @@ class RoomsProvider extends ChangeNotifier {
           }
 
           notifyListeners();
-          print('✅ 방 업데이트 완료: roomId=$roomId, isOpen=$isOpen');
+          debugPrint('✅ 방 업데이트 완료: roomId=$roomId, isOpen=$isOpen');
           return isOpen;
         }
       }
 
       return null;
     } catch (e) {
-      print('❌ 방 업데이트 오류 (roomId: $roomId): $e');
+      debugPrint('❌ 방 업데이트 오류 (roomId: $roomId): $e');
       return null;
     }
   }
@@ -155,14 +199,14 @@ class RoomsProvider extends ChangeNotifier {
 
           return timeB.compareTo(timeA); // 최신 순으로 정렬
         } catch (e) {
-          print('❌ 방 정렬 비교 오류: $e');
+          debugPrint('❌ 방 정렬 비교 오류: $e');
           return 0;
         }
       });
 
       return list;
     } catch (e) {
-      print('❌ 방 목록 정렬 오류: $e');
+      debugPrint('❌ 방 목록 정렬 오류: $e');
       return roomsMap.entries.toList();
     }
   }
@@ -195,35 +239,59 @@ class RoomsProvider extends ChangeNotifier {
 
       if (_rooms?.remove(roomId) != null) {
         removed = true;
-        print('🗑️ 일반 클럽에서 제거: $roomId');
+        debugPrint('🗑️ 일반 클럽에서 제거: $roomId');
       }
 
       if (_quickRooms?.remove(roomId) != null) {
         removed = true;
-        print('🗑️ 번개챗에서 제거: $roomId');
+        debugPrint('🗑️ 번개챗에서 제거: $roomId');
       }
 
       if (removed) {
         notifyListeners();
       }
     } catch (e) {
-      print('❌ 방 제거 오류: $e');
+      debugPrint('❌ 방 제거 오류: $e');
+    }
+  }
+
+  // 🔧 새로운 방 추가 (방 생성 시)
+  void addRoom(Map roomData) {
+    try {
+      final roomId = roomData['roomId'] as int?;
+      final isOpen = roomData['isOpen'] == 1;
+
+      if (roomId == null) return;
+
+      if (isOpen) {
+        _quickRooms ??= {};
+        _quickRooms![roomId] = roomData;
+        debugPrint('✅ 번개챗 추가: $roomId');
+      } else {
+        _rooms ??= {};
+        _rooms![roomId] = roomData;
+        debugPrint('✅ 일반 클럽 추가: $roomId');
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ 방 추가 오류: $e');
     }
   }
 
   // 디버깅용 정보 출력
   void printDebugInfo() {
-    print('📊 방 목록 상태:');
-    print('- 일반 클럽: ${_rooms?.length ?? 0}개');
-    print('- 번개챗: ${_quickRooms?.length ?? 0}개');
-    print('- 전체: $totalRoomCount개');
+    debugPrint('📊 방 목록 상태:');
+    debugPrint('- 일반 클럽: ${_rooms?.length ?? 0}개');
+    debugPrint('- 번개챗: ${_quickRooms?.length ?? 0}개');
+    debugPrint('- 전체: $totalRoomCount개');
 
     if (_rooms != null) {
-      print('- 일반 클럽 ID: ${_rooms!.keys.toList()}');
+      debugPrint('- 일반 클럽 ID: ${_rooms!.keys.toList()}');
     }
 
     if (_quickRooms != null) {
-      print('- 번개챗 ID: ${_quickRooms!.keys.toList()}');
+      debugPrint('- 번개챗 ID: ${_quickRooms!.keys.toList()}');
     }
   }
 }

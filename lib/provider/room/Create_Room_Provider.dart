@@ -115,7 +115,7 @@ class CreateRoomProvider extends ChangeNotifier{
   }
 
   void createRoom() async{
-    if(_roomNameController.text.isEmpty || _roomNameController.text.length > 30){
+    if(TextFormManager.removeSpace(_roomNameController.text).isEmpty || _roomNameController.text.length > 30){
       _warningHandler('흠.. ${isOpen ? '번개방' : '클럽'}명이 이상해요 🤔');
       return;
     }else if(city.isEmpty){

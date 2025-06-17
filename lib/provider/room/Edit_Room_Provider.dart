@@ -129,7 +129,7 @@ class EditRoomProvider extends ChangeNotifier{
         DialogManager.warningHandler('흠.. 변경할 내용이 없는데요? 🤔');
       }
 
-    _startUpdate(updateField);
+     await _startUpdate(updateField);
   }
 
 

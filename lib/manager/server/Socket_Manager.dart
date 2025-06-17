@@ -1,6 +1,8 @@
 import 'package:my_sports_calendar/manager/project/Import_Manager.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 
+import '../../provider/room/Room_Provider.dart';
+
 class SocketManager {
   IO.Socket? socket;
   static final SocketManager instance = SocketManager._internal();
@@ -18,19 +20,16 @@ class SocketManager {
   static const Duration _reconnectDelay = Duration(seconds: 2);
   static const Duration _healthCheckInterval = Duration(seconds: 30);
 
-  // 🔧 Provider 처리 상태 관리
-  bool _isProcessingReconnect = false;
-
-  // 🔧 백그라운드 복귀 감지
-  bool _isFromBackground = false;
-  DateTime? _lastConnectTime;
+  // 🔧 백그라운드 관리 개선
+  bool _isInBackground = false;
+  bool _needsReconnectOnResume = false;
 
   SocketManager._internal();
 
   // Getters
   bool get isConnected => _isConnected && socket?.connected == true;
   bool get isConnecting => _isConnecting;
-  bool get isProcessingReconnect => _isProcessingReconnect;
+  bool get isInBackground => _isInBackground;
 
   // 🔧 실제 연결 상태 확인
   bool get isReallyConnected {
@@ -40,6 +39,60 @@ class SocketManager {
         socket!.id != null;
   }
 
+  // 🔧 백그라운드 상태 설정
+  void setBackgroundState(bool inBackground) {
+    if (_isInBackground == inBackground) return;
+
+    _isInBackground = inBackground;
+
+    if (inBackground) {
+      debugPrint("📱 앱이 백그라운드로 이동");
+      // 소켓 연결은 유지하되 상태만 기록
+    } else {
+      debugPrint("📱 앱이 포그라운드로 복귀 - 무조건 재연결 필요");
+      _needsReconnectOnResume = true;
+      // 즉시 재연결 시도
+      _executeBackgroundReconnect();
+    }
+  }
+
+  // 🔧 백그라운드 재연결 실행
+  Future<void> _executeBackgroundReconnect() async {
+    if (!_needsReconnectOnResume) return;
+
+    try {
+      debugPrint("🔌 백그라운드 복귀 재연결 시작");
+      _needsReconnectOnResume = false;
+
+      // 기존 소켓 완전히 정리
+      await _forceCleanupSocket();
+
+      // 새로운 연결 시작
+      await connect(fromBackground: true);
+
+    } catch (e) {
+      debugPrint("❌ 백그라운드 재연결 실패: $e");
+      _scheduleReconnect();
+    }
+  }
+
+  // 🔧 연결 상태 검증
+  void _verifyConnection() {
+    if (!isReallyConnected) {
+      debugPrint("💔 연결 상태 검증 실패 - 재연결 시도");
+      connect();
+      return;
+    }
+
+    try {
+      // Ping 전송으로 연결 상태 확인
+      socket?.emit('ping');
+    } catch (e) {
+      debugPrint("❌ 연결 검증 중 오류: $e");
+      connect();
+    }
+  }
+
   // 소켓 연결
   Future<void> connect({bool fromBackground = false}) async {
     if (_isConnecting) {
@@ -47,13 +100,11 @@ class SocketManager {
       return;
     }
 
-    // 🔧 이미 연결되어 있고 실제로 작동 중이면 스킵
-    if (isReallyConnected && !fromBackground) {
+    // 🔧 백그라운드 복귀가 아닌 경우에만 기존 연결 상태 확인
+    if (!fromBackground && isReallyConnected) {
       debugPrint("🔗 소켓이 이미 연결되어 있습니다.");
       return;
     }
-
-    _isFromBackground = fromBackground;
 
     try {
       _isConnecting = true;
@@ -69,7 +120,7 @@ class SocketManager {
 
       final uid = user.uid;
 
-      // 🔧 백그라운드 복귀시 기존 소켓 강제 정리
+      // 기존 소켓 정리
       if (fromBackground) {
         await _forceCleanupSocket();
       } else {
@@ -84,10 +135,10 @@ class SocketManager {
               .setTransports(['websocket'])
               .setExtraHeaders({'uid': uid})
               .setAuth({'uid': uid})
-              .setReconnectionDelay(fromBackground ? 500 : 1000)
+              .setReconnectionDelay(500)
               .setReconnectionAttempts(fromBackground ? 10 : 5)
               .enableReconnection()
-              .setTimeout(fromBackground ? 10000 : 20000)
+              .setTimeout(fromBackground ? 15000 : 20000)
               .build()
       );
 
@@ -98,9 +149,9 @@ class SocketManager {
       socket?.connect();
       debugPrint("🔗 소켓 연결 시도: ${dotenv.get('SOCKET_URL')}");
 
-      // 🔧 백그라운드 복귀시 더 오래 대기
+      // 백그라운드 복귀시 더 오래 대기
       if (fromBackground) {
-        await _waitForConnection(Duration(seconds: 10));
+        await _waitForConnection(Duration(seconds: 15));
       }
 
     } catch (e) {
@@ -122,7 +173,7 @@ class SocketManager {
     }
   }
 
-  // 🔧 강제 소켓 정리 (백그라운드 복귀용)
+  // 🔧 강제 소켓 정리
   Future<void> _forceCleanupSocket() async {
     try {
       debugPrint("🧹 강제 소켓 정리 시작");
@@ -143,7 +194,6 @@ class SocketManager {
 
       // 상태 초기화
       _isConnected = false;
-      _isProcessingReconnect = false;
 
       // 잠시 대기 (리소스 정리 시간)
       await Future.delayed(const Duration(milliseconds: 500));
@@ -164,7 +214,6 @@ class SocketManager {
       _isConnected = true;
       _isConnecting = false;
       _reconnectAttempts = 0;
-      _lastConnectTime = DateTime.now();
       _cancelReconnectTimer();
       _startHealthCheck();
 
@@ -177,7 +226,6 @@ class SocketManager {
       _isConnected = true;
       _isConnecting = false;
       _reconnectAttempts = 0;
-      _lastConnectTime = DateTime.now();
       _cancelReconnectTimer();
       _startHealthCheck();
 
@@ -189,13 +237,12 @@ class SocketManager {
       debugPrint("❌ 소켓 연결 종료: $reason");
       _isConnected = false;
       _isConnecting = false;
-      _isProcessingReconnect = false;
       _stopHealthCheck();
 
       _handleSocketDisconnected();
 
-      // 자동 재연결이 필요한 경우에만 수동 재연결
-      if (reason != 'io client disconnect') {
+      // 백그라운드가 아닐 때만 자동 재연결
+      if (reason != 'io client disconnect' && !_isInBackground) {
         _scheduleReconnect();
       }
     });
@@ -205,9 +252,11 @@ class SocketManager {
       debugPrint("❌ 소켓 연결 오류: $error");
       _isConnected = false;
       _isConnecting = false;
-      _isProcessingReconnect = false;
       _stopHealthCheck();
-      _scheduleReconnect();
+
+      if (!_isInBackground) {
+        _scheduleReconnect();
+      }
     });
 
     // 재연결 시도
@@ -220,33 +269,41 @@ class SocketManager {
       debugPrint("❌ 소켓 재연결 실패");
       _isConnected = false;
       _isConnecting = false;
-      _isProcessingReconnect = false;
       _stopHealthCheck();
-      _scheduleReconnect();
+
+      if (!_isInBackground) {
+        _scheduleReconnect();
+      }
     });
 
-    // 🔧 Pong 응답 처리 (연결 상태 확인용)
+    // Pong 응답 처리
     socket!.on('pong', (_) {
       debugPrint("🏓 Pong 응답 수신 - 연결 상태 양호");
     });
   }
 
-  // 🔧 헬스 체크 시작
+  // 헬스 체크 시작
   void _startHealthCheck() {
+    if (_isInBackground) return; // 백그라운드에서는 헬스체크 하지 않음
+
     _stopHealthCheck();
     _healthCheckTimer = Timer.periodic(_healthCheckInterval, (_) {
-      _checkConnectionHealth();
+      if (!_isInBackground) {
+        _checkConnectionHealth();
+      }
     });
   }
 
-  // 🔧 헬스 체크 중지
+  // 헬스 체크 중지
   void _stopHealthCheck() {
     _healthCheckTimer?.cancel();
     _healthCheckTimer = null;
   }
 
-  // 🔧 연결 상태 확인
+  // 연결 상태 확인
   void _checkConnectionHealth() {
+    if (_isInBackground) return;
+
     if (!isReallyConnected) {
       debugPrint("💔 헬스 체크 실패 - 재연결 시도");
       connect();
@@ -254,7 +311,6 @@ class SocketManager {
     }
 
     try {
-      // Ping 전송으로 연결 상태 확인
       socket?.emit('ping');
     } catch (e) {
       debugPrint("❌ 헬스 체크 중 오류: $e");
@@ -268,7 +324,6 @@ class SocketManager {
     if (context?.mounted != true) return;
 
     try {
-      // ChatProvider 알림
       final chatProvider = context!.read<ChatProvider>();
       chatProvider.onSocketConnected();
       debugPrint("✅ ChatProvider 소켓 연결 완료");
@@ -277,53 +332,30 @@ class SocketManager {
     }
   }
 
-  // 🔧 개선된 소켓 재연결 처리
+  // 소켓 재연결 처리
   void _handleSocketReconnected() {
-    if (_isProcessingReconnect) {
-      debugPrint("⚠️ 이미 재연결 처리 중 - 중복 실행 방지");
-      return;
-    }
-
-    _isProcessingReconnect = true;
-    debugPrint("🔄 소켓 재연결 처리 시작");
-
-    // 🔧 비동기 처리로 변경
-    _processReconnectionAsync();
-  }
-
-  // 🔧 비동기 재연결 처리
-  Future<void> _processReconnectionAsync() async {
     final context = AppRoute.context;
-    if (context?.mounted != true) {
-      _isProcessingReconnect = false;
-      return;
-    }
+    if (context?.mounted != true) return;
 
     try {
-      // 🔧 백그라운드 복귀인 경우 추가 처리
-      if (_isFromBackground) {
-        debugPrint("🔄 백그라운드 복귀 재연결 처리");
-        await Future.delayed(const Duration(milliseconds: 1000));
-      }
+      debugPrint("🔄 소켓 재연결 처리 시작");
 
-      // ChatProvider 재연결 처리 (비동기로 대기)
+      // ChatProvider 재연결 처리
       final chatProvider = context!.read<ChatProvider>();
-      await Future.microtask(() => chatProvider.onSocketReconnected());
+      chatProvider.onSocketReconnected();
 
-      // 게임 관련 처리 (필요한 경우)
-      if (_isProviderAvailable<ScheduleProvider>()) {
-        final scheduleProvider = context.read<ScheduleProvider>();
-        if (scheduleProvider.isGameSchedule) {
-          await Future.microtask(() => scheduleProvider.fetchGameTables());
-        }
+      // RoomProvider 재연결 처리 (소켓 리스너 재설정)
+      try {
+        final roomProvider = context.read<RoomProvider>();
+        roomProvider.reattachSocketListeners();
+        debugPrint("✅ RoomProvider 소켓 리스너 재설정 완료");
+      } catch (e) {
+        debugPrint("⚠️ RoomProvider가 없거나 오류: $e");
       }
 
       debugPrint("✅ 소켓 재연결 처리 완료");
     } catch (e) {
       debugPrint("❌ 소켓 재연결 처리 오류: $e");
-    } finally {
-      _isProcessingReconnect = false;
-      _isFromBackground = false;
     }
   }
 
@@ -343,6 +375,8 @@ class SocketManager {
 
   // 재연결 스케줄링
   void _scheduleReconnect() {
+    if (_isInBackground) return; // 백그라운드에서는 재연결 시도하지 않음
+
     if (_reconnectAttempts >= _maxReconnectAttempts) {
       debugPrint("❌ 최대 재연결 시도 횟수 초과 - 재시도를 중단합니다");
 
@@ -364,7 +398,7 @@ class SocketManager {
     debugPrint("🔄 ${delay.inSeconds}초 후 재연결 시도 ($_reconnectAttempts/$_maxReconnectAttempts)");
 
     _reconnectTimer = Timer(delay, () {
-      if (!isReallyConnected && !_isConnecting) {
+      if (!isReallyConnected && !_isConnecting && !_isInBackground) {
         connect();
       }
     });
@@ -434,9 +468,8 @@ class SocketManager {
     _stopHealthCheck();
     _isConnected = false;
     _isConnecting = false;
-    _isProcessingReconnect = false;
     _reconnectAttempts = 0;
-    _isFromBackground = false;
+    _needsReconnectOnResume = false;
 
     try {
       socket?.disconnect();
@@ -445,25 +478,11 @@ class SocketManager {
     }
   }
 
-  // Provider 사용 가능 여부 확인
-  bool _isProviderAvailable<T>() {
-    try {
-      final context = AppRoute.context;
-      if (context?.mounted != true) return false;
-
-      Provider.of<T>(context!, listen: false);
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
   // 리소스 정리
   void dispose() {
     _cancelReconnectTimer();
     _stopHealthCheck();
     _cleanupSocket();
-    _isProcessingReconnect = false;
-    _isFromBackground = false;
+    _needsReconnectOnResume = false;
   }
 }

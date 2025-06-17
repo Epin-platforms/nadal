@@ -5,8 +5,11 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:my_sports_calendar/screen/home/Nadal_BottomNav.dart';
 
 import '../../manager/permission/Permission_Manager.dart';
+import '../../manager/project/App_Initialize_Manager.dart';
 import '../../manager/project/Import_Manager.dart';
 import '../../provider/notification/Notification_Provider.dart';
+// 🔧 개선된 초기화 시스템 import 추가가 필요할 수 있음
+// AppInitializationManager는 Import_Manager에 포함되어야 함
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key, required this.child});
@@ -50,7 +53,7 @@ class _HomeShellState extends State<HomeShell> {
 
     try {
       _isInitializing = true;
-      debugPrint('🚀 앱 초기화 시작');
+      debugPrint('🚀 HomeShell 초기화 시작');
 
       _initTimeoutTimer = Timer(_initTimeout, () {
         if (!_isInitialized) {
@@ -62,8 +65,8 @@ class _HomeShellState extends State<HomeShell> {
       // 1. 딥링크 초기화 (가장 먼저)
       await _initDeepLinks();
 
-      // 2. 커뮤니티 설정
-      await _setCommunity();
+      // 🔧 2. 개선된 앱 초기화 시스템 사용
+      await _initializeAppSystems();
 
       // 3. 기타 초기화
       await _initStep();
@@ -71,9 +74,9 @@ class _HomeShellState extends State<HomeShell> {
       // 4. 초기화 완료 후 대기 중인 라우팅 처리
       _processPendingRoute();
 
-      debugPrint('✅ 앱 초기화 완료');
+      debugPrint('✅ HomeShell 초기화 완료');
     } catch (e) {
-      debugPrint('❌ 앱 초기화 오류: $e');
+      debugPrint('❌ HomeShell 초기화 오류: $e');
       _forceInitializationComplete();
     } finally {
       _initTimeoutTimer?.cancel();
@@ -87,40 +90,43 @@ class _HomeShellState extends State<HomeShell> {
     debugPrint('⚠️ 초기화 강제 완료됨');
   }
 
-  Future<void> _setCommunity() async {
+  // 🔧 개선된 앱 시스템 초기화
+  Future<void> _initializeAppSystems() async {
     if (!mounted) return;
 
     try {
-      final roomsProvider = context.read<RoomsProvider>();
-      final chatProvider = context.read<ChatProvider>();
-      final userProvider = context.read<UserProvider>();
+      debugPrint('🔧 앱 시스템 초기화 시작');
 
-      debugPrint('1단계: 방 목록 초기화 시작');
-      await roomsProvider.roomInitialize();
-      if (!mounted) return;
-      debugPrint('1단계 완료: 방 목록 로드됨');
+      // AppInitializationManager를 사용한 순차적 초기화
+      await AppInitializationManager.initializeApp(context);
 
-      debugPrint('2단계: 소켓 및 채팅 초기화 시작');
-      await chatProvider.initializeSocket();
-      if (!mounted) return;
+      // 🔧 추가 HomeProvider 초기화 (백그라운드)
+      _initializeHomeProviderInBackground();
 
-      debugPrint('3단계: 사용자 일정 초기화 시작');
-      _loadSchedulesInBackground(userProvider);
-      if (!mounted) return;
-
-      debugPrint('✅ 커뮤니티 초기화 완료');
+      debugPrint('✅ 앱 시스템 초기화 완료');
     } catch (e) {
-      debugPrint('❌ 커뮤니티 초기화 오류: $e');
+      debugPrint('❌ 앱 시스템 초기화 오류: $e');
+      throw e;
     }
   }
 
-  void _loadSchedulesInBackground(UserProvider userProvider) {
+  // 🔧 HomeProvider 백그라운드 초기화
+  void _initializeHomeProviderInBackground() {
     Future.microtask(() async {
       try {
+        if (!mounted) return;
+
+        final userProvider = context.read<UserProvider>();
+
+        // 사용자 일정 초기화 (백그라운드)
         await userProvider.fetchMySchedules(DateTime.now());
-        debugPrint('✅ 백그라운드 일정 로드 완료');
+        debugPrint('✅ 백그라운드 사용자 일정 로드 완료');
+
+        // HomeProvider의 기타 데이터 초기화는 필요할 때만
+        // (MyQuickChat에서 한 번만 로드하도록 개선됨)
+
       } catch (e) {
-        debugPrint('❌ 백그라운드 일정 로드 오류: $e');
+        debugPrint('❌ HomeProvider 백그라운드 초기화 오류: $e');
       }
     });
   }
@@ -139,7 +145,7 @@ class _HomeShellState extends State<HomeShell> {
       await _checkPushMessages();
 
       _isInitialized = true;
-      debugPrint('✅ 앱 초기화 단계 완료');
+      debugPrint('✅ HomeShell 초기화 단계 완료');
     } catch (e) {
       debugPrint('❌ 초기화 단계 오류: $e');
       _isInitialized = true;
@@ -378,7 +384,7 @@ class _HomeShellState extends State<HomeShell> {
         !currentPath.startsWith('/more/');
   }
 
-  // 🔧 라우팅 후 관련 데이터 새로고침
+  // 🔧 라우팅 후 관련 데이터 새로고침 (개선된 Provider 사용)
   Future<void> _refreshDataAfterNavigation(String routing) async {
     try {
       if (!mounted) return;
@@ -405,7 +411,7 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
-  // 🔧 방 데이터 새로고침
+  // 🔧 방 데이터 새로고침 (개선된 Provider 사용)
   Future<void> _refreshRoomData(int roomId) async {
     try {
       if (!mounted) return;

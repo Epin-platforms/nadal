@@ -70,6 +70,7 @@ class _ImageViewState extends State<ImageView> {
       setState(() {
         _downLoading = true;
       });
+      print(widget.imageUrl);
       // Firebase Storage의 경로를 설정합니다.
       final storageRef = FirebaseStorage.instance.ref().child(extractFilePath(widget.imageUrl));
 
@@ -80,29 +81,30 @@ class _ImageViewState extends State<ImageView> {
       final response = await http.get(Uri.parse(downloadUrl));
       if (response.statusCode == 200) {
         try {
-          // 앱의 로컬 디렉토리 경로 가져오기
-          final directory = await getApplicationDocumentsDirectory();
-
-          // 파일 저장 경로 설정
-          final filePath = '${directory.path}/Nadal${DateTime.now().toIso8601String()}.jpg';
-          final file = File(filePath);
-
-          // 파일에 이미지 데이터 쓰기
-          await file.writeAsBytes(response.bodyBytes);
-
           // 갤러리에 저장 (Uint8List 직접 사용)
-          final saved = await ImageGallerySaverPlus.saveImage(
-            response.bodyBytes, // ✅ 직접 Uint8List 사용
+          final name = "Nasdal_${DateTime.now().toIso8601String()}.jpg";
+          final result = await ImageGallerySaverPlus.saveImage(
+            response.bodyBytes,
             quality: 100,
-            name: "nadal_${DateTime.now().millisecondsSinceEpoch}",
+            name: name,
           );
 
-          if (saved == true) {
-            SnackBarManager.showCleanSnackBar(context, "이미지가 갤러리에 성공적으로 저장되었습니다: $filePath");
+          // 저장 성공 여부 확인
+          final isSuccess = result['isSuccess'] == true;
+
+          if (isSuccess) {
+            SnackBarManager.showCleanSnackBar(
+              context,
+              "이미지가 갤러리에 저장되었습니다: $name",
+            );
           } else {
-            SnackBarManager.showCleanSnackBar(context, "갤러리에 이미지 저장에 실패했습니다");
+            SnackBarManager.showCleanSnackBar(
+              context,
+              "이미지 저장에 실패했습니다.",
+            );
           }
         } catch (e) {
+          print(e);
           SnackBarManager.showCleanSnackBar(context, "갤러리에 이미지 저장에 실패했습니다");
         }
       }
@@ -117,14 +119,22 @@ class _ImageViewState extends State<ImageView> {
   }
 
 
-  String extractFilePath(String url){
-    // Firebase Storage URL에서 파일 경로만 추출
-    final baseUrl = dotenv.get('STORAGE_URL');
-    if (url.startsWith(baseUrl)) {
-      return url.replaceFirst(baseUrl, "");
-    } else {
-      throw Exception("올바른 Firebase Storage URL이 아닙니다.");
+  String extractFilePath(String url) {
+    if (url.contains("firebasestorage.googleapis.com")) {
+      // Firebase URL에서 경로 추출
+      final baseUrl = dotenv.get('STORAGE_URL');
+      final encodedPath = url.replaceFirst(baseUrl, "").split('?').first;
+      return Uri.decodeComponent(encodedPath);
+    } else if (url.contains("storage.googleapis.com")) {
+      // GCS URL에서 경로 추출 (예: /bucket-name/roomImage/1)
+      final uri = Uri.parse(url);
+      final segments = uri.pathSegments;
+      if (segments.length >= 2) {
+        return segments.sublist(1).join("/"); // bucket-name 이후 경로
+      }
     }
+
+    throw Exception("Firebase Storage 경로를 추출할 수 없습니다.");
   }
 
   @override

@@ -5,7 +5,6 @@ import 'package:my_sports_calendar/screen/rooms/room/chat/Chat_List.dart';
 import 'package:my_sports_calendar/screen/rooms/room/widget/Room_Announced_Widget.dart';
 
 import '../../../manager/project/Import_Manager.dart';
-import '../../../manager/server/Socket_Manager.dart';
 
 class Room extends StatefulWidget {
   const Room({super.key, required this.roomId});
@@ -30,10 +29,8 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
   bool _needsLastReadUpdate = false;
   late final bool _isOpen;
 
-  // 🔧 백그라운드 복귀 관리
-  bool _isBackgroundReturning = false;
+  // 🔧 백그라운드 복귀 관리 (간단화)
   bool _isScreenActive = true;
-  DateTime? _backgroundTime;
 
   // Timer management
   Timer? _lastReadUpdateTimer;
@@ -42,7 +39,6 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
   static const Duration _lastReadDebounceDelay = Duration(milliseconds: 500);
   static const Duration _dataWaitTimeout = Duration(seconds: 5);
   static const Duration _dataCheckInterval = Duration(milliseconds: 200);
-  static const Duration _maxBackgroundDuration = Duration(minutes: 3);
 
   @override
   void initState() {
@@ -64,13 +60,6 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
 
     // Cleanup in reverse order of initialization
     _cancelLastReadTimer();
-
-    // 🔧 현재 채팅방 해제
-    try {
-      _chatProvider.setCurrentRoom(null);
-    } catch (e) {
-      debugPrint('❌ 현재 방 해제 오류: $e');
-    }
 
     // Safe provider cleanup
     try {
@@ -113,12 +102,11 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
     }
   }
 
-  // 🔧 백그라운드 이동 처리
+  // 🔧 백그라운드 이동 처리 (간단화)
   void _handleAppPaused() {
     if (_isDisposed) return;
 
     debugPrint("🔄 Room 화면 - 백그라운드 이동");
-    _backgroundTime = DateTime.now();
 
     // lastRead 업데이트
     if (_hasInitializedLastRead) {
@@ -126,84 +114,20 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
     }
   }
 
-  // 🔧 백그라운드 복귀 처리 (개선됨)
+  // 🔧 백그라운드 복귀 처리 (간단화)
   Future<void> _handleAppResumed() async {
-    if (_isDisposed || _isBackgroundReturning) return;
+    if (_isDisposed) return;
 
-    _isBackgroundReturning = true;
-    debugPrint("🔄 Room 화면 - 백그라운드 복귀 처리 시작");
+    debugPrint("🔄 Room 화면 - 백그라운드 복귀 처리");
 
     try {
-      // 🔧 백그라운드 지속 시간 확인
-      final backgroundDuration = _backgroundTime != null
-          ? DateTime.now().difference(_backgroundTime!)
-          : Duration.zero;
-
-      debugPrint("⏱️ 백그라운드 지속 시간: ${backgroundDuration.inMinutes}분");
-
-      // 🔧 소켓 상태 확인 및 강제 재연결
-      final socketManager = SocketManager.instance;
-
-      if (!socketManager.isReallyConnected || backgroundDuration > _maxBackgroundDuration) {
-        debugPrint("🔌 소켓 강제 재연결 필요");
-        await _forceSocketReconnect();
-      } else {
-        debugPrint("✅ 소켓 연결 상태 양호");
-      }
-
-      // 🔧 현재 방 데이터 동기화
-      await _syncCurrentRoomData();
-
-      _backgroundTime = null;
-      debugPrint("✅ Room 화면 백그라운드 복귀 처리 완료");
-
-    } catch (e) {
-      debugPrint("❌ Room 화면 백그라운드 복귀 처리 실패: $e");
-    } finally {
-      _isBackgroundReturning = false;
-    }
-  }
-
-  // 🔧 강제 소켓 재연결
-  Future<void> _forceSocketReconnect() async {
-    try {
-      debugPrint("🔌 Room 화면 - 소켓 강제 재연결 시작");
-
-      final socketManager = SocketManager.instance;
-      await socketManager.connect(fromBackground: true);
-
-      // 연결 확인 대기
-      int retryCount = 0;
-      while (!socketManager.isReallyConnected && retryCount < 15) {
-        await Future.delayed(const Duration(milliseconds: 500));
-        retryCount++;
-      }
-
-      if (socketManager.isReallyConnected) {
-        debugPrint("✅ Room 화면 - 소켓 재연결 성공");
-      } else {
-        debugPrint("❌ Room 화면 - 소켓 재연결 실패");
-      }
-    } catch (e) {
-      debugPrint("❌ Room 화면 - 소켓 재연결 오류: $e");
-    }
-  }
-
-  // 🔧 현재 방 데이터 동기화
-  Future<void> _syncCurrentRoomData() async {
-    try {
-      debugPrint("🔄 Room 화면 - 현재 방 데이터 동기화");
-
-      // 방 데이터 새로고침
-      await _chatProvider.refreshRoomFromBackground(widget.roomId);
-      await _roomProvider.refreshRoomFromBackground();
-
-      // lastRead 업데이트 스케줄링
+      // 🔧 소켓 재연결은 SocketManager와 AppProvider에서 자동 처리됨
+      // 여기서는 현재 방의 lastRead만 업데이트
       await _scheduleLastReadUpdate();
 
-      debugPrint("✅ Room 화면 - 방 데이터 동기화 완료");
+      debugPrint("✅ Room 화면 백그라운드 복귀 처리 완료");
     } catch (e) {
-      debugPrint("❌ Room 화면 - 방 데이터 동기화 오류: $e");
+      debugPrint("❌ Room 화면 백그라운드 복귀 처리 실패: $e");
     }
   }
 
@@ -238,17 +162,11 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
     // Step 1: Initialize providers safely
     _initializeProviders();
 
-    // 🔧 Step 1.5: 현재 채팅방 설정
-    _chatProvider.setCurrentRoom(widget.roomId);
-
     // Step 2: Update room information
     _isOpen = await _roomsProvider.updateRoom(widget.roomId) ?? false;
     debugPrint('✅ 방 업데이트 완료 - roomId: ${widget.roomId}');
 
     if (_isDisposed) return;
-
-    // 🔧 Step 2.5: 소켓 연결 상태 확인
-    await _ensureSocketConnected();
 
     // Step 3: Join room if not already joined
     await _ensureRoomJoined();
@@ -287,24 +205,6 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
     _roomsProvider = context.read<RoomsProvider>();
     _chatProvider = context.read<ChatProvider>();
     _roomProvider = context.read<RoomProvider>();
-  }
-
-  // 🔧 소켓 연결 상태 확인
-  Future<void> _ensureSocketConnected() async {
-    if (_isDisposed) return;
-
-    final socketManager = SocketManager.instance;
-    if (!socketManager.isReallyConnected) {
-      debugPrint("🔌 소켓 연결 필요");
-      await socketManager.connect();
-
-      // 연결 확인 대기
-      int waitCount = 0;
-      while (!socketManager.isReallyConnected && waitCount < 10) {
-        await Future.delayed(const Duration(milliseconds: 500));
-        waitCount++;
-      }
-    }
   }
 
   // Ensure user is joined to the room
@@ -449,11 +349,11 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
     }
   }
 
-  // 🔧 연결 상태 위젯
+  // 🔧 연결 상태 위젯 (간단화)
   Widget _buildConnectionStatus() {
     return Consumer<ChatProvider>(
       builder: (context, chatProvider, child) {
-        if (!chatProvider.socketLoading && !_isBackgroundReturning) {
+        if (!chatProvider.socketLoading) {
           return const SizedBox.shrink();
         }
 
@@ -474,7 +374,7 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
               ),
               SizedBox(width: 8.w),
               Text(
-                _isBackgroundReturning ? '백그라운드 복귀 중...' : '연결 중...',
+                '연결 중...',
                 style: TextStyle(
                   fontSize: 12.sp,
                   color: Colors.orange,
@@ -535,16 +435,6 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
                 '채팅방을 불러오는 중...',
                 style: TextStyle(fontSize: 16.sp),
               ),
-              if (_isBackgroundReturning) ...[
-                SizedBox(height: 8.h),
-                Text(
-                  '백그라운드에서 복귀 중입니다',
-                  style: TextStyle(
-                    fontSize: 12.sp,
-                    color: Colors.orange,
-                  ),
-                ),
-              ],
             ],
           ),
         ),

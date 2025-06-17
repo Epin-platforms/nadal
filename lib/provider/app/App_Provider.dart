@@ -10,7 +10,7 @@ enum AppProviderState{
 }
 
 class AppProvider extends ChangeNotifier with WidgetsBindingObserver{
-  // 🔧 초기화 상태 관리
+  // 초기화 상태 관리
   bool _isInitialized = false;
   bool _isDisposed = false;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
@@ -22,12 +22,10 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver{
   AppLifecycleState _appState = AppLifecycleState.resumed;
   AppLifecycleState get appState => _appState;
 
-  // 🔧 백그라운드 복귀 관리
-  DateTime? _backgroundTime;
-  bool _isReconnecting = false;
-  static const Duration _maxBackgroundDuration = Duration(minutes: 5);
+  // 🔧 백그라운드 관리 개선
+  bool _isInBackground = false;
 
-  // 🛠️ 안전한 초기화
+  // 안전한 초기화
   Future<AppProviderState> initAppProvider() async{
     if (_isInitialized) {
       debugPrint('🔄 AppProvider 이미 초기화됨 - 스킵');
@@ -62,133 +60,54 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver{
 
     final previousState = _appState;
     _appState = state;
-    notifyListeners(); // 필요 시 UI에 전달
+
     debugPrint("🔄 App state changed: $previousState -> $state");
 
-    // 백그라운드로 이동
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      _handleAppPaused();
+    // 🔧 백그라운드 상태 관리 개선
+    switch (state) {
+      case AppLifecycleState.resumed:
+        if (_isInBackground) {
+          _handleAppResumed();
+        }
+        break;
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+        if (!_isInBackground) {
+          _handleAppPaused();
+        }
+        break;
+      default:
+        break;
     }
 
-    // 포그라운드 복귀
-    if (state == AppLifecycleState.resumed &&
-        (previousState == AppLifecycleState.paused || previousState == AppLifecycleState.inactive)) {
-      _handleAppResumed();
-    }
+    notifyListeners();
   }
 
-  void _handleAppResumed() async {
-    if (_isDisposed || _isReconnecting) return;
+  void _handleAppResumed() {
+    if (_isDisposed) return;
 
-    _isReconnecting = true;
-    debugPrint("🔄 App resumed - 백그라운드 복귀 처리 시작");
+    debugPrint("🔄 App resumed - 포그라운드 복귀");
+    _isInBackground = false;
 
-    try {
-      // 🔧 백그라운드 시간 확인
-      final backgroundDuration = _backgroundTime != null
-          ? DateTime.now().difference(_backgroundTime!)
-          : Duration.zero;
-
-      debugPrint("⏱️ 백그라운드 지속 시간: ${backgroundDuration.inMinutes}분");
-
-      // 🔧 소켓 상태 확인 및 강제 재연결
-      final socketManager = SocketManager.instance;
-
-      if (!socketManager.isConnected || backgroundDuration > _maxBackgroundDuration) {
-        debugPrint("🔌 소켓 강제 재연결 필요");
-        await _forceSocketReconnect();
-      } else {
-        debugPrint("✅ 소켓 연결 상태 양호");
-      }
-
-      // 🔧 채팅 데이터 동기화
-      await _syncChatDataAfterResume();
-
-      _backgroundTime = null;
-    } catch (e) {
-      debugPrint("❌ 백그라운드 복귀 처리 실패: $e");
-    } finally {
-      _isReconnecting = false;
-    }
+    // 🔧 Socket Manager에 백그라운드 상태 알림
+    SocketManager.instance.setBackgroundState(false);
   }
 
   void _handleAppPaused() {
     if (_isDisposed) return;
 
     debugPrint("🔄 App paused - 백그라운드 이동");
-    _backgroundTime = DateTime.now();
+    _isInBackground = true;
 
-    // 🔧 소켓 연결 유지 (완전히 끊지 않음)
-    // SocketManager.instance.disconnect(); // 제거
-  }
-
-  // 🔧 강제 소켓 재연결
-  Future<void> _forceSocketReconnect() async {
-    try {
-      final socketManager = SocketManager.instance;
-
-      // 기존 연결 완전히 정리
-      debugPrint("🧹 기존 소켓 연결 정리");
-      socketManager.disconnect();
-
-      // 잠시 대기 후 재연결
-      await Future.delayed(const Duration(milliseconds: 1000));
-
-      debugPrint("🔌 소켓 재연결 시작");
-      await socketManager.connect();
-
-      // 연결 확인 대기
-      int retryCount = 0;
-      while (!socketManager.isConnected && retryCount < 10) {
-        await Future.delayed(const Duration(milliseconds: 500));
-        retryCount++;
-      }
-
-      if (socketManager.isConnected) {
-        debugPrint("✅ 소켓 재연결 성공");
-      } else {
-        debugPrint("❌ 소켓 재연결 실패");
-      }
-    } catch (e) {
-      debugPrint("❌ 강제 소켓 재연결 오류: $e");
-    }
-  }
-
-  // 🔧 채팅 데이터 동기화
-  Future<void> _syncChatDataAfterResume() async {
-    try {
-      final context = AppRoute.context;
-      if (context?.mounted != true) return;
-
-      final chatProvider = context!.read<ChatProvider>();
-
-      // 현재 채팅방 확인
-      final router = GoRouter.of(context);
-      final currentPath = router.state.path;
-      final currentRoomId = router.state.pathParameters['roomId'];
-
-      if (currentPath == '/room/:roomId' && currentRoomId != null) {
-        final roomId = int.tryParse(currentRoomId);
-        if (roomId != null) {
-          debugPrint("🔄 현재 채팅방($roomId) 데이터 동기화");
-          await chatProvider.refreshRoomFromBackground(roomId);
-        }
-      }
-
-      // 전체 채팅방 배지 업데이트
-      debugPrint("🔄 전체 채팅방 상태 확인");
-      // chatProvider에서 배지 업데이트는 자동으로 처리됨
-
-    } catch (e) {
-      debugPrint("❌ 채팅 데이터 동기화 오류: $e");
-    }
+    // 🔧 Socket Manager에 백그라운드 상태 알림
+    SocketManager.instance.setBackgroundState(true);
   }
 
   //인터넷 연결 상태
   bool _isOnline = true;
   bool get isOnline => _isOnline;
 
-  // 🔧 안전한 연결 리스너 초기화
+  // 안전한 연결 리스너 초기화
   Future<void> _initConnectivityListener() async {
     try {
       // 기존 구독이 있다면 정리
@@ -196,7 +115,6 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver{
 
       _connectivitySubscription = Connectivity().onConnectivityChanged.listen((result) {
         if (_isDisposed) return;
-
         _handleConnectivityChange(result);
       });
 
@@ -230,9 +148,9 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver{
     }
   }
 
-  // 🔧 네트워크 복구 시 처리
+  // 네트워크 복구 시 처리
   void _handleNetworkReconnect() async {
-    if (_isDisposed || _isReconnecting) return;
+    if (_isDisposed || _isInBackground) return;
 
     try {
       debugPrint("📡 네트워크 복구됨 - 소켓 재연결 확인");
@@ -240,7 +158,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver{
 
       final socketManager = SocketManager.instance;
       if (!socketManager.isConnected) {
-        await _forceSocketReconnect();
+        await socketManager.connect();
       }
     } catch (e) {
       debugPrint("❌ 네트워크 복구 처리 오류: $e");
@@ -364,7 +282,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver{
     }
   }
 
-  // 🧹 안전한 리소스 정리
+  // 안전한 리소스 정리
   @override
   void dispose() {
     if (_isDisposed) return;

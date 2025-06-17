@@ -8,6 +8,7 @@ import 'package:my_sports_calendar/provider/friends/Friend_Provider.dart';
 import 'package:my_sports_calendar/provider/notification/Notification_Provider.dart';
 import 'firebase_options.dart';
 import 'package:kakao_flutter_sdk/kakao_flutter_sdk.dart';
+import 'manager/project/App_Initialize_Manager.dart';
 import 'manager/project/Import_Manager.dart';
 
 void main() async {
@@ -48,7 +49,6 @@ Future<void> _initializePackages() async {
 
     //테마 초기와
     await ThemeModeManager().initialize();
-
   } catch (e) {
     debugPrint('패키지 초기화 실패: $e');
     rethrow;

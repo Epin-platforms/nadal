@@ -1,5 +1,4 @@
 import 'package:animate_do/animate_do.dart';
-import 'package:bootstrap_icons/bootstrap_icons.dart';
 import 'package:my_sports_calendar/animation/Send_Button.dart';
 import 'package:my_sports_calendar/provider/room/Room_Provider.dart';
 
@@ -21,6 +20,9 @@ class _ChatFieldState extends State<ChatField> {
   bool _visibleSend = false;
   bool _isSending = false;
 
+  // 🔧 연결 상태 확인 타이머
+  Timer? _connectionCheckTimer;
+
   @override
   void initState() {
     chatController = TextEditingController();
@@ -30,6 +32,7 @@ class _ChatFieldState extends State<ChatField> {
 
   @override
   void dispose() {
+    _connectionCheckTimer?.cancel();
     chatController.dispose();
     focusNode.dispose();
     super.dispose();
@@ -39,7 +42,17 @@ class _ChatFieldState extends State<ChatField> {
     return context.read<ChatProvider>().chat[widget.roomProvider.room!['roomId']]!.where((e)=> e.chatId == chatId).first;
   }
 
-  // 🔧 안전한 메시지 전송
+  // 🔧 연결 상태 확인 (간단화)
+  bool _isConnected() {
+    final socketManager = SocketManager.instance;
+    final chatProvider = context.read<ChatProvider>();
+    final roomId = widget.roomProvider.room!['roomId'] as int;
+
+    return socketManager.isReallyConnected &&
+        chatProvider.isJoined(roomId);
+  }
+
+  // 🔧 안전한 메시지 전송 (간단화)
   Future<void> _sendMessage() async {
     if (_isSending || chatController.text.trim().isEmpty) return;
 
@@ -51,37 +64,9 @@ class _ChatFieldState extends State<ChatField> {
     });
 
     try {
-      // 🔧 소켓 연결 상태 확인
-      final socketManager = SocketManager.instance;
-      if (!socketManager.isReallyConnected) {
-        // 소켓 재연결 시도
-        debugPrint("🔌 메시지 전송 전 소켓 재연결 시도");
-        await socketManager.connect();
-
-        // 연결 확인 대기 (최대 3초)
-        int waitCount = 0;
-        while (!socketManager.isReallyConnected && waitCount < 6) {
-          await Future.delayed(const Duration(milliseconds: 500));
-          waitCount++;
-        }
-
-        if (!socketManager.isReallyConnected) {
-          throw Exception('소켓 연결에 실패했습니다');
-        }
-      }
-
-      // 🔧 ChatProvider 조인 상태 확인
-      final chatProvider = context.read<ChatProvider>();
-      if (!chatProvider.isJoined(roomId)) {
-        debugPrint("🔗 메시지 전송 전 방 재조인 시도");
-        await chatProvider.joinRoom(roomId);
-
-        // 조인 확인 대기
-        await Future.delayed(const Duration(milliseconds: 500));
-
-        if (!chatProvider.isJoined(roomId)) {
-          throw Exception('채팅방 연결에 실패했습니다');
-        }
+      // 🔧 연결 상태 확인
+      if (!_isConnected()) {
+        throw Exception('연결이 불안정합니다');
       }
 
       // 메시지 전송
@@ -106,10 +91,8 @@ class _ChatFieldState extends State<ChatField> {
       if (mounted) {
         String errorMessage = '메시지 전송에 실패했습니다';
 
-        if (e.toString().contains('소켓')) {
+        if (e.toString().contains('연결')) {
           errorMessage = '연결이 불안정합니다. 잠시 후 다시 시도해주세요';
-        } else if (e.toString().contains('채팅방')) {
-          errorMessage = '채팅방 연결에 문제가 있습니다';
         }
 
         SnackBarManager.showCleanSnackBar(context, errorMessage);
@@ -123,7 +106,7 @@ class _ChatFieldState extends State<ChatField> {
     }
   }
 
-  // 🔧 안전한 이미지 전송
+  // 🔧 안전한 이미지 전송 (간단화)
   Future<void> _sendImage({bool fromCamera = false}) async {
     if (widget.roomProvider.sendingImage.isNotEmpty) {
       SnackBarManager.showCleanSnackBar(context, '이미지 전송 중 입니다. 잠시만 기다려주세요');
@@ -131,9 +114,8 @@ class _ChatFieldState extends State<ChatField> {
     }
 
     try {
-      // 🔧 소켓 연결 상태 확인
-      final socketManager = SocketManager.instance;
-      if (!socketManager.isReallyConnected) {
+      // 🔧 연결 상태 확인
+      if (!_isConnected()) {
         SnackBarManager.showCleanSnackBar(context, '연결 상태를 확인하고 다시 시도해주세요');
         return;
       }
@@ -279,7 +261,7 @@ class _ChatFieldState extends State<ChatField> {
                     ),
                   )
                 else if (_isSending)
-                // 🔧 전송 중 로딩 표시
+                // 전송 중 로딩 표시
                   Container(
                     width: 38.w,
                     height: 38.h,

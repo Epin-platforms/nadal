@@ -91,7 +91,9 @@ class _RoomDrawerState extends State<RoomDrawer> {
                   final res = await router.push('/room/${room['roomId']}/editRoom');
 
                   if(res != null){
-                    roomsProvider.updateRoom(widget.roomId);
+                    await roomsProvider.updateRoom(widget.roomId, isOpenRoom: provider.room!['isOpen'] == 1);
+                    final initRoom = provider.room!['isOpen'] == 1 ? roomsProvider.quickRooms![widget.roomId] : roomsProvider.rooms![widget.roomId];
+                    provider.setRoom(initRoom);
                   }
                 }else if(select == menu[1]){
                   router.push('/room/${room['roomId']}/editMember');

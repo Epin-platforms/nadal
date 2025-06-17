@@ -8,6 +8,7 @@ class MyQuickChat extends StatefulWidget {
   final HomeProvider homeProvider;
   final RoomsProvider roomsProvider;
   final ChatProvider chatProvider;
+
   @override
   State<MyQuickChat> createState() => _MyQuickChatState();
 }
@@ -19,9 +20,10 @@ class _MyQuickChatState extends State<MyQuickChat> {
 
   // 🔧 상태 관리 개선
   bool _hasCheckedInitialState = false;
+  bool _hasInitializedLocalRooms = false;
   Timer? _retryTimer;
   int _retryCount = 0;
-  static const int _maxRetries = 5;
+  static const int _maxRetries = 3;
 
   @override
   void initState() {
@@ -37,34 +39,57 @@ class _MyQuickChatState extends State<MyQuickChat> {
       await _initializeAds();
       if (!mounted) return;
       _setupScrollListener();
-      _checkInitialState(); // 🔧 초기 상태 확인 추가
+      if (!mounted) return;
+      _checkInitialState();
+      if (!mounted) return;
+      // 🔧 로컬 퀵챗 한 번만 로드
+      await _initializeLocalRoomsOnce();
     } catch (e) {
-      print('MyQuickChat 초기화 오류: $e');
+      debugPrint('MyQuickChat 초기화 오류: $e');
+    }
+  }
+
+  // 🔧 로컬 퀵챗 한 번만 초기화
+  Future<void> _initializeLocalRoomsOnce() async {
+    if (_hasInitializedLocalRooms || !mounted) return;
+
+    try {
+      debugPrint('🔄 로컬 퀵챗 최초 로드 시작');
+      await widget.homeProvider.initializeLocalQuickChatRooms();
+      _hasInitializedLocalRooms = true;
+      debugPrint('✅ 로컬 퀵챗 최초 로드 완료');
+    } catch (e) {
+      debugPrint('❌ 로컬 퀵챗 최초 로드 실패: $e');
     }
   }
 
   // 🔧 초기 상태 확인
   void _checkInitialState() {
     if (!mounted) return;
+
     if (_isQuickRoomsDataReady(widget.roomsProvider.quickRooms, widget.chatProvider)) {
-      setState(() => _hasCheckedInitialState = true);
+      if (!_hasCheckedInitialState && mounted) {
+        setState(() => _hasCheckedInitialState = true);
+      }
     } else {
       _scheduleRetry();
     }
   }
 
-  // 🔧 재시도 스케줄링
+  // 🔧 재시도 스케줄링 (간단화)
   void _scheduleRetry() {
     if (_retryCount >= _maxRetries) {
-      print('❌ 최대 재시도 횟수 초과 - 강제로 로딩 완료 처리');
-      setState(() => _hasCheckedInitialState = true);
+      debugPrint('❌ 최대 재시도 횟수 초과 - 강제로 로딩 완료 처리');
+      if (mounted) {
+        setState(() => _hasCheckedInitialState = true);
+      }
       return;
     }
 
     _retryTimer?.cancel();
     _retryCount++;
 
-    final delay = Duration(milliseconds: 100);
+    const delay = Duration(milliseconds: 200);
 
     _retryTimer = Timer(delay, () {
       if (mounted) {
@@ -91,26 +116,38 @@ class _MyQuickChatState extends State<MyQuickChat> {
 
       _isAdsInitialized = true;
     } catch (e) {
-      print('광고 초기화 오류: $e');
+      debugPrint('광고 초기화 오류: $e');
     }
   }
 
-  /// 스크롤 리스너 설정 (안전성 강화)
+  /// 스크롤 리스너 설정 (최적화)
   void _setupScrollListener() {
     if (!mounted) return;
 
     _scrollController.addListener(() {
-      if (!mounted || !_scrollController.hasClients) return;
+      if (!mounted || !_scrollController.hasClients || !_hasInitializedLocalRooms) return;
 
       try {
         final position = _scrollController.position;
-        if (position.pixels >= position.maxScrollExtent - 200.h) {
-          widget.homeProvider.fetchMyLocalQuickChatRooms();
+        // 🔧 스크롤 끝에 도달했을 때만 추가 로드
+        if (position.pixels >= position.maxScrollExtent - 100.h) {
+          _loadMoreLocalRooms();
         }
       } catch (e) {
-        print('스크롤 리스너 오류: $e');
+        debugPrint('스크롤 리스너 오류: $e');
       }
     });
+  }
+
+  // 🔧 추가 로컬 퀵챗 로드
+  void _loadMoreLocalRooms() {
+    if (!_hasInitializedLocalRooms) return;
+
+    try {
+      widget.homeProvider.fetchMyLocalQuickChatRooms();
+    } catch (e) {
+      debugPrint('추가 로컬 퀵챗 로드 오류: $e');
+    }
   }
 
   @override
@@ -200,7 +237,7 @@ class _MyQuickChatState extends State<MyQuickChat> {
     try {
       return widget.roomsProvider.getQuickList(context);
     } catch (e) {
-      print('QuickList 가져오기 오류: $e');
+      debugPrint('QuickList 가져오기 오류: $e');
       final quickRooms = widget.roomsProvider.quickRooms;
       if (quickRooms != null) {
         return quickRooms.entries.toList();
@@ -253,7 +290,7 @@ class _MyQuickChatState extends State<MyQuickChat> {
     );
   }
 
-  // 🔧 trailing 위젯 분리
+  // trailing 위젯 빌드
   Widget? _buildTrailing(int roomId, int unread) {
     if (unread > 0) {
       return NadalRoomNotReadTag(number: unread);
@@ -276,42 +313,34 @@ class _MyQuickChatState extends State<MyQuickChat> {
     return null;
   }
 
-  /// 🔧 개선된 데이터 준비 상태 체크
+  /// 🔧 개선된 데이터 준비 상태 체크 (간단화)
   bool _isQuickRoomsDataReady(Map<int, Map>? quickRooms, ChatProvider chatProvider) {
-    // 초기 상태 확인이 완료되지 않았으면 false
-    if (!_hasCheckedInitialState) return false;
-
     // 기본 초기화 확인
     if (!chatProvider.isInitialized) {
-      print('🔄 ChatProvider 초기화 중...');
       return false;
     }
 
     // quickRooms가 null이면 false
     if (quickRooms == null) {
-      print('⚠️ quickRooms가 null');
       return false;
     }
 
     // quickRooms가 비어있으면 true (정상)
     if (quickRooms.isEmpty) {
-      print('✅ quickRooms가 비어있음 (정상)');
       return true;
     }
 
     // 재연결 중이면서 기존 데이터가 있으면 true (UI 업데이트 방지)
     if (chatProvider.socketLoading && quickRooms.isNotEmpty) {
-      print('🔄 재연결 중이지만 기존 데이터 사용');
       return true;
     }
 
     // 소켓 로딩 중이면 false
     if (chatProvider.socketLoading) {
-      print('🔄 소켓 로딩 중...');
       return false;
     }
 
-    // quickRooms의 데이터 준비 상태 확인
+    // 🔧 간단한 준비 상태 확인 (70% 이상 또는 5초 초과)
     final readyRooms = quickRooms.keys.where((roomId) {
       return chatProvider.isRoomDataReady(roomId);
     }).length;
@@ -319,21 +348,7 @@ class _MyQuickChatState extends State<MyQuickChat> {
     final totalRooms = quickRooms.length;
     final readyPercentage = readyRooms / totalRooms;
 
-    print('📊 퀵챗 방 준비 상태: $readyRooms/$totalRooms (${(readyPercentage * 100).toInt()}%)');
-
-    // 70% 이상 또는 최소 2개 방이 준비되면 OK
-    if (readyPercentage >= 0.7 || (readyRooms >= 2 && totalRooms > 2)) {
-      return true;
-    }
-
-    // 5초 이상 기다렸다면 강제로 완료 처리
-    if (_retryCount >= 10) {
-      print('⏰ 타임아웃 - 현재 상태로 진행');
-      return true;
-    }
-
-    print('⚠️ 퀵챗 방 데이터가 충분히 준비되지 않음');
-    return false;
+    return readyPercentage >= 0.7 || _retryCount >= 10;
   }
 
   /// 안전한 unread 카운트 가져오기
@@ -342,7 +357,6 @@ class _MyQuickChatState extends State<MyQuickChat> {
       final myData = widget.chatProvider.my[roomId];
       return myData?['unreadCount'] as int? ?? 0;
     } catch (e) {
-      print('getUnreadCount 오류 (roomId: $roomId): $e');
       return 0;
     }
   }
@@ -356,19 +370,28 @@ class _MyQuickChatState extends State<MyQuickChat> {
       }
       return widget.chatProvider.getLastChat(roomId);
     } catch (e) {
-      print('getLastChat 오류 (roomId: $roomId): $e');
       return '채팅을 불러오는 중...';
     }
   }
 
   /// 내 지역 번개챗 섹션 (경량화)
   Widget _buildLocalQuickChatSection() {
+    // 🔧 초기화 전에는 로딩 표시
+    if (!_hasInitializedLocalRooms) {
+      return SliverToBoxAdapter(
+        child: SizedBox(
+          height: 300.h,
+          child: Center(child: NadalCircular()),
+        ),
+      );
+    }
+
     final myLocalRooms = widget.homeProvider.myLocalQuickChatRooms;
 
     if (myLocalRooms == null) {
       return SliverToBoxAdapter(
         child: SizedBox(
-          height: 300.h,
+          height: 150.h,
           child: Center(child: NadalCircular()),
         ),
       );
@@ -395,14 +418,14 @@ class _MyQuickChatState extends State<MyQuickChat> {
     );
   }
 
-  /// 전체 아이템 개수 계산 (동일)
+  /// 전체 아이템 개수 계산
   int _calculateTotalItemCount(int originalCount) {
     if (originalCount <= 3) return originalCount;
     final adCount = (originalCount / 5).floor().clamp(0, 3);
     return originalCount + adCount;
   }
 
-  /// 광고 위치 결정 (동일)
+  /// 광고 위치 결정
   bool _isAdPosition(int totalIndex, int originalCount) {
     if (originalCount <= 3) return false;
 
@@ -414,7 +437,7 @@ class _MyQuickChatState extends State<MyQuickChat> {
     return positions.contains(totalIndex);
   }
 
-  /// 실제 아이템 인덱스 계산 (동일)
+  /// 실제 아이템 인덱스 계산
   int _getActualItemIndex(int totalIndex, int originalCount) {
     if (originalCount <= 3) return totalIndex;
 
@@ -426,7 +449,7 @@ class _MyQuickChatState extends State<MyQuickChat> {
     return actualIndex.clamp(0, originalCount - 1);
   }
 
-  /// 광고 키 생성 (동일)
+  /// 광고 키 생성
   String _getAdKey(int adPosition) {
     final adIndex = adPosition <= 3 ? 0 : adPosition <= 7 ? 1 : 2;
     return '${_pageKey}_nativeListTile_$adIndex';
@@ -509,7 +532,6 @@ class _MyQuickChatState extends State<MyQuickChat> {
         return '정보없음';
       }
     } catch (e) {
-      print('아이템 설명 생성 오류: $e');
       return '정보없음';
     }
   }

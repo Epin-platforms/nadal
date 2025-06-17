@@ -22,6 +22,9 @@ class RoomProvider extends ChangeNotifier {
   bool _sending = false;
   List<File> _sendingImage = [];
 
+  // 🔧 소켓 리스너 상태 관리
+  bool _isSocketListenerAttached = false;
+
   // Getters
   Map? get room => _room;
   Map<String, Map> get roomMembers => _roomMembers;
@@ -40,7 +43,7 @@ class RoomProvider extends ChangeNotifier {
       }
       notifyListeners();
     } catch (e) {
-      print('❌ 방 설정 오류: $e');
+      debugPrint('❌ 방 설정 오류: $e');
     }
   }
 
@@ -56,25 +59,60 @@ class RoomProvider extends ChangeNotifier {
         _fetchLastAnnounce(),
       ]);
     } catch (e) {
-      print('❌ 방 데이터 로드 오류: $e');
+      debugPrint('❌ 방 데이터 로드 오류: $e');
     }
   }
 
-  // 소켓 리스너 설정
+  // 🔧 소켓 리스너 설정/해제
   void socketListener({required bool isOn}) {
-    if (isOn) {
+    if (isOn && !_isSocketListenerAttached) {
+      _attachSocketListeners();
+    } else if (!isOn && _isSocketListenerAttached) {
+      _detachSocketListeners();
+    }
+  }
+
+  // 🔧 소켓 리스너 연결
+  void _attachSocketListeners() {
+    try {
       socket.on('roomLog', _addRoomLog);
       socket.on('refreshMember', _fetchRoomMembers);
       socket.on('updateLastRead', _updateLastRead);
       socket.on('gradeChanged', _gradeHandler);
       socket.on('announce', _getAnnounce);
-    } else {
+
+      _isSocketListenerAttached = true;
+      debugPrint('✅ RoomProvider 소켓 리스너 연결 완료');
+    } catch (e) {
+      debugPrint('❌ RoomProvider 소켓 리스너 연결 실패: $e');
+    }
+  }
+
+  // 🔧 소켓 리스너 해제
+  void _detachSocketListeners() {
+    try {
       socket.off('roomLog', _addRoomLog);
       socket.off('refreshMember', _fetchRoomMembers);
       socket.off('updateLastRead', _updateLastRead);
       socket.off('gradeChanged', _gradeHandler);
       socket.off('announce', _getAnnounce);
+
+      _isSocketListenerAttached = false;
+      debugPrint('✅ RoomProvider 소켓 리스너 해제 완료');
+    } catch (e) {
+      debugPrint('❌ RoomProvider 소켓 리스너 해제 실패: $e');
     }
+  }
+
+  // 🔧 소켓 리스너 재설정 (재연결 시 호출)
+  void reattachSocketListeners() {
+    if (_room == null) return;
+
+    debugPrint('🔄 RoomProvider 소켓 리스너 재설정');
+
+    // 기존 리스너 해제 후 재연결
+    _detachSocketListeners();
+    _attachSocketListeners();
   }
 
   // 방 멤버 정보 가져오기
@@ -99,7 +137,7 @@ class RoomProvider extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      print('❌ 방 멤버 가져오기 오류: $e');
+      debugPrint('❌ 방 멤버 가져오기 오류: $e');
     }
   }
 
@@ -116,7 +154,7 @@ class RoomProvider extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      print('❌ 로그 불러오기 오류: $e');
+      debugPrint('❌ 로그 불러오기 오류: $e');
     }
   }
 
@@ -135,7 +173,7 @@ class RoomProvider extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      print('❌ 최근 공지 불러오기 실패: $e');
+      debugPrint('❌ 최근 공지 불러오기 실패: $e');
     }
   }
 
@@ -151,7 +189,7 @@ class RoomProvider extends ChangeNotifier {
         }
       }
     } catch (e) {
-      print('❌ 룸 로그 추가 오류: $e');
+      debugPrint('❌ 룸 로그 추가 오류: $e');
     }
   }
 
@@ -181,7 +219,7 @@ class RoomProvider extends ChangeNotifier {
         }
       }
     } catch (e) {
-      print('❌ 등급 변경 처리 오류: $e');
+      debugPrint('❌ 등급 변경 처리 오류: $e');
     }
   }
 
@@ -203,7 +241,7 @@ class RoomProvider extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      print('❌ 읽음 상태 업데이트 오류: $e');
+      debugPrint('❌ 읽음 상태 업데이트 오류: $e');
     }
   }
 
@@ -237,7 +275,7 @@ class RoomProvider extends ChangeNotifier {
 
       await serverManager.post('chat/send', data: chat);
     } catch (e) {
-      print('❌ 텍스트 전송 오류: $e');
+      debugPrint('❌ 텍스트 전송 오류: $e');
     } finally {
       _sending = false;
       notifyListeners();
@@ -250,7 +288,7 @@ class RoomProvider extends ChangeNotifier {
       final List<XFile> images = await _picker.pickMultiImage();
       return images.map((image) => File(image.path)).toList();
     } catch (e) {
-      print('❌ 이미지 선택 오류: $e');
+      debugPrint('❌ 이미지 선택 오류: $e');
       return [];
     }
   }
@@ -261,7 +299,7 @@ class RoomProvider extends ChangeNotifier {
       final XFile? image = await _picker.pickImage(source: ImageSource.camera);
       return image != null ? File(image.path) : null;
     } catch (e) {
-      print('❌ 카메라 이미지 선택 오류: $e');
+      debugPrint('❌ 카메라 이미지 선택 오류: $e');
       return null;
     }
   }
@@ -285,7 +323,7 @@ class RoomProvider extends ChangeNotifier {
 
       await _uploadImages(images);
     } catch (e) {
-      print('❌ 이미지 전송 오류: $e');
+      debugPrint('❌ 이미지 전송 오류: $e');
       _clearSendingImages();
     }
   }
@@ -300,7 +338,7 @@ class RoomProvider extends ChangeNotifier {
 
       await _uploadImages([image]);
     } catch (e) {
-      print('❌ 카메라 이미지 전송 오류: $e');
+      debugPrint('❌ 카메라 이미지 전송 오류: $e');
       _clearSendingImages();
     }
   }
@@ -374,7 +412,7 @@ class RoomProvider extends ChangeNotifier {
         }
       }
     } catch (e) {
-      print('❌ 알람 설정 변경 오류: $e');
+      debugPrint('❌ 알람 설정 변경 오류: $e');
       result = '설정 변경에 실패했어요';
     } finally {
       AppRoute.popLoading();
@@ -406,7 +444,7 @@ class RoomProvider extends ChangeNotifier {
         );
       }
     } catch (e) {
-      print('❌ 방 삭제 오류: $e');
+      debugPrint('❌ 방 삭제 오류: $e');
     } finally {
       AppRoute.popLoading();
     }
@@ -437,7 +475,7 @@ class RoomProvider extends ChangeNotifier {
         );
       }
     } catch (e) {
-      print('❌ 방 나가기 오류: $e');
+      debugPrint('❌ 방 나가기 오류: $e');
     } finally {
       AppRoute.popLoading();
     }
@@ -459,7 +497,7 @@ class RoomProvider extends ChangeNotifier {
 
       await serverManager.put('roomMember/grade', data: data);
     } catch (e) {
-      print('❌ 멤버 등급 변경 오류: $e');
+      debugPrint('❌ 멤버 등급 변경 오류: $e');
     } finally {
       AppRoute.popLoading();
     }
@@ -470,21 +508,30 @@ class RoomProvider extends ChangeNotifier {
     try {
       return uid.where((e) => !_roomMembers.keys.contains(e)).toList();
     } catch (e) {
-      print('❌ 초대 가능한 사용자 필터링 오류: $e');
+      debugPrint('❌ 초대 가능한 사용자 필터링 오류: $e');
       return [];
     }
   }
 
-  // 백그라운드에서 방 데이터 새로고침
+  // 🔧 백그라운드에서 방 데이터 새로고침 (간단화)
   Future<void> refreshRoomFromBackground() async {
     try {
+      // 백그라운드 복귀 시에는 기본 데이터만 새로고침
       await Future.wait([
         _fetchRoomMembers(),
-        _fetchRoomLogs(),
         _fetchLastAnnounce(),
       ]);
+
+      debugPrint('✅ RoomProvider 백그라운드 새로고침 완료');
     } catch (e) {
-      print('❌ 방 데이터 백그라운드 새로고침 오류: $e');
+      debugPrint('❌ 방 데이터 백그라운드 새로고침 오류: $e');
     }
+  }
+
+  @override
+  void dispose() {
+    // 소켓 리스너 해제
+    _detachSocketListeners();
+    super.dispose();
   }
 }
