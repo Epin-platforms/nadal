@@ -18,7 +18,7 @@ class _NotificationPageState extends State<NotificationPage> {
   @override
   void initState() {
     WidgetsBinding.instance.addPostFrameCallback((_){
-      notificationProvider.fetchNotifications();
+      notificationProvider.refreshNotifications();
     });
     super.initState();
   }

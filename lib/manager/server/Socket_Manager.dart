@@ -24,6 +24,10 @@ class SocketManager {
   bool _isInBackground = false;
   bool _needsReconnectOnResume = false;
 
+  // 🔧 **추가: 리스너 등록 완료 상태 관리**
+  bool _listenersRegistered = false;
+  final List<Function()> _pendingListenerRegistrations = [];
+
   SocketManager._internal();
 
   // Getters
@@ -39,6 +43,11 @@ class SocketManager {
         socket!.id != null;
   }
 
+  // 🔧 **추가: 리스너 등록 가능 상태 확인**
+  bool get isReadyForListeners {
+    return isReallyConnected && _listenersRegistered;
+  }
+
   // 🔧 백그라운드 상태 설정
   void setBackgroundState(bool inBackground) {
     if (_isInBackground == inBackground) return;
@@ -47,11 +56,9 @@ class SocketManager {
 
     if (inBackground) {
       debugPrint("📱 앱이 백그라운드로 이동");
-      // 소켓 연결은 유지하되 상태만 기록
     } else {
       debugPrint("📱 앱이 포그라운드로 복귀 - 무조건 재연결 필요");
       _needsReconnectOnResume = true;
-      // 즉시 재연결 시도
       _executeBackgroundReconnect();
     }
   }
@@ -76,23 +83,6 @@ class SocketManager {
     }
   }
 
-  // 🔧 연결 상태 검증
-  void _verifyConnection() {
-    if (!isReallyConnected) {
-      debugPrint("💔 연결 상태 검증 실패 - 재연결 시도");
-      connect();
-      return;
-    }
-
-    try {
-      // Ping 전송으로 연결 상태 확인
-      socket?.emit('ping');
-    } catch (e) {
-      debugPrint("❌ 연결 검증 중 오류: $e");
-      connect();
-    }
-  }
-
   // 소켓 연결
   Future<void> connect({bool fromBackground = false}) async {
     if (_isConnecting) {
@@ -100,7 +90,6 @@ class SocketManager {
       return;
     }
 
-    // 🔧 백그라운드 복귀가 아닌 경우에만 기존 연결 상태 확인
     if (!fromBackground && isReallyConnected) {
       debugPrint("🔗 소켓이 이미 연결되어 있습니다.");
       return;
@@ -110,7 +99,6 @@ class SocketManager {
       _isConnecting = true;
       debugPrint("🚀 소켓 연결 시작 ${fromBackground ? '(백그라운드 복귀)' : ''}");
 
-      // 사용자 인증 확인
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         debugPrint("❌ 로그인되어 있지 않습니다. 소켓 연결을 중단합니다.");
@@ -178,24 +166,20 @@ class SocketManager {
     try {
       debugPrint("🧹 강제 소켓 정리 시작");
 
-      if (socket != null) {
-        // 모든 리스너 제거
-        socket!.clearListeners();
+      // **수정: 리스너 상태 초기화**
+      _listenersRegistered = false;
+      _pendingListenerRegistrations.clear();
 
-        // 강제 연결 해제
+      if (socket != null) {
+        socket!.clearListeners();
         if (socket!.connected) {
           socket!.disconnect();
         }
-
-        // 소켓 dispose
         socket!.dispose();
         socket = null;
       }
 
-      // 상태 초기화
       _isConnected = false;
-
-      // 잠시 대기 (리소스 정리 시간)
       await Future.delayed(const Duration(milliseconds: 500));
 
       debugPrint("✅ 강제 소켓 정리 완료");
@@ -237,11 +221,11 @@ class SocketManager {
       debugPrint("❌ 소켓 연결 종료: $reason");
       _isConnected = false;
       _isConnecting = false;
+      _listenersRegistered = false; // **추가**
       _stopHealthCheck();
 
       _handleSocketDisconnected();
 
-      // 백그라운드가 아닐 때만 자동 재연결
       if (reason != 'io client disconnect' && !_isInBackground) {
         _scheduleReconnect();
       }
@@ -252,6 +236,7 @@ class SocketManager {
       debugPrint("❌ 소켓 연결 오류: $error");
       _isConnected = false;
       _isConnecting = false;
+      _listenersRegistered = false; // **추가**
       _stopHealthCheck();
 
       if (!_isInBackground) {
@@ -259,16 +244,15 @@ class SocketManager {
       }
     });
 
-    // 재연결 시도
     socket!.onReconnectAttempt((attemptNumber) {
       debugPrint("🔄 소켓 재연결 시도: $attemptNumber");
     });
 
-    // 재연결 실패
     socket!.onReconnectFailed((_) {
       debugPrint("❌ 소켓 재연결 실패");
       _isConnected = false;
       _isConnecting = false;
+      _listenersRegistered = false; // **추가**
       _stopHealthCheck();
 
       if (!_isInBackground) {
@@ -276,7 +260,6 @@ class SocketManager {
       }
     });
 
-    // Pong 응답 처리
     socket!.on('pong', (_) {
       debugPrint("🏓 Pong 응답 수신 - 연결 상태 양호");
     });
@@ -284,7 +267,7 @@ class SocketManager {
 
   // 헬스 체크 시작
   void _startHealthCheck() {
-    if (_isInBackground) return; // 백그라운드에서는 헬스체크 하지 않음
+    if (_isInBackground) return;
 
     _stopHealthCheck();
     _healthCheckTimer = Timer.periodic(_healthCheckInterval, (_) {
@@ -326,6 +309,10 @@ class SocketManager {
     try {
       final chatProvider = context!.read<ChatProvider>();
       chatProvider.onSocketConnected();
+
+      // **수정: 리스너 등록을 안전하게 처리**
+      _registerProvidersListenersSequentially();
+
       debugPrint("✅ ChatProvider 소켓 연결 완료");
     } catch (e) {
       debugPrint("❌ 소켓 연결 후 Provider 처리 오류: $e");
@@ -344,7 +331,33 @@ class SocketManager {
       final chatProvider = context!.read<ChatProvider>();
       chatProvider.onSocketReconnected();
 
-      // RoomProvider 재연결 처리 (소켓 리스너 재설정)
+      // **수정: 순차적으로 리스너 재등록**
+      _registerProvidersListenersSequentially();
+
+      debugPrint("✅ 소켓 재연결 처리 완료");
+    } catch (e) {
+      debugPrint("❌ 소켓 재연결 처리 오류: $e");
+    }
+  }
+
+  // **추가: Provider 리스너들을 순차적으로 등록**
+  Future<void> _registerProvidersListenersSequentially() async {
+    if (!isReallyConnected) {
+      debugPrint("❌ 소켓이 준비되지 않아 리스너 등록 지연");
+      return;
+    }
+
+    try {
+      final context = AppRoute.context;
+      if (context?.mounted != true) return;
+
+      debugPrint("🔧 Provider 리스너 순차 등록 시작");
+
+      // 1. ChatProvider 리스너 등록
+      final chatProvider = context!.read<ChatProvider>();
+      await chatProvider.registerSocketListenersSafely();
+
+      // 2. RoomProvider 리스너 등록 (있다면)
       try {
         final roomProvider = context.read<RoomProvider>();
         roomProvider.reattachSocketListeners();
@@ -353,9 +366,37 @@ class SocketManager {
         debugPrint("⚠️ RoomProvider가 없거나 오류: $e");
       }
 
-      debugPrint("✅ 소켓 재연결 처리 완료");
+      _listenersRegistered = true;
+      debugPrint("✅ 모든 Provider 리스너 등록 완료");
+
+      // 대기 중인 리스너 등록 실행
+      _processPendingListenerRegistrations();
+
     } catch (e) {
-      debugPrint("❌ 소켓 재연결 처리 오류: $e");
+      debugPrint("❌ Provider 리스너 등록 실패: $e");
+      // 3초 후 재시도
+      Timer(const Duration(seconds: 3), () {
+        if (isReallyConnected && !_listenersRegistered) {
+          _registerProvidersListenersSequentially();
+        }
+      });
+    }
+  }
+
+  // **추가: 대기 중인 리스너 등록 처리**
+  void _processPendingListenerRegistrations() {
+    if (_pendingListenerRegistrations.isNotEmpty) {
+      debugPrint("🔧 대기 중인 리스너 ${_pendingListenerRegistrations.length}개 등록");
+      final pending = List.from(_pendingListenerRegistrations);
+      _pendingListenerRegistrations.clear();
+
+      for (final registration in pending) {
+        try {
+          registration();
+        } catch (e) {
+          debugPrint("❌ 대기 리스너 등록 실패: $e");
+        }
+      }
     }
   }
 
@@ -375,12 +416,11 @@ class SocketManager {
 
   // 재연결 스케줄링
   void _scheduleReconnect() {
-    if (_isInBackground) return; // 백그라운드에서는 재연결 시도하지 않음
+    if (_isInBackground) return;
 
     if (_reconnectAttempts >= _maxReconnectAttempts) {
       debugPrint("❌ 최대 재연결 시도 횟수 초과 - 재시도를 중단합니다");
 
-      // 30초 후 재시도 카운터 리셋
       Future.delayed(const Duration(seconds: 30), () {
         _reconnectAttempts = 0;
         debugPrint("🔄 재연결 시도 횟수 초기화됨");
@@ -418,17 +458,25 @@ class SocketManager {
         socket!.dispose();
         socket = null;
       }
+      _listenersRegistered = false; // **추가**
     } catch (e) {
       debugPrint("❌ 소켓 정리 중 오류: $e");
     }
   }
 
-  // 이벤트 리스너 등록
+  // **수정: 안전한 이벤트 리스너 등록**
   void on(String event, Function(dynamic) handler) {
     if (isReallyConnected && socket != null) {
       socket!.on(event, handler);
+      debugPrint("✅ 리스너 등록 성공: $event");
     } else {
-      debugPrint("⚠️ 소켓이 연결되지 않아 이벤트 리스너를 등록할 수 없습니다: $event");
+      debugPrint("⚠️ 소켓이 준비되지 않음 - 리스너 대기열에 추가: $event");
+      _pendingListenerRegistrations.add(() {
+        if (isReallyConnected && socket != null) {
+          socket!.on(event, handler);
+          debugPrint("✅ 대기열에서 리스너 등록: $event");
+        }
+      });
     }
   }
 
@@ -468,6 +516,7 @@ class SocketManager {
     _stopHealthCheck();
     _isConnected = false;
     _isConnecting = false;
+    _listenersRegistered = false; // **추가**
     _reconnectAttempts = 0;
     _needsReconnectOnResume = false;
 
@@ -484,5 +533,6 @@ class SocketManager {
     _stopHealthCheck();
     _cleanupSocket();
     _needsReconnectOnResume = false;
+    _pendingListenerRegistrations.clear(); // **추가**
   }
 }

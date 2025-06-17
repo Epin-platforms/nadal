@@ -63,7 +63,7 @@ class RoomProvider extends ChangeNotifier {
     }
   }
 
-  // 🔧 소켓 리스너 설정/해제
+// 🔧 소켓 리스너 설정/해제
   void socketListener({required bool isOn}) {
     if (isOn && !_isSocketListenerAttached) {
       _attachSocketListeners();
@@ -74,7 +74,20 @@ class RoomProvider extends ChangeNotifier {
 
   // 🔧 소켓 리스너 연결
   void _attachSocketListeners() {
+    if (!socket.isReallyConnected) {
+      debugPrint('❌ RoomProvider: 소켓이 준비되지 않아 리스너 등록 실패');
+      return;
+    }
+
     try {
+      // 기존 리스너 제거 (중복 방지)
+      socket.off('roomLog');
+      socket.off('refreshMember');
+      socket.off('updateLastRead');
+      socket.off('gradeChanged');
+      socket.off('announce');
+
+      // 새 리스너 등록
       socket.on('roomLog', _addRoomLog);
       socket.on('refreshMember', _fetchRoomMembers);
       socket.on('updateLastRead', _updateLastRead);
@@ -85,17 +98,18 @@ class RoomProvider extends ChangeNotifier {
       debugPrint('✅ RoomProvider 소켓 리스너 연결 완료');
     } catch (e) {
       debugPrint('❌ RoomProvider 소켓 리스너 연결 실패: $e');
+      _isSocketListenerAttached = false;
     }
   }
 
   // 🔧 소켓 리스너 해제
   void _detachSocketListeners() {
     try {
-      socket.off('roomLog', _addRoomLog);
-      socket.off('refreshMember', _fetchRoomMembers);
-      socket.off('updateLastRead', _updateLastRead);
-      socket.off('gradeChanged', _gradeHandler);
-      socket.off('announce', _getAnnounce);
+      socket.off('roomLog');
+      socket.off('refreshMember');
+      socket.off('updateLastRead');
+      socket.off('gradeChanged');
+      socket.off('announce');
 
       _isSocketListenerAttached = false;
       debugPrint('✅ RoomProvider 소켓 리스너 해제 완료');
@@ -106,13 +120,30 @@ class RoomProvider extends ChangeNotifier {
 
   // 🔧 소켓 리스너 재설정 (재연결 시 호출)
   void reattachSocketListeners() {
-    if (_room == null) return;
+    if (_room == null) {
+      debugPrint('⚠️ RoomProvider: 방 정보가 없어 리스너 재설정 스킵');
+      return;
+    }
 
     debugPrint('🔄 RoomProvider 소켓 리스너 재설정');
 
     // 기존 리스너 해제 후 재연결
     _detachSocketListeners();
-    _attachSocketListeners();
+
+    // 소켓 준비 확인 후 재연결
+    if (socket.isReallyConnected) {
+      _attachSocketListeners();
+    } else {
+      debugPrint('❌ RoomProvider: 소켓이 준비되지 않아 리스너 재설정 실패');
+
+      // 3초 후 재시도
+      Timer(const Duration(seconds: 3), () {
+        if (_room != null && socket.isReallyConnected && !_isSocketListenerAttached) {
+          debugPrint('🔄 RoomProvider: 리스너 재설정 재시도');
+          _attachSocketListeners();
+        }
+      });
+    }
   }
 
   // 방 멤버 정보 가져오기
