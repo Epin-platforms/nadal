@@ -123,6 +123,7 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
     try {
       // 🔧 소켓 재연결은 SocketManager와 AppProvider에서 자동 처리됨
       // 여기서는 현재 방의 lastRead만 업데이트
+      _roomProvider.socketListener(isOn: true);
       await _scheduleLastReadUpdate();
 
       debugPrint("✅ Room 화면 백그라운드 복귀 처리 완료");

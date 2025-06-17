@@ -355,8 +355,11 @@ class ChatProvider extends ChangeNotifier {
   // 🔧 재연결 프로세스 - 현재 참가한 방들만 재연결
   Future<void> _processReconnection() async {
     try {
+      final roomsProvider = AppRoute.context!.read<RoomsProvider>();
+
       final currentRoomIds = <int>[
-        ..._joinedRooms,
+        ...?roomsProvider.rooms?.keys,
+        ...?roomsProvider.quickRooms?.keys,
       ];
 
       debugPrint('🔄 재연결할 방 목록: $currentRoomIds');
@@ -377,20 +380,6 @@ class ChatProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('❌ 재연결 프로세스 오류: $e');
       _finishReconnect();
-    }
-  }
-
-  // 개별 방 재연결
-  Future<void> _reconnectRoom(int roomId) async {
-    try {
-      await refreshRoomData(roomId);
-      _pendingReconnectRooms.remove(roomId);
-      _failedRooms.remove(roomId);
-      debugPrint('✅ 방 재연결 완료: $roomId');
-    } catch (e) {
-      debugPrint('❌ 방 재연결 실패 ($roomId): $e');
-      _pendingReconnectRooms.remove(roomId);
-      _failedRooms.add(roomId);
     }
   }
 
