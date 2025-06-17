@@ -195,10 +195,21 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
                 ),
               ),
               // 방 이름 정보 (제목 바로 아래에 위치)
-              if (post['roomName'] != null && post['roomName'].toString().isNotEmpty) ...[
+              if (post['roomName'] != null && post['roomName'].toString().isNotEmpty && post['tag'] != '공지') ...[
                 SizedBox(height: 8.h),
                 InkWell(
-                  onTap: ()=> context.pushReplacement('/room/${post['roomId']}'),
+                  onTap: (){
+                    DialogManager.showBasicDialog(
+                        title: '채팅방으로 이동하시겠어요?',
+                        content: '스케줄에서 채팅방으로 이동합니다',
+                        confirmText: '이동',
+                        cancelText: '취소',
+                        onConfirm: () {
+                          context.go('/my');
+                          context.push('/room/${post['roomId']}');
+                        }
+                    );
+                  },
                   child: Container(
                     padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
                     decoration: BoxDecoration(

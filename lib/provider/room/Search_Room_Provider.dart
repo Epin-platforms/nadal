@@ -13,9 +13,8 @@ class SearchRoomProvider extends ChangeNotifier {
   SearchMode get mode => _mode;
 
   late final SharedPreferences _prefs;
-  static const String _recentlySearchKey = "epin.nadal.rooms_search_key";
+  late String _recentlySearchKey;
   static const int _maxRecentSearches = 10;
-  static const int _maxSearchLength = 50;
 
   // Getters
   List<String> get recentlySearch => List.unmodifiable(_recentlySearch);
@@ -42,6 +41,7 @@ class SearchRoomProvider extends ChangeNotifier {
 
   SearchRoomProvider(Map user, bool isOpen) {
     _isOpen = isOpen;
+    _recentlySearchKey = _isOpen ? "epin.nadal.rooms_search_key.open" : "epin.nadal.rooms_search_key.club";
     _initializeControllers();
     _getRecentlySearch();
   }
@@ -119,9 +119,11 @@ class SearchRoomProvider extends ChangeNotifier {
   }
 
   void _addRecentlySearch(String value) {
-    if (!_isValidSearchText(value)) return;
+    // 단순한 검증만 (길이와 빈 값만 체크)
+    final trimmed = value.trim();
+    if (trimmed.isEmpty || trimmed.length < 2) return;
 
-    final normalizedValue = _normalizeSearchText(value);
+    final normalizedValue = TextFormManager.normalizeText(trimmed);
 
     // 기존 항목 제거 후 최신으로 추가
     _recentlySearch.remove(normalizedValue);
@@ -138,6 +140,7 @@ class SearchRoomProvider extends ChangeNotifier {
   void removeRecentlySearch(int index) {
     if (index >= 0 && index < _recentlySearch.length) {
       _recentlySearch.removeAt(index);
+      _updateRecentlySearch(); // SharedPreferences에도 반영
       notifyListeners();
     }
   }
@@ -159,10 +162,12 @@ class SearchRoomProvider extends ChangeNotifier {
   }
 
   Future<void> _searchAutoText(String text) async {
-    if (!_isValidSearchText(text)) return;
+    // 기본적인 검증만 (서버에서 추가 검증 처리)
+    final trimmed = text.trim();
+    if (trimmed.length < 2) return;
 
     try {
-      final normalizedText = _normalizeSearchText(text);
+      final normalizedText = TextFormManager.normalizeText(trimmed);
       final queryToInt = _isOpen ? 1 : 0;
       final encodedText = Uri.encodeComponent(normalizedText);
 
@@ -222,11 +227,17 @@ class SearchRoomProvider extends ChangeNotifier {
     }
   }
 
-  // Search execution
+  // Search execution (검증 로직 단순화)
   Future<void> onSubmit(String text) async {
-    if (!_isValidSearchText(text)) return;
+    final trimmed = text.trim();
 
-    final normalizedText = _normalizeSearchText(text);
+    // 매우 기본적인 검증만 (길이만 체크)
+    if (trimmed.isEmpty || trimmed.length < 2) {
+      debugPrint('검색어가 너무 짧습니다: $trimmed');
+      return;
+    }
+
+    final normalizedText = TextFormManager.normalizeText(trimmed);
 
     // UI 업데이트
     if (_searchController.text != normalizedText) {
@@ -254,12 +265,18 @@ class SearchRoomProvider extends ChangeNotifier {
     final encodedText = Uri.encodeComponent(text);
     final queryToInt = _isOpen ? 1 : 0;
 
+    debugPrint('검색 실행: $text (인코딩: $encodedText)');
+
     final res = await serverManager.get(
         'room/search?text=$encodedText&offset=$offset&isOpen=$queryToInt'
     );
 
+    debugPrint('검색 응답: ${res.statusCode}');
+
     if (res.statusCode == 200 && mounted) {
       final results = _parseSearchResults(res.data);
+
+      debugPrint('검색 결과 개수: ${results.length}');
 
       // 기존 결과에 누적
       final prevResults = _searchResults[text] ?? [];
@@ -269,6 +286,8 @@ class SearchRoomProvider extends ChangeNotifier {
       _lastSearch = text;
       _submitted = true;
       notifyListeners();
+    } else {
+      debugPrint('검색 실패: 상태코드 ${res.statusCode}');
     }
   }
 
@@ -287,17 +306,6 @@ class SearchRoomProvider extends ChangeNotifier {
       debugPrint('검색 결과 파싱 실패: $e');
       return [];
     }
-  }
-
-  // Input validation and normalization
-  bool _isValidSearchText(String text) {
-    return text.trim().isNotEmpty &&
-        text.trim().length >= 2 &&
-        text.trim().length <= _maxSearchLength;
-  }
-
-  String _normalizeSearchText(String text) {
-    return text.trim().replaceAll(RegExp(r'\s+'), ' ');
   }
 
   // Helper for checking if widget is still mounted

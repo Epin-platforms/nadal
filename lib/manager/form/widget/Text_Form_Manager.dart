@@ -166,7 +166,7 @@ class TextFormManager {
     }
   }
 
-  // === 검색 관련 기능 ===
+  // === 검색 관련 기능 (단순화) ===
 
   // URL 안전한 쿼리 파라미터 인코딩
   static String encodeQueryParam(String text) {
@@ -188,42 +188,19 @@ class TextFormManager {
     }
   }
 
-  // 검색어 검증
+  // 검색어 검증 (매우 기본적인 검증만)
   static bool isValidSearchText(String text) {
     if (text.isEmpty) return false;
 
     final trimmed = text.trim();
+
+    // 길이 검증만 (2-100자)
     if (trimmed.length < 2 || trimmed.length > 100) return false;
 
-    // 위험한 패턴 체크
-    if (_containsDangerousPatterns(trimmed)) return false;
+    // 공백만 있는지만 체크
+    if (RegExp(r'^[\s]+$').hasMatch(trimmed)) return false;
 
     return true;
-  }
-
-  // 위험한 패턴 검사 (내부 함수)
-  static bool _containsDangerousPatterns(String text) {
-    try {
-      // 기본적인 위험 패턴들
-      final dangerousPatterns = [
-        RegExp(r'^[\s]+$'), // 공백만 있는 경우
-        RegExp(r'<script', caseSensitive: false), // 스크립트 태그
-        RegExp(r'javascript:', caseSensitive: false), // 자바스크립트
-        RegExp(r'--'), // SQL 주석
-        RegExp(r';\s*drop\s+', caseSensitive: false), // DROP 명령
-        RegExp(r';\s*delete\s+', caseSensitive: false), // DELETE 명령
-        RegExp(r'union\s+select', caseSensitive: false), // UNION SELECT
-      ];
-
-      for (final pattern in dangerousPatterns) {
-        if (pattern.hasMatch(text)) return true;
-      }
-
-      return false;
-    } catch (e) {
-      debugPrint('위험 패턴 검사 실패: $e');
-      return true; // 오류 시 안전을 위해 위험하다고 판단
-    }
   }
 
   // 텍스트 정규화
@@ -240,5 +217,10 @@ class TextFormManager {
 
     final normalized = normalizeText(text);
     return normalized.length > 100 ? normalized.substring(0, 100) : normalized;
+  }
+
+  //공백제거
+  static String removeSpace(String text){
+    return text.replaceAll(' ', '').replaceAll('\n', '');
   }
 }

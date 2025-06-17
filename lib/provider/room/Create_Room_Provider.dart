@@ -90,7 +90,7 @@ class CreateRoomProvider extends ChangeNotifier{
     }
   }
 
-  setTag(String value){
+  void setTag(String value){
     final val = value.trim();
     if(val.endsWith(',')){
       var tag = val.replaceRange(value.length - 1, null, '').replaceAll('#', '');
@@ -102,7 +102,8 @@ class CreateRoomProvider extends ChangeNotifier{
         return;
       }
 
-      _tags.add('#$tag');
+      final formTag = TextFormManager.removeSpace(tag);
+      _tags.add('#$formTag');
       _tagController.text = '#';
       notifyListeners();
     }

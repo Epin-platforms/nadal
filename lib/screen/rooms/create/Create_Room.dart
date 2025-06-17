@@ -106,13 +106,13 @@ class CreateRoom extends StatelessWidget {
                                       Expanded(child: NadalTextField(controller: provider.enterCodeController, label: '비밀번호', maxLength: 10, keyboardType: TextInputType.number, helper: '4자리 이상 10자리 이하의 숫자를 입력해 주세요!',)),
                                     ],
                                   ),
-                                SizedBox(height: 36,),
+                                SizedBox(height: 36.h,),
                                   Wrap(
                                     crossAxisAlignment: WrapCrossAlignment.center,
                                     runSpacing: 4,
                                     children: [
                                       SizedBox(
-                                          width: 62,
+                                          width: 62.w,
                                           child: Text('태그입력', style: theme.textTheme.titleSmall,)),
                                       ...List.generate(provider.tags.length, (index)=> Padding(
                                         padding: EdgeInsets.only(right: 4),
@@ -165,7 +165,7 @@ class CreateRoom extends StatelessWidget {
                                     Padding(
                                         padding: EdgeInsets.only(top: 4),
                                         child: Text('태그는 쉼표(,)로 구분해서 여러개를 만들수있어요', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.secondary),)),
-                                  SizedBox(height: 16,),
+                                  SizedBox(height: 16.h,),
                                   NadalTextField(controller: provider.descriptionController, label: '${isOpen ? '번개방' : '클럽'} 설명', isMaxLines: true, keyboardType: TextInputType.multiline,),
                                   SizedBox(height: 50,)
                               ],

@@ -144,7 +144,7 @@ class _CarouselItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(20.r),
         boxShadow: isActive ? [
           BoxShadow(
-            color: Theme.of(context).shadowColor.withOpacity(0.3),
+            color: Theme.of(context).shadowColor.withValues(alpha:0.3),
             blurRadius: 20,
             spreadRadius: 5,
             offset: Offset(0, 10.h),
@@ -207,7 +207,7 @@ class _CarouselItem extends StatelessWidget {
             begin: Alignment.bottomCenter,
             end: Alignment.topCenter,
             colors: [
-              Colors.black.withOpacity(0.9),
+              Colors.black.withValues(alpha:0.9),
               Colors.transparent,
             ],
             stops: const [0.15, 0.9],

@@ -47,7 +47,7 @@ class RecentlyList extends StatelessWidget {
           Icon(
             CupertinoIcons.clock,
             size: 48.r,
-            color: theme.hintColor.withOpacity(0.5),
+            color: theme.hintColor.withValues(alpha:0.5),
           ),
           SizedBox(height: 16.h),
           Text(
@@ -75,7 +75,7 @@ class RecentlyList extends StatelessWidget {
       onTap: () => _handleItemTap(safeItem),
       onLongPress: () => _handleItemLongPress(context, actualIndex, safeItem),
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
         child: Row(
           children: [
             _buildItemContent(theme, safeItem),
@@ -93,10 +93,10 @@ class RecentlyList extends StatelessWidget {
         children: [
           Icon(
             CupertinoIcons.clock,
-            size: 14.r,
+            size: 18.r,
             color: theme.hintColor,
           ),
-          SizedBox(width: 4.w),
+          SizedBox(width: 8.w),
           Expanded(
             child: Text(
               item,
@@ -113,7 +113,7 @@ class RecentlyList extends StatelessWidget {
   Widget _buildTrailingIcon(ThemeData theme) {
     return Icon(
       CupertinoIcons.arrow_turn_down_right,
-      size: 14.r,
+      size: 16.r,
       color: theme.hintColor,
     );
   }

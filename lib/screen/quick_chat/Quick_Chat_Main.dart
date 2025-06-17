@@ -4,10 +4,6 @@ import 'package:my_sports_calendar/screen/quick_chat/My_Quick_Chat.dart';
 import 'package:my_sports_calendar/screen/quick_chat/Quick_Chat_More.dart';
 
 import '../../manager/project/Import_Manager.dart';
-import '../../provider/app/Advertisement_Provider.dart';
-import '../../widget/Nadal_Room_Frame.dart';
-import '../../widget/Nadal_Room_NotRead_Tag.dart';
-
 class QuickChatMain extends StatefulWidget {
   const QuickChatMain({super.key});
 
