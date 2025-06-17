@@ -159,27 +159,31 @@ class ScheduleProvider extends ChangeNotifier {
       _setLoading(true);
       _clearError();
       _scheduleId = scheduleId;
-      await _fetchScheduleData();
+      final res = await _fetchScheduleData();
       if (isGameSchedule && _schedule != null) {
         await _initializeGameData();
       }
+
+      if(res == false){
+        _handleScheduleNotFound();
+      }else{
+        _setLoading(false);
+      }
     } catch (e) {
       _setError('스케줄 초기화 실패: $e');
-    } finally {
-      _setLoading(false);
     }
   }
 
-  Future<void> _fetchScheduleData() async {
+  Future<bool> _fetchScheduleData() async {
     final res = await serverManager.get('schedule/$_scheduleId');
     if (res.statusCode == 200) {
-      _schedule = Map<String, dynamic>.from(res.data['schedule'] ?? {});
-      if (_schedule == null) {
-        _handleScheduleNotFound();
-        return;
+      _schedule = Map<String, dynamic>.from(res.data['schedule'] ?? {'error' : 'deleted'});
+      if (_schedule!['error'] == 'deleted') {
+        return false;
       }
       await _processScheduleMembers(res.data['members']);
       await _checkRoomRedirect();
+      return true;
     } else {
       throw Exception('스케줄 데이터 로드 실패');
     }
@@ -192,7 +196,7 @@ class ScheduleProvider extends ChangeNotifier {
         .fetchMySchedules(DateTime.now(), force: true, reFetch: true);
     DialogManager.showBasicDialog(
       title: '어라..?',
-      content: '해당 스케줄을 찾을 수 없어요',
+      content: '해당 스케줄은 이미 삭제되었어요',
       confirmText: '확인',
     );
   }
@@ -535,6 +539,8 @@ class ScheduleProvider extends ChangeNotifier {
         AppRoute.context
             ?.read<UserProvider>()
             .removeScheduleById(_scheduleId!);
+        Future.delayed(const Duration(milliseconds: 300));
+        AppRoute.popLoading();
         AppRoute.context?.pop();
         DialogManager.showBasicDialog(
           title: '스케줄 삭제 완료!',
@@ -543,9 +549,8 @@ class ScheduleProvider extends ChangeNotifier {
         );
       }
     } catch (e) {
-      _setError('스케줄 삭제 실패: $e');
-    } finally {
       AppRoute.popLoading();
+      _setError('스케줄 삭제 실패: $e');
     }
   }
 

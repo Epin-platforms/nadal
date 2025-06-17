@@ -30,7 +30,7 @@ class ResultList extends StatelessWidget {
   }
 
   Widget _buildEmptyResult(String searchQuery) {
-    return Container(
+    return SizedBox(
       height: 300.h,
       child: NadalEmptyList(
         title: "\"$searchQuery\" 관련 클럽을 찾을 수 없어요",
@@ -156,14 +156,33 @@ class ResultList extends StatelessWidget {
   }
 
   Widget _buildRoomName(ThemeData theme, Map<String, dynamic> roomData) {
-    return Text(
-      roomData['roomName'] as String,
-      style: theme.textTheme.titleSmall?.copyWith(
-        fontSize: 16.sp,
-        fontWeight: FontWeight.w600,
-      ),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
+    print(roomData);
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            roomData['roomName'] as String,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        if(roomData['isJoined'] == 1)
+        ...[
+          SizedBox(width: 8.w,),
+          Container(
+            padding: EdgeInsetsGeometry.symmetric(vertical: 3.h, horizontal: 6.w),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary,
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text('참가중', style: theme.textTheme.labelSmall?.copyWith(fontSize: 10.sp, color: theme.colorScheme.onPrimary, fontWeight: FontWeight.w700),),
+          )
+        ]
+      ],
     );
   }
 

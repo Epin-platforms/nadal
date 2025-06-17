@@ -39,7 +39,6 @@ class _NotificationItemState extends State<NotificationItem> {
       if (!widget.notification.isRead) {
         await widget.provider.readNotification(widget.notification.notificationId);
       }
-
       // 라우팅 처리
       if (widget.notification.routing != null) {
         final routing = widget.notification.routing!;

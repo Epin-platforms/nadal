@@ -59,16 +59,6 @@ class _SearchRoomContent extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildSearchField(),
-              Padding(
-                  padding: EdgeInsetsGeometry.fromLTRB(16.w, 4.h, 0, 8.h),
-                  child: Row(
-                    children: [
-                      Icon(BootstrapIcons.question_circle, size: 14.r, color: Theme.of(context).colorScheme.secondary,),
-                      SizedBox(width: 4.w,),
-                      Text('가입된 채팅방은 검색되지 않습니다', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Theme.of(context).colorScheme.secondary),),
-                    ],
-                  ),
-              ),
               _buildSearchContent(),
             ],
           ),

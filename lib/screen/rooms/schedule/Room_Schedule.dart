@@ -17,6 +17,8 @@ class _RoomScheduleState extends State<RoomSchedule> {
   @override
   Widget build(BuildContext context) {
     provider = Provider.of<RoomScheduleProvider>(context);
+    final roomsProvider = Provider.of<RoomsProvider>(context);
+    final isOpen = !roomsProvider.rooms!.containsKey(widget.roomId);
     return IosPopGesture(
       child: Scaffold(
         appBar: NadalAppbar(
@@ -42,31 +44,26 @@ class _RoomScheduleState extends State<RoomSchedule> {
                   children: [
                     Padding(
                         padding: EdgeInsets.fromLTRB(16,24,16,24),
-                        child: GestureDetector(
-                          onTap: (){
-                            //여기에 월 선택
-                          },
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              RichText(
-                                  text: TextSpan(
-                                      text: '클럽 ',
-                                      style: Theme.of(context).textTheme.titleLarge!.copyWith(color: Theme.of(context).colorScheme.onSurface),
-                                      children: [
-                                        TextSpan(
-                                          text: DateFormat('M월').format(provider.selectedDay),
-                                          style: Theme.of(context).textTheme.titleLarge!.copyWith(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.w700),
-                                        ),
-                                        TextSpan(
-                                          text: ' 일정',
-                                          style: Theme.of(context).textTheme.titleLarge!.copyWith(color: Theme.of(context).colorScheme.onSurface),
-                                        )
-                                      ]
-                                  )
-                              ),
-                            ],
-                          ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            RichText(
+                                text: TextSpan(
+                                    text: '${isOpen ? '번개챗' : '클럽'} ',
+                                    style: Theme.of(context).textTheme.titleLarge!.copyWith(color: Theme.of(context).colorScheme.onSurface),
+                                    children: [
+                                      TextSpan(
+                                        text: DateFormat('M월').format(provider.selectedDay),
+                                        style: Theme.of(context).textTheme.titleLarge!.copyWith(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.w700),
+                                      ),
+                                      TextSpan(
+                                        text: ' 일정',
+                                        style: Theme.of(context).textTheme.titleLarge!.copyWith(color: Theme.of(context).colorScheme.onSurface),
+                                      )
+                                    ]
+                                )
+                            ),
+                          ],
                         )
                     ),
                     RoomCalendar(provider: provider,),

@@ -208,7 +208,8 @@ class TextFormManager {
     return text
         .trim()
         .replaceAll(RegExp(r'\s+'), ' ') // 연속된 공백을 하나로
-        .replaceAll(RegExp(r'[\r\n\t]'), ' '); // 개행문자를 공백으로
+        .replaceAll(RegExp(r'[\r\n\t]'), ' ') // 개행문자를 공백으로
+        .replaceAll('...', ''); //ellipsis 제거
   }
 
   // 검색어 정제 (# 허용)

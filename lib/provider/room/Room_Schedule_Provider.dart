@@ -15,7 +15,6 @@ class RoomScheduleProvider extends ChangeNotifier{
   }
 
 
-
   Future<void> fetchRoomSchedule(DateTime date) async{
     final from = DateTime(date.year, date.month, 1).toIso8601String();
     final to = DateTime(date.year, date.month + 1, 0, 23, 59, 59).toIso8601String();

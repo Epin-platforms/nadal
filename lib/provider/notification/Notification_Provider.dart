@@ -530,9 +530,7 @@ class NotificationProvider extends ChangeNotifier {
     try {
       final res = await serverManager.put('notification/read', data: {'notificationId': notificationId});
 
-      if (res.statusCode != 200) {
-        _notifications![index].isRead = false;
-        notifyListeners();
+      if (res.statusCode != 204) {
         return false;
       }
 

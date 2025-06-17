@@ -297,7 +297,7 @@ class SearchRoomProvider extends ChangeNotifier {
     try {
       if (data is List) {
         return data
-            .where((item) => item is Map)
+            .whereType<Map>()
             .cast<Map<String, dynamic>>()
             .toList();
       }

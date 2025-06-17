@@ -604,7 +604,7 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
               ),
               if (hasAnnouncement)
                 Positioned(
-                  top: _buildConnectionStatus() != const SizedBox.shrink() ? 40.h : 0,
+                  top: 0,
                   right: 0,
                   left: 0,
                   child: RoomAnnouncedWidget(

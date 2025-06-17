@@ -156,32 +156,6 @@ class RoomEdit extends StatelessWidget {
                                   children: [
                                     SizedBox(
                                         width: 62.w,
-                                        child: Text('활동방식', style: theme.textTheme.titleSmall,)),
-                                    Flexible(child: InkWell(
-                                        onTap: (){
-                                          provider.setUseNickname(true);
-                                        },
-                                        child: NadalSelectableBox(selected: provider.useNickname, text: '닉네임으로 활동', ))),
-                                    SizedBox(width: 8.w,),
-                                    Flexible(child: InkWell(
-                                      onTap: (){
-                                        if(context.read<UserProvider>().user!['verificationCode'] == null){
-                                          DialogManager.showBasicDialog(title: '앗! 이런', content: '본명은 인증된 사용자만 가능해요', confirmText: '확인', icon: Icon(BootstrapIcons.emoji_tear));
-                                        }else{
-                                          provider.setUseNickname(false);
-                                        }
-                                      },
-                                      child: NadalSelectableBox(
-                                          selected: !provider.useNickname,
-                                          text: '본명으로 활동'),
-                                    )),
-                                  ],
-                                ),
-                                SizedBox(height: 16,),
-                                Row(
-                                  children: [
-                                    SizedBox(
-                                        width: 62.w,
                                         child: Text('활동지역', style: theme.textTheme.titleSmall,)),
                                     Flexible(child: GetLocal(local: provider.local, onTap: () async{
                                       final res = await PickerManager.localPicker(provider.local);
@@ -219,8 +193,7 @@ class RoomEdit extends StatelessWidget {
                               onPressed: (){
                                 if(active){
                                   DialogManager.showBasicDialog(title: '정말 수정할까요?', content: '클럽 정보는 일주일에 한번만 수정 가능해요', confirmText: '수정하기', cancelText: '취소', onConfirm: (){
-                                    final isHaveAllCode = roomProvider.roomMembers.values.where((e)=> e['verificationCode'] == null).isEmpty;
-                                    provider.updateRoom(isHaveAllCode);
+                                    provider.updateRoom();
                                   });
                                 }else{
                                   DialogManager.showBasicDialog(title: '앗! 이런...', content: '클럽 수정은 일주일에 한번만 가능합니다', confirmText: '확인');

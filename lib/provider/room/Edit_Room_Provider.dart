@@ -13,7 +13,6 @@ class EditRoomProvider extends ChangeNotifier{
     _city = _originRoom['city'];
 
     _useEnterCode = _originRoom['enterCode'].isNotEmpty;
-    _useNickname = _originRoom['useNickname'] == 1;
 
     _roomNameController = TextEditingController();
     _descriptionController = TextEditingController();
@@ -71,17 +70,8 @@ class EditRoomProvider extends ChangeNotifier{
   //패스워드사용여부
   bool _useEnterCode = true;
   bool get useEnterCode => _useEnterCode;
-  //익명 사용여부
-  bool _useNickname = true;
-  bool get useNickname => _useNickname;
 
-
-  setUseNickname(bool value){
-    if(value != _useNickname){
-      _useNickname = value;
-      notifyListeners();
-    }
-  }
+  //익명 사용여부 제거
 
   //방 설명
   late final TextEditingController _descriptionController;
@@ -122,8 +112,8 @@ class EditRoomProvider extends ChangeNotifier{
   late final TextEditingController _enterCodeController;
   TextEditingController get enterCodeController => _enterCodeController;
 
-  Future<void> updateRoom(bool isAllHaveVerificationCode) async{
-    if(_roomNameController.text.isEmpty || _roomNameController.text.length > 30){
+  Future<void> updateRoom() async{
+    if(TextFormManager.removeSpace(_roomNameController.text).isEmpty || _roomNameController.text.length > 30){
       DialogManager.warningHandler('흠.. 클럽명이 이상해요 🤔');
       return;
     }else if(_city.isEmpty){
@@ -132,18 +122,8 @@ class EditRoomProvider extends ChangeNotifier{
     }else if(_useEnterCode && (_enterCodeController.text.trim().length < 4 || _enterCodeController.text.trim().length > 10)){
       DialogManager.warningHandler('흠.. 참가코드가 이상해요 🤔');
       return;
-    }else if(!_useNickname && !isAllHaveVerificationCode){
-      DialogManager.showBasicDialog(
-          title: '인증되지 않은 멤버가 있어요',
-          content: '본명 기능 이용을 위해, 모든 멤버가 본인 인증을 완료해야 합니다.',
-        onConfirm: (){
-          _useNickname = true;
-          notifyListeners();
-        },
-        confirmText: '확인'
-      );
-      return;
     }
+
     final updateField = await setUpdateField();
       if(updateField.keys.isEmpty){
         DialogManager.warningHandler('흠.. 변경할 내용이 없는데요? 🤔');
@@ -201,13 +181,6 @@ class EditRoomProvider extends ChangeNotifier{
         );
       }
 
-      if(_useNickname != (_originRoom['useNickname'] == 1)){
-        field.addAll(
-            {
-              'useNickname' : _useNickname
-            }
-        );
-      }
 
       if(_local != _originRoom['local']){
         field.addAll(
@@ -232,7 +205,10 @@ class EditRoomProvider extends ChangeNotifier{
       }
 
     }catch(e, stack){
-      return {};
+      print(e);
+      return {
+
+      };
     }
 
     return field;
