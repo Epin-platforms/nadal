@@ -188,26 +188,23 @@ class _MyRoomsState extends State<MyRooms> {
     return ListTile(
       onTap: () => context.push('/room/$roomId'),
       leading: NadalRoomFrame(imageUrl: roomData['roomImage']),
+      isThreeLine: false,
+      dense: false,
       title: Row(
         children: [
           Expanded(
-            child: RichText(
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              text: TextSpan(
-                text: roomData['roomName']?.toString() ?? '알 수 없는 방',
-                style: Theme.of(context).textTheme.titleMedium,
-                children: [
-                  TextSpan(
-                    text: '(${roomData['memberCount'] ?? 0})',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Theme.of(context).hintColor,
-                    ),
-                  ),
-                ],
-              ),
+            child: Text(
+                roomData['roomName']?.toString() ?? '알 수 없는 방',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 15.sp),
             ),
           ),
+          SizedBox(width: 4.w,),
+          Text('(${roomData['memberCount'] ?? 0})',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Theme.of(context).hintColor,
+              fontSize: 15.sp,
+           ),
+          )
         ],
       ),
       subtitle: ConstrainedBox(
@@ -323,8 +320,8 @@ class _MyRoomsState extends State<MyRooms> {
       itemBuilder: (context, index) {
         return ListTile(
           leading: NadalProfileFrame(isPlaceHolder: true),
-          title: NadalPlaceholderContainer(height: 18.h),
-          subtitle: NadalPlaceholderContainer(height: 15.h, width: 100.w),
+          title: NadalPlaceholderContainer(height: 18.r),
+          subtitle: NadalPlaceholderContainer(height: 15.r, width: 100.r),
         );
       },
       separatorBuilder: (context, index) => Divider(),

@@ -75,27 +75,13 @@ class RoomProvider extends ChangeNotifier {
 
   // 🔧 **수정: 소켓 리스너 연결 (개선된 안전성 체크)**
   void _attachSocketListeners() {
-    // 🔧 소켓 준비 상태 확인 개선
-    if (!socket.isRoomListenersReady) {
-      debugPrint('❌ RoomProvider: 소켓이 준비되지 않아 리스너 등록 대기');
-      _scheduleReattach();
-      return;
-    }
-
     try {
-      // 기존 리스너 제거 (중복 방지)
-      socket.off('roomLog');
-      socket.off('refreshMember');
-      socket.off('updateLastRead');
-      socket.off('gradeChanged');
-      socket.off('announce');
-
       // 🔧 **수정: RoomProvider 전용 리스너 등록 메서드 사용**
-      socket.onRoomEvent('roomLog', _addRoomLog);
-      socket.onRoomEvent('refreshMember', _fetchRoomMembers);
-      socket.onRoomEvent('updateLastRead', _updateLastRead);
-      socket.onRoomEvent('gradeChanged', _gradeHandler);
-      socket.onRoomEvent('announce', _getAnnounce);
+      socket.on('roomLog', _addRoomLog);
+      socket.on('refreshMember', _fetchRoomMembers);
+      socket.on('updateLastRead', _updateLastRead);
+      socket.on('gradeChanged', _gradeHandler);
+      socket.on('announce', _getAnnounce);
 
       _isSocketListenerAttached = true;
       _cancelReattachTimer();
@@ -142,24 +128,14 @@ class RoomProvider extends ChangeNotifier {
   }
 
   // 🔧 **수정: 소켓 리스너 재설정 (재연결 시 호출) - 안전성 강화**
-  void reattachSocketListeners() {
+  Future<void> reconnectSocket() async{
     if (_room == null) {
       debugPrint('⚠️ RoomProvider: 방 정보가 없어 리스너 재설정 스킵');
       return;
     }
 
+    await refreshRoomFromBackground();
     debugPrint('🔄 RoomProvider 소켓 리스너 재설정');
-
-    // 기존 리스너 해제 후 재연결
-    _detachSocketListeners();
-
-    // 🔧 **수정: 소켓 준비 상태 확인 후 재연결**
-    if (socket.isRoomListenersReady) {
-      _attachSocketListeners();
-    } else {
-      debugPrint('❌ RoomProvider: 소켓이 준비되지 않아 리스너 재설정 대기');
-      _scheduleReattach();
-    }
   }
 
   // 방 멤버 정보 가져오기
@@ -306,11 +282,6 @@ class RoomProvider extends ChangeNotifier {
   Future<void> sendText(String text) async {
     if (text.trim().isEmpty || _sending) return;
 
-    // 🔧 **추가: 연결 상태 확인**
-    if (!socket.isReallyConnected) {
-      throw Exception('연결이 불안정합니다');
-    }
-
     try {
       _sending = true;
       notifyListeners();
@@ -360,12 +331,6 @@ class RoomProvider extends ChangeNotifier {
   // 이미지 전송 (갤러리)
   Future<void> sendImage() async {
     if (_sendingImage.isNotEmpty) return;
-
-    // 🔧 **추가: 연결 상태 확인**
-    if (!socket.isReallyConnected) {
-      throw Exception('연결이 불안정합니다');
-    }
-
     try {
       final images = await _getImages();
       if (images.isEmpty) return;
@@ -390,12 +355,6 @@ class RoomProvider extends ChangeNotifier {
   // 이미지 전송 (카메라)
   Future<void> sentImageByCamera() async {
     if (_sendingImage.isNotEmpty) return;
-
-    // 🔧 **추가: 연결 상태 확인**
-    if (!socket.isReallyConnected) {
-      throw Exception('연결이 불안정합니다');
-    }
-
     try {
       final image = await _pickImageFromCamera();
       if (image == null) return;

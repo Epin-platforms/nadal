@@ -46,7 +46,7 @@ class AppInitializationManager {
       debugPrint('🔧 1단계: RoomsProvider 초기화 시작');
 
       final roomsProvider = context.read<RoomsProvider>();
-      await roomsProvider.initializeRooms();
+      await roomsProvider.roomInitialize();
 
       debugPrint('✅ 1단계: RoomsProvider 초기화 완료');
     } catch (e) {

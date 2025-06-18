@@ -3,6 +3,7 @@
 
 import 'dart:io';
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -31,16 +32,31 @@ class AdvertisementProvider extends ChangeNotifier {
   // === Ad Unit IDs ===
   static String get _bannerAdUnitId {
     if (Platform.isIOS) {
-      return 'ca-app-pub-3940256099942544/2934735716'; // iOS Test Banner
+      if(kDebugMode){
+        return 'ca-app-pub-3940256099942544/2934735716'; // iOS Test Banner
+      }else{
+        return 'ca-app-pub-8848225479931343/1639526864';
+      }
     }
-    return 'ca-app-pub-3940256099942544/6300978111'; // Android Test Banner
+    if(kDebugMode){
+      return 'ca-app-pub-3940256099942544/6300978111'; // Android Test Banner
+    }else{
+      return 'ca-app-pub-8848225479931343/1620195622';
+    }
   }
 
   static String get _nativeAdUnitId {
     if (Platform.isIOS) {
-      return 'ca-app-pub-3940256099942544/3986624511'; // iOS Test Native
+      if(kDebugMode){
+        return 'ca-app-pub-3940256099942544/3986624511'; // iOS Test Native
+      }
+      return 'ca-app-pub-8848225479931343/7626350713';
     }
-    return 'ca-app-pub-3940256099942544/2247696110'; // Android Test Native
+    if(kDebugMode){
+      return 'ca-app-pub-3940256099942544/2247696110'; // Android Test Native
+    }else{
+      return 'ca-app-pub-8848225479931343/6185615842';
+    }
   }
 
   // === Getters ===

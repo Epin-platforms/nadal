@@ -153,6 +153,14 @@ class ScheduleProvider extends ChangeNotifier {
   }
 
   // === Initialization ===
+  Future<void> reconnectSocket() async{
+    if(_scheduleId == null){
+      print('스케줄 Id가 존재하지않음');
+      return;
+    }
+
+    await initializeSchedule(_scheduleId!);
+  }
 
   Future<void> initializeSchedule(int scheduleId) async {
     try {

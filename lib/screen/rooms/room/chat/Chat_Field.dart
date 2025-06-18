@@ -42,12 +42,10 @@ class _ChatFieldState extends State<ChatField> {
 
   // 🔧 **수정: 연결 상태 확인 (간단화)**
   bool _isConnected() {
-    final socketManager = SocketManager.instance;
     final chatProvider = context.read<ChatProvider>();
     final roomId = widget.roomProvider.room!['roomId'] as int;
 
-    return socketManager.isReallyConnected &&
-        chatProvider.isJoined(roomId);
+    return chatProvider.isJoined(roomId);
   }
 
   // 🔧 **수정: 안전한 메시지 전송 (간단화 및 에러 처리 개선)**

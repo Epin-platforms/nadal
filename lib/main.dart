@@ -170,37 +170,37 @@ class AppDriver extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
-      valueListenable: ThemeModeManager().themeModeNotifier,
-      builder: (context, themeMode, child) {
-        return ScreenUtilInit(
-          designSize: const Size(402.0, 874.0),
-          builder: (context, child) {
-            return MultiProvider(
-              providers: [
-                ChangeNotifierProvider(create: (_) => AppProvider()),
-                ChangeNotifierProvider(create: (_) => UserProvider()),
-                ChangeNotifierProvider(create: (_) => HomeProvider()),
-                ChangeNotifierProvider(create: (_) => FriendsProvider()),
-                ChangeNotifierProvider(create: (_) => ChatProvider()),
-                ChangeNotifierProvider(create: (_) => RoomsProvider()),
-                ChangeNotifierProvider(create: (_) => NotificationProvider()),
-                // 광고 프로바이더 - 싱글톤 인스턴스 사용
-                ChangeNotifierProvider.value(value: AdManager.instance),
-              ],
-              builder: (context, child) {
-                return child!;
-              },
-              child: MaterialApp.router(
-                debugShowCheckedModeBanner: false,
-                themeMode: themeMode,
-                theme: ThemeManager.lightTheme,
-                darkTheme: ThemeManager.darkTheme,
-                routerConfig: AppRoute.router,
-              ),
-            );
-          },
-        );
-      }
+        valueListenable: ThemeModeManager().themeModeNotifier,
+        builder: (context, themeMode, child) {
+          return ScreenUtilInit(
+            designSize: const Size(402.0, 874.0),
+            builder: (context, child) {
+              return MultiProvider(
+                providers: [
+                  ChangeNotifierProvider(create: (_) => AppProvider()),
+                  ChangeNotifierProvider(create: (_) => UserProvider()),
+                  ChangeNotifierProvider(create: (_) => HomeProvider()),
+                  ChangeNotifierProvider(create: (_) => FriendsProvider()),
+                  ChangeNotifierProvider(create: (_) => ChatProvider()),
+                  ChangeNotifierProvider(create: (_) => RoomsProvider()),
+                  ChangeNotifierProvider(create: (_) => NotificationProvider()),
+                  // 광고 프로바이더 - 싱글톤 인스턴스 사용
+                  ChangeNotifierProvider.value(value: AdManager.instance),
+                ],
+                builder: (context, child) {
+                  return child!;
+                },
+                child: MaterialApp.router(
+                  debugShowCheckedModeBanner: false,
+                  themeMode: themeMode,
+                  theme: ThemeManager.lightTheme,
+                  darkTheme: ThemeManager.darkTheme,
+                  routerConfig: AppRoute.router,
+                ),
+              );
+            },
+          );
+        }
     );
   }
 }

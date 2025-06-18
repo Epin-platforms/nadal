@@ -17,16 +17,6 @@ class ChatProvider extends ChangeNotifier {
   final Set<int> _joinedRooms = {};
   final Map<int, Set<int>> _loadedChatIds = {};
 
-  // 🔧 **수정: 재연결 관리 개선**
-  final Set<int> _pendingReconnectRooms = {};
-  final Set<int> _failedRooms = {};
-  Timer? _reconnectTimeoutTimer;
-  Timer? _retryFailedRoomsTimer;
-
-  // 🔧 **수정: 초기화 관리 개선**
-  bool _hasInitializedRooms = false;
-  bool _socketListenersRegistered = false;
-
   // Getters
   bool get isInitialized => _isInitialized;
   bool get socketLoading => _socketLoading || _isReconnecting;
@@ -49,11 +39,13 @@ class ChatProvider extends ChangeNotifier {
       // 소켓 연결
       await socket.connect();
 
+      //리스너 등록
+      _setSocketListeners();
+
       // 방 목록 기반으로 채팅 데이터 로드
       await _loadAllRoomChats(roomsProvider);
 
       _isInitialized = true;
-      _hasInitializedRooms = true;
       debugPrint('✅ ChatProvider 초기화 완료');
     } catch (e) {
       debugPrint('❌ ChatProvider 초기화 실패: $e');
@@ -63,28 +55,6 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  // 🔧 **수정: 안전한 소켓 리스너 등록**
-  Future<void> registerSocketListenersSafely() async {
-    if (_socketListenersRegistered) {
-      debugPrint('🔄 ChatProvider 리스너 이미 등록됨 - 스킵');
-      return;
-    }
-
-    if (!socket.isReallyConnected) {
-      debugPrint('❌ 소켓이 준비되지 않음 - 리스너 등록 실패');
-      throw Exception('소켓이 준비되지 않음');
-    }
-
-    try {
-      debugPrint('🔧 ChatProvider 소켓 리스너 등록 시작');
-      await _setSocketListeners();
-      _socketListenersRegistered = true;
-      debugPrint('✅ ChatProvider 소켓 리스너 등록 완료');
-    } catch (e) {
-      debugPrint('❌ ChatProvider 리스너 등록 실패: $e');
-      throw e;
-    }
-  }
 
   // 🔧 RoomsProvider 기반으로 모든 방의 채팅 데이터 로드
   Future<void> _loadAllRoomChats(RoomsProvider roomsProvider) async {
@@ -127,10 +97,8 @@ class ChatProvider extends ChangeNotifier {
   Future<void> _joinRoomSafely(int roomId) async {
     try {
       await _joinRoom(roomId);
-      _failedRooms.remove(roomId);
     } catch (e) {
       debugPrint('❌ 방 조인 실패 ($roomId): $e');
-      _failedRooms.add(roomId);
     }
   }
 
@@ -209,24 +177,13 @@ class ChatProvider extends ChangeNotifier {
 
   // 소켓 리스너 설정
   Future<void> _setSocketListeners() async {
-    if (!socket.isReallyConnected) {
-      throw Exception('소켓이 연결되지 않음');
-    }
-
     try {
-      // 🔧 **수정: 기존 리스너 제거 (중복 방지)**
-      socket.off("error");
-      socket.off("multipleDevice");
-      socket.off("chat");
-      socket.off("removeChat");
-      socket.off("kicked");
-
       // 🔧 **수정: 새 리스너 등록 (ChatProvider 전용 메서드 사용)**
-      socket.onChatEvent("error", _handleError);
-      socket.onChatEvent("multipleDevice", _handleMultipleDevice);
-      socket.onChatEvent("chat", _handleNewChat);
-      socket.onChatEvent("removeChat", _handleRemoveChat);
-      socket.onChatEvent("kicked", _handleKicked);
+      socket.on("error", _handleError);
+      socket.on("multipleDevice", _handleMultipleDevice);
+      socket.on("chat", _handleNewChat);
+      socket.on("removeChat", _handleRemoveChat);
+      socket.on("kicked", _handleKicked);
 
       debugPrint('✅ ChatProvider 소켓 리스너 설정 완료');
     } catch (e) {
@@ -378,8 +335,6 @@ class ChatProvider extends ChangeNotifier {
     _my.remove(roomId);
     _loadedChatIds.remove(roomId);
     _joinedRooms.remove(roomId);
-    _pendingReconnectRooms.remove(roomId);
-    _failedRooms.remove(roomId);
     _updateBadge();
   }
 
@@ -387,29 +342,16 @@ class ChatProvider extends ChangeNotifier {
   void onSocketConnected() {
     debugPrint('✅ ChatProvider: 소켓 연결됨');
     _isReconnecting = false;
-    _socketListenersRegistered = false;
     notifyListeners();
   }
 
   // 🔧 **수정: 개선된 소켓 재연결 처리 - 백그라운드 복귀 시에만 실행**
-  void onSocketReconnected() {
+  Future<void> onSocketReconnected() async{
     if (_isReconnecting) return;
-
     _isReconnecting = true;
-    _socketListenersRegistered = false;
-    _pendingReconnectRooms.clear();
     notifyListeners();
 
     debugPrint('🔄 소켓 재연결 처리 시작 (백그라운드 복귀)');
-
-    // 타임아웃 설정 (30초)
-    _reconnectTimeoutTimer?.cancel();
-    _reconnectTimeoutTimer = Timer(const Duration(seconds: 30), () {
-      if (_isReconnecting) {
-        debugPrint('⏰ 재연결 타임아웃 - 강제 완료');
-        _finishReconnect();
-      }
-    });
 
     _processReconnection();
   }
@@ -417,76 +359,22 @@ class ChatProvider extends ChangeNotifier {
   // 🔧 **수정: 재연결 프로세스 - 현재 참가한 방들만 재연결**
   Future<void> _processReconnection() async {
     try {
-      final currentRoomIds = <int>[
-        ..._joinedRooms,
-      ];
+      final roomsProvider = AppRoute.context?.read<RoomsProvider>();
 
-      debugPrint('🔄 재연결할 방 목록: $currentRoomIds');
-
-      if (currentRoomIds.isEmpty) {
-        _finishReconnect();
+      if(roomsProvider == null){
+        print('룸즈 프로바이더가 준비되지 않음');
         return;
       }
 
-      _pendingReconnectRooms.addAll(currentRoomIds);
+      //데이터 다시 불러오기
+      await initializeAfterRooms(roomsProvider);
 
-      // 🔧 **수정: 재연결 시 join 명령 재전송**
-      await _rejoinRooms(currentRoomIds);
-
-      _startRetryFailedRooms();
-      _finishReconnect();
     } catch (e) {
       debugPrint('❌ 재연결 프로세스 오류: $e');
-      _finishReconnect();
+    }finally{
+      _isReconnecting = true;
+      notifyListeners();
     }
-  }
-
-  // 🔧 **추가: 방 재조인 처리**
-  Future<void> _rejoinRooms(List<int> roomIds) async {
-    for (final roomId in roomIds) {
-      try {
-        if (_joinedRooms.contains(roomId)) {
-          // 소켓에 재조인 명령 전송
-          socket.emit('join', roomId);
-          _pendingReconnectRooms.remove(roomId);
-          debugPrint('✅ 방 재조인 성공: $roomId');
-
-          // 방 간 짧은 대기
-          await Future.delayed(const Duration(milliseconds: 200));
-        }
-      } catch (e) {
-        debugPrint('❌ 방 재조인 실패 ($roomId): $e');
-        _failedRooms.add(roomId);
-      }
-    }
-  }
-
-  // 실패한 방들 재시도
-  void _startRetryFailedRooms() {
-    if (_failedRooms.isEmpty) return;
-
-    _retryFailedRoomsTimer?.cancel();
-    _retryFailedRoomsTimer = Timer(const Duration(seconds: 10), () async {
-      if (_failedRooms.isNotEmpty) {
-        debugPrint('🔄 실패한 방들 재시도: $_failedRooms');
-        final failedRoomsList = _failedRooms.toList();
-        _failedRooms.clear();
-
-        for (final roomId in failedRoomsList) {
-          await _joinRoomSafely(roomId);
-          await Future.delayed(const Duration(milliseconds: 500));
-        }
-      }
-    });
-  }
-
-  // 재연결 완료
-  void _finishReconnect() {
-    _reconnectTimeoutTimer?.cancel();
-    _isReconnecting = false;
-    _pendingReconnectRooms.clear();
-    notifyListeners();
-    debugPrint('✅ 소켓 재연결 처리 완료');
   }
 
   // 특정 방 조인 (Public)
@@ -688,18 +576,13 @@ class ChatProvider extends ChangeNotifier {
   }
 
   // 유틸리티 메서드들
-  bool isJoined(int roomId) =>
-      _joinedRooms.contains(roomId) &&
-          !_pendingReconnectRooms.contains(roomId) &&
-          !_failedRooms.contains(roomId);
+  bool isJoined(int roomId) => _joinedRooms.contains(roomId);
 
   // 데이터 준비 상태 확인
   bool isRoomDataReady(int roomId) {
     return _my[roomId] != null &&
         _chat[roomId] != null &&
-        _joinedRooms.contains(roomId) &&
-        !_pendingReconnectRooms.contains(roomId) &&
-        !_failedRooms.contains(roomId);
+        _joinedRooms.contains(roomId);
   }
 
   Chat? latestChatTime(int roomId) {
@@ -780,21 +663,13 @@ class ChatProvider extends ChangeNotifier {
   }
 
   void onDisconnect() {
-    _pendingReconnectRooms.clear();
-    _failedRooms.clear();
     _isReconnecting = false;
-    _socketListenersRegistered = false;
-    _reconnectTimeoutTimer?.cancel();
-    _retryFailedRoomsTimer?.cancel();
     notifyListeners();
   }
 
   @override
   void dispose() {
-    _reconnectTimeoutTimer?.cancel();
-    _retryFailedRoomsTimer?.cancel();
     _lastReadUpdateTimer?.cancel();
-    _socketListenersRegistered = false;
     super.dispose();
   }
 }

@@ -90,7 +90,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver{
     _isInBackground = false;
 
     // 🔧 Socket Manager에 백그라운드 상태 알림
-    SocketManager.instance.setBackgroundState(false);
+    SocketManager.instance.setConnected(false);
   }
 
   void _handleAppPaused() {
@@ -100,7 +100,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver{
     _isInBackground = true;
 
     // 🔧 Socket Manager에 백그라운드 상태 알림
-    SocketManager.instance.setBackgroundState(true);
+    SocketManager.instance.setConnected(true);
   }
 
   //인터넷 연결 상태

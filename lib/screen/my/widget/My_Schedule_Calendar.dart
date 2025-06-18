@@ -96,7 +96,7 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
       onTap: isOutside ? null : () => _onDaySelected(day, day),
       child: Container(
         margin: EdgeInsets.all(2.w),
-        padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 8.w),
+        padding: EdgeInsets.symmetric(vertical: 5.h, horizontal: 8.w),
         decoration: BoxDecoration(
           color: isToday ? Theme.of(context).colorScheme.primary.withValues(alpha:0.1) : null,
           border: isSelected
@@ -153,30 +153,24 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  RichText(
-                    text: TextSpan(
-                      text: 'MY ',
-                      style: Theme.of(context).textTheme.titleLarge!.copyWith(
+                  Row(
+                    children: [
+                      Text('MY', style: Theme.of(context).textTheme.titleLarge!.copyWith(
                         color: Theme.of(context).colorScheme.onSurface,
                         fontWeight: FontWeight.w700,
+                      )),
+                      Padding(padding: EdgeInsetsGeometry.symmetric(horizontal: 4.w),
+                        child:  Text(DateFormat('M월').format(_selectedDay),
+                            style: Theme.of(context).textTheme.titleLarge!.copyWith(
+                           color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w700,
+                        )),
                       ),
-                      children: [
-                        TextSpan(
-                          text: DateFormat('M월').format(_selectedDay),
-                          style: Theme.of(context).textTheme.titleLarge!.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        TextSpan(
-                          text: ' 일정',
-                          style: Theme.of(context).textTheme.titleLarge!.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
+                    Text('일정', style: Theme.of(context).textTheme.titleLarge!.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontWeight: FontWeight.w700,
+                    )),
+                    ],
                   ),
                   GestureDetector(
                     onTap: () {
