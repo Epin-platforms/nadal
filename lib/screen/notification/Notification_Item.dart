@@ -36,9 +36,8 @@ class _NotificationItemState extends State<NotificationItem> {
   Future<void> _handleNotificationTap() async {
     try {
       // 읽지 않은 알림인 경우 읽음 처리
-      if (!widget.notification.isRead) {
-        await widget.provider.readNotification(widget.notification.notificationId);
-      }
+      await widget.provider.deleteNotification(widget.notification.notificationId);
+
       // 라우팅 처리
       if (widget.notification.routing != null) {
         final routing = widget.notification.routing!;

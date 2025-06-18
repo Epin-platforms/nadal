@@ -20,8 +20,7 @@ class _ChatFieldState extends State<ChatField> {
   bool _visibleSend = false;
   bool _isSending = false;
 
-  // 🔧 연결 상태 확인 타이머
-  Timer? _connectionCheckTimer;
+  // 🔧 **수정: 연결 상태 확인 타이머 제거 (불필요한 체크 최소화)**
 
   @override
   void initState() {
@@ -32,7 +31,6 @@ class _ChatFieldState extends State<ChatField> {
 
   @override
   void dispose() {
-    _connectionCheckTimer?.cancel();
     chatController.dispose();
     focusNode.dispose();
     super.dispose();
@@ -42,7 +40,7 @@ class _ChatFieldState extends State<ChatField> {
     return context.read<ChatProvider>().chat[widget.roomProvider.room!['roomId']]!.where((e)=> e.chatId == chatId).first;
   }
 
-  // 🔧 연결 상태 확인 (간단화)
+  // 🔧 **수정: 연결 상태 확인 (간단화)**
   bool _isConnected() {
     final socketManager = SocketManager.instance;
     final chatProvider = context.read<ChatProvider>();
@@ -52,19 +50,20 @@ class _ChatFieldState extends State<ChatField> {
         chatProvider.isJoined(roomId);
   }
 
-  // 🔧 안전한 메시지 전송 (간단화)
+  // 🔧 **수정: 안전한 메시지 전송 (간단화 및 에러 처리 개선)**
   Future<void> _sendMessage() async {
     if (_isSending || chatController.text.trim().isEmpty) return;
 
     final message = chatController.text.trim();
-    final roomId = widget.roomProvider.room!['roomId'] as int;
 
-    setState(() {
-      _isSending = true;
-    });
+    // UI 상태 즉시 업데이트
+    _isSending = true;
+    if (mounted) {
+      setState(() {});
+    }
 
     try {
-      // 🔧 연결 상태 확인
+      // 🔧 **수정: 연결 상태 확인 로직 간소화**
       if (!_isConnected()) {
         throw Exception('연결이 불안정합니다');
       }
@@ -73,14 +72,13 @@ class _ChatFieldState extends State<ChatField> {
       await widget.roomProvider.sendText(message);
 
       // 전송 성공 시 입력창 정리
-      chatController.clear();
-      if (widget.roomProvider.reply != null) {
-        widget.roomProvider.setReply(null);
-      }
-
-      setState(() {
+      if (mounted) {
+        chatController.clear();
+        if (widget.roomProvider.reply != null) {
+          widget.roomProvider.setReply(null);
+        }
         _visibleSend = false;
-      });
+      }
 
       debugPrint("✅ 메시지 전송 성공");
 
@@ -99,14 +97,13 @@ class _ChatFieldState extends State<ChatField> {
       }
     } finally {
       if (mounted) {
-        setState(() {
-          _isSending = false;
-        });
+        _isSending = false;
+        setState(() {});
       }
     }
   }
 
-  // 🔧 안전한 이미지 전송 (간단화)
+  // 🔧 **수정: 안전한 이미지 전송 (간단화 및 에러 처리 개선)**
   Future<void> _sendImage({bool fromCamera = false}) async {
     if (widget.roomProvider.sendingImage.isNotEmpty) {
       SnackBarManager.showCleanSnackBar(context, '이미지 전송 중 입니다. 잠시만 기다려주세요');
@@ -114,7 +111,7 @@ class _ChatFieldState extends State<ChatField> {
     }
 
     try {
-      // 🔧 연결 상태 확인
+      // 🔧 **수정: 연결 상태 확인 로직 간소화**
       if (!_isConnected()) {
         SnackBarManager.showCleanSnackBar(context, '연결 상태를 확인하고 다시 시도해주세요');
         return;
@@ -130,7 +127,13 @@ class _ChatFieldState extends State<ChatField> {
       debugPrint("❌ 이미지 전송 실패: $e");
 
       if (mounted) {
-        SnackBarManager.showCleanSnackBar(context, '이미지 전송에 실패했습니다');
+        String errorMessage = '이미지 전송에 실패했습니다';
+
+        if (e.toString().contains('연결')) {
+          errorMessage = '연결이 불안정합니다. 잠시 후 다시 시도해주세요';
+        }
+
+        SnackBarManager.showCleanSnackBar(context, errorMessage);
       }
     }
   }
@@ -221,14 +224,14 @@ class _ChatFieldState extends State<ChatField> {
                       enabled: !_isSending,
                       onChanged: (text){
                         final value = text.trim();
-                        if(value.isNotEmpty && !_visibleSend && !_isSending){
-                          setState(() {
-                            _visibleSend = true;
-                          });
-                        }else if(value.isEmpty && _visibleSend){
-                          setState(() {
-                            _visibleSend = false;
-                          });
+                        final shouldShowSend = value.isNotEmpty && !_isSending;
+
+                        // 🔧 **수정: setState 최소화 - 상태 변경이 필요한 경우만**
+                        if (shouldShowSend != _visibleSend) {
+                          _visibleSend = shouldShowSend;
+                          if (mounted) {
+                            setState(() {});
+                          }
                         }
                       },
                       onSubmitted: _isSending ? null : (_) => _sendMessage(),

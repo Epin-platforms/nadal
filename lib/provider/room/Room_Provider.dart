@@ -22,8 +22,9 @@ class RoomProvider extends ChangeNotifier {
   bool _sending = false;
   List<File> _sendingImage = [];
 
-  // 🔧 소켓 리스너 상태 관리
+  // 🔧 **수정: 소켓 리스너 상태 관리 개선**
   bool _isSocketListenerAttached = false;
+  Timer? _reattachTimer;
 
   // Getters
   Map? get room => _room;
@@ -63,7 +64,7 @@ class RoomProvider extends ChangeNotifier {
     }
   }
 
-// 🔧 소켓 리스너 설정/해제
+  // 🔧 **수정: 소켓 리스너 설정/해제 개선**
   void socketListener({required bool isOn}) {
     if (isOn && !_isSocketListenerAttached) {
       _attachSocketListeners();
@@ -72,10 +73,12 @@ class RoomProvider extends ChangeNotifier {
     }
   }
 
-  // 🔧 소켓 리스너 연결
+  // 🔧 **수정: 소켓 리스너 연결 (개선된 안전성 체크)**
   void _attachSocketListeners() {
-    if (!socket.isReallyConnected) {
-      debugPrint('❌ RoomProvider: 소켓이 준비되지 않아 리스너 등록 실패');
+    // 🔧 소켓 준비 상태 확인 개선
+    if (!socket.isRoomListenersReady) {
+      debugPrint('❌ RoomProvider: 소켓이 준비되지 않아 리스너 등록 대기');
+      _scheduleReattach();
       return;
     }
 
@@ -87,19 +90,38 @@ class RoomProvider extends ChangeNotifier {
       socket.off('gradeChanged');
       socket.off('announce');
 
-      // 새 리스너 등록
-      socket.on('roomLog', _addRoomLog);
-      socket.on('refreshMember', _fetchRoomMembers);
-      socket.on('updateLastRead', _updateLastRead);
-      socket.on('gradeChanged', _gradeHandler);
-      socket.on('announce', _getAnnounce);
+      // 🔧 **수정: RoomProvider 전용 리스너 등록 메서드 사용**
+      socket.onRoomEvent('roomLog', _addRoomLog);
+      socket.onRoomEvent('refreshMember', _fetchRoomMembers);
+      socket.onRoomEvent('updateLastRead', _updateLastRead);
+      socket.onRoomEvent('gradeChanged', _gradeHandler);
+      socket.onRoomEvent('announce', _getAnnounce);
 
       _isSocketListenerAttached = true;
+      _cancelReattachTimer();
       debugPrint('✅ RoomProvider 소켓 리스너 연결 완료');
     } catch (e) {
       debugPrint('❌ RoomProvider 소켓 리스너 연결 실패: $e');
       _isSocketListenerAttached = false;
+      _scheduleReattach();
     }
+  }
+
+  // 🔧 **추가: 리스너 재연결 스케줄링**
+  void _scheduleReattach() {
+    _cancelReattachTimer();
+    _reattachTimer = Timer(const Duration(seconds: 2), () {
+      if (_room != null && !_isSocketListenerAttached) {
+        debugPrint('🔄 RoomProvider: 리스너 재연결 시도');
+        _attachSocketListeners();
+      }
+    });
+  }
+
+  // 🔧 **추가: 재연결 타이머 취소**
+  void _cancelReattachTimer() {
+    _reattachTimer?.cancel();
+    _reattachTimer = null;
   }
 
   // 🔧 소켓 리스너 해제
@@ -112,13 +134,14 @@ class RoomProvider extends ChangeNotifier {
       socket.off('announce');
 
       _isSocketListenerAttached = false;
+      _cancelReattachTimer();
       debugPrint('✅ RoomProvider 소켓 리스너 해제 완료');
     } catch (e) {
       debugPrint('❌ RoomProvider 소켓 리스너 해제 실패: $e');
     }
   }
 
-  // 🔧 소켓 리스너 재설정 (재연결 시 호출)
+  // 🔧 **수정: 소켓 리스너 재설정 (재연결 시 호출) - 안전성 강화**
   void reattachSocketListeners() {
     if (_room == null) {
       debugPrint('⚠️ RoomProvider: 방 정보가 없어 리스너 재설정 스킵');
@@ -130,19 +153,12 @@ class RoomProvider extends ChangeNotifier {
     // 기존 리스너 해제 후 재연결
     _detachSocketListeners();
 
-    // 소켓 준비 확인 후 재연결
-    if (socket.isReallyConnected) {
+    // 🔧 **수정: 소켓 준비 상태 확인 후 재연결**
+    if (socket.isRoomListenersReady) {
       _attachSocketListeners();
     } else {
-      debugPrint('❌ RoomProvider: 소켓이 준비되지 않아 리스너 재설정 실패');
-
-      // 3초 후 재시도
-      Timer(const Duration(seconds: 3), () {
-        if (_room != null && socket.isReallyConnected && !_isSocketListenerAttached) {
-          debugPrint('🔄 RoomProvider: 리스너 재설정 재시도');
-          _attachSocketListeners();
-        }
-      });
+      debugPrint('❌ RoomProvider: 소켓이 준비되지 않아 리스너 재설정 대기');
+      _scheduleReattach();
     }
   }
 
@@ -286,9 +302,14 @@ class RoomProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // 텍스트 메시지 전송
+  // 🔧 **수정: 텍스트 메시지 전송 (연결 상태 확인 강화)**
   Future<void> sendText(String text) async {
     if (text.trim().isEmpty || _sending) return;
+
+    // 🔧 **추가: 연결 상태 확인**
+    if (!socket.isReallyConnected) {
+      throw Exception('연결이 불안정합니다');
+    }
 
     try {
       _sending = true;
@@ -307,6 +328,7 @@ class RoomProvider extends ChangeNotifier {
       await serverManager.post('chat/send', data: chat);
     } catch (e) {
       debugPrint('❌ 텍스트 전송 오류: $e');
+      rethrow; // 상위에서 에러 처리하도록
     } finally {
       _sending = false;
       notifyListeners();
@@ -339,6 +361,11 @@ class RoomProvider extends ChangeNotifier {
   Future<void> sendImage() async {
     if (_sendingImage.isNotEmpty) return;
 
+    // 🔧 **추가: 연결 상태 확인**
+    if (!socket.isReallyConnected) {
+      throw Exception('연결이 불안정합니다');
+    }
+
     try {
       final images = await _getImages();
       if (images.isEmpty) return;
@@ -356,12 +383,18 @@ class RoomProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('❌ 이미지 전송 오류: $e');
       _clearSendingImages();
+      rethrow; // 상위에서 에러 처리하도록
     }
   }
 
   // 이미지 전송 (카메라)
   Future<void> sentImageByCamera() async {
     if (_sendingImage.isNotEmpty) return;
+
+    // 🔧 **추가: 연결 상태 확인**
+    if (!socket.isReallyConnected) {
+      throw Exception('연결이 불안정합니다');
+    }
 
     try {
       final image = await _pickImageFromCamera();
@@ -371,6 +404,7 @@ class RoomProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('❌ 카메라 이미지 전송 오류: $e');
       _clearSendingImages();
+      rethrow; // 상위에서 에러 처리하도록
     }
   }
 
@@ -544,7 +578,7 @@ class RoomProvider extends ChangeNotifier {
     }
   }
 
-  // 🔧 백그라운드에서 방 데이터 새로고침 (간단화)
+  // 🔧 **수정: 백그라운드에서 방 데이터 새로고침 (간단화)**
   Future<void> refreshRoomFromBackground() async {
     try {
       // 백그라운드 복귀 시에는 기본 데이터만 새로고침
@@ -563,6 +597,7 @@ class RoomProvider extends ChangeNotifier {
   void dispose() {
     // 소켓 리스너 해제
     _detachSocketListeners();
+    _cancelReattachTimer();
     super.dispose();
   }
 }

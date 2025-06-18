@@ -608,10 +608,11 @@ class NotificationProvider extends ChangeNotifier {
   // 🔧 알림 삭제 (Public API)
   Future<bool> deleteNotification(int notificationId) async {
     try {
+      final index = _notifications!.indexWhere((e)=> e.notificationId == notificationId);
       final res = await serverManager.delete('notification/remove/$notificationId');
 
-      if (res.statusCode == 200) {
-        _notifications?.removeWhere((e) => e.notificationId == notificationId);
+      if (res.statusCode == 204) {
+        _notifications!.removeAt(index);
         notifyListeners();
         return true;
       }

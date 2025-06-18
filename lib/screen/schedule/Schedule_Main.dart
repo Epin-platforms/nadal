@@ -206,6 +206,7 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
                         cancelText: '취소',
                         onConfirm: () {
                           context.go('/my');
+                          context.read<HomeProvider>().setMenu(0);
                           context.push('/room/${post['roomId']}');
                         }
                     );

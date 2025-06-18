@@ -356,6 +356,7 @@ class _HomeShellState extends State<HomeShell> {
       if (_needsHomeNavigation(currentPath)) {
         debugPrint('홈으로 이동 후 타겟 라우팅');
         context.go('/my');
+        context.read<HomeProvider>().setMenu(0);
         await Future.delayed(Duration(milliseconds: 200)); // 약간 더 긴 지연
       }
 
@@ -453,6 +454,7 @@ class _HomeShellState extends State<HomeShell> {
     try {
       if (mounted) {
         context.go('/my');
+        context.read<HomeProvider>().setMenu(0);
         debugPrint('🏠 홈으로 fallback 완료');
       }
     } catch (e) {

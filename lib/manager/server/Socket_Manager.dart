@@ -24,9 +24,11 @@ class SocketManager {
   bool _isInBackground = false;
   bool _needsReconnectOnResume = false;
 
-  // 🔧 **추가: 리스너 등록 완료 상태 관리**
-  bool _listenersRegistered = false;
-  final List<Function()> _pendingListenerRegistrations = [];
+  // 🔧 **수정: 리스너 등록 상태 관리 개선**
+  bool _chatListenersRegistered = false;
+  bool _roomListenersRegistered = false;
+  final List<Function()> _pendingChatListeners = [];
+  final List<Function()> _pendingRoomListeners = [];
 
   SocketManager._internal();
 
@@ -43,10 +45,9 @@ class SocketManager {
         socket!.id != null;
   }
 
-  // 🔧 **추가: 리스너 등록 가능 상태 확인**
-  bool get isReadyForListeners {
-    return isReallyConnected && _listenersRegistered;
-  }
+  // 🔧 **수정: 리스너 등록 완료 상태 확인 (조건 완화)**
+  bool get isChatListenersReady => isReallyConnected && _chatListenersRegistered;
+  bool get isRoomListenersReady => isReallyConnected; // ChatProvider 등록 완료 후면 RoomProvider도 등록 가능
 
   // 🔧 백그라운드 상태 설정
   void setBackgroundState(bool inBackground) {
@@ -57,19 +58,22 @@ class SocketManager {
     if (inBackground) {
       debugPrint("📱 앱이 백그라운드로 이동");
     } else {
-      debugPrint("📱 앱이 포그라운드로 복귀 - 무조건 재연결 필요");
+      debugPrint("📱 앱이 포그라운드로 복귀 - 재연결 필요");
       _needsReconnectOnResume = true;
       _executeBackgroundReconnect();
     }
   }
 
-  // 🔧 백그라운드 재연결 실행
+  // 🔧 백그라운드 재연결 실행 (개선)
   Future<void> _executeBackgroundReconnect() async {
     if (!_needsReconnectOnResume) return;
 
     try {
       debugPrint("🔌 백그라운드 복귀 재연결 시작");
       _needsReconnectOnResume = false;
+
+      // 🔧 **수정: 리스너 상태 초기화**
+      _resetListenerStates();
 
       // 기존 소켓 완전히 정리
       await _forceCleanupSocket();
@@ -81,6 +85,14 @@ class SocketManager {
       debugPrint("❌ 백그라운드 재연결 실패: $e");
       _scheduleReconnect();
     }
+  }
+
+  // 🔧 **추가: 리스너 상태 초기화**
+  void _resetListenerStates() {
+    _chatListenersRegistered = false;
+    _roomListenersRegistered = false;
+    _pendingChatListeners.clear();
+    _pendingRoomListeners.clear();
   }
 
   // 소켓 연결
@@ -166,9 +178,8 @@ class SocketManager {
     try {
       debugPrint("🧹 강제 소켓 정리 시작");
 
-      // **수정: 리스너 상태 초기화**
-      _listenersRegistered = false;
-      _pendingListenerRegistrations.clear();
+      // 🔧 **수정: 리스너 상태 초기화**
+      _resetListenerStates();
 
       if (socket != null) {
         socket!.clearListeners();
@@ -221,7 +232,7 @@ class SocketManager {
       debugPrint("❌ 소켓 연결 종료: $reason");
       _isConnected = false;
       _isConnecting = false;
-      _listenersRegistered = false; // **추가**
+      _resetListenerStates(); // **수정**
       _stopHealthCheck();
 
       _handleSocketDisconnected();
@@ -236,7 +247,7 @@ class SocketManager {
       debugPrint("❌ 소켓 연결 오류: $error");
       _isConnected = false;
       _isConnecting = false;
-      _listenersRegistered = false; // **추가**
+      _resetListenerStates(); // **수정**
       _stopHealthCheck();
 
       if (!_isInBackground) {
@@ -252,7 +263,7 @@ class SocketManager {
       debugPrint("❌ 소켓 재연결 실패");
       _isConnected = false;
       _isConnecting = false;
-      _listenersRegistered = false; // **추가**
+      _resetListenerStates(); // **수정**
       _stopHealthCheck();
 
       if (!_isInBackground) {
@@ -262,6 +273,12 @@ class SocketManager {
 
     socket!.on('pong', (_) {
       debugPrint("🏓 Pong 응답 수신 - 연결 상태 양호");
+    });
+
+    // 🔧 **추가: 서버 ping 처리**
+    socket!.on('serverPing', (_) {
+      debugPrint("📡 서버 ping 수신");
+      socket!.emit('serverPong');
     });
   }
 
@@ -310,8 +327,8 @@ class SocketManager {
       final chatProvider = context!.read<ChatProvider>();
       chatProvider.onSocketConnected();
 
-      // **수정: 리스너 등록을 안전하게 처리**
-      _registerProvidersListenersSequentially();
+      // 🔧 **수정: ChatProvider 리스너만 먼저 등록**
+      _registerChatListeners();
 
       debugPrint("✅ ChatProvider 소켓 연결 완료");
     } catch (e) {
@@ -327,12 +344,12 @@ class SocketManager {
     try {
       debugPrint("🔄 소켓 재연결 처리 시작");
 
-      // ChatProvider 재연결 처리
+      // 🔧 **수정: 순차적으로 처리**
       final chatProvider = context!.read<ChatProvider>();
       chatProvider.onSocketReconnected();
 
-      // **수정: 순차적으로 리스너 재등록**
-      _registerProvidersListenersSequentially();
+      // 리스너들을 순차적으로 재등록
+      _registerListenersSequentially();
 
       debugPrint("✅ 소켓 재연결 처리 완료");
     } catch (e) {
@@ -340,10 +357,9 @@ class SocketManager {
     }
   }
 
-  // **추가: Provider 리스너들을 순차적으로 등록**
-  Future<void> _registerProvidersListenersSequentially() async {
-    if (!isReallyConnected) {
-      debugPrint("❌ 소켓이 준비되지 않아 리스너 등록 지연");
+  // 🔧 **수정: ChatProvider 리스너 등록**
+  Future<void> _registerChatListeners() async {
+    if (!isReallyConnected || _chatListenersRegistered) {
       return;
     }
 
@@ -351,50 +367,103 @@ class SocketManager {
       final context = AppRoute.context;
       if (context?.mounted != true) return;
 
-      debugPrint("🔧 Provider 리스너 순차 등록 시작");
+      debugPrint("🔧 ChatProvider 리스너 등록 시작");
 
-      // 1. ChatProvider 리스너 등록
       final chatProvider = context!.read<ChatProvider>();
       await chatProvider.registerSocketListenersSafely();
 
-      // 2. RoomProvider 리스너 등록 (있다면)
-      try {
-        final roomProvider = context.read<RoomProvider>();
-        roomProvider.reattachSocketListeners();
-        debugPrint("✅ RoomProvider 소켓 리스너 재설정 완료");
-      } catch (e) {
-        debugPrint("⚠️ RoomProvider가 없거나 오류: $e");
-      }
+      _chatListenersRegistered = true;
+      debugPrint("✅ ChatProvider 리스너 등록 완료");
 
-      _listenersRegistered = true;
-      debugPrint("✅ 모든 Provider 리스너 등록 완료");
-
-      // 대기 중인 리스너 등록 실행
-      _processPendingListenerRegistrations();
+      // 대기 중인 리스너들 처리
+      _processPendingChatListeners();
 
     } catch (e) {
-      debugPrint("❌ Provider 리스너 등록 실패: $e");
+      debugPrint("❌ ChatProvider 리스너 등록 실패: $e");
       // 3초 후 재시도
       Timer(const Duration(seconds: 3), () {
-        if (isReallyConnected && !_listenersRegistered) {
-          _registerProvidersListenersSequentially();
+        if (isReallyConnected && !_chatListenersRegistered) {
+          _registerChatListeners();
         }
       });
     }
   }
 
-  // **추가: 대기 중인 리스너 등록 처리**
-  void _processPendingListenerRegistrations() {
-    if (_pendingListenerRegistrations.isNotEmpty) {
-      debugPrint("🔧 대기 중인 리스너 ${_pendingListenerRegistrations.length}개 등록");
-      final pending = List.from(_pendingListenerRegistrations);
-      _pendingListenerRegistrations.clear();
+  // 🔧 **수정: RoomProvider 리스너 등록**
+  Future<void> _registerRoomListeners() async {
+    if (!isReallyConnected || _roomListenersRegistered) {
+      return;
+    }
+
+    try {
+      final context = AppRoute.context;
+      if (context?.mounted != true) return;
+
+      debugPrint("🔧 RoomProvider 리스너 등록 시작");
+
+      try {
+        final roomProvider = context!.read<RoomProvider>();
+        roomProvider.reattachSocketListeners();
+        _roomListenersRegistered = true;
+        debugPrint("✅ RoomProvider 리스너 등록 완료");
+
+        // 대기 중인 리스너들 처리
+        _processPendingRoomListeners();
+
+      } catch (e) {
+        debugPrint("⚠️ RoomProvider가 없거나 오류: $e");
+        _roomListenersRegistered = true; // RoomProvider가 없어도 완료로 처리
+      }
+
+    } catch (e) {
+      debugPrint("❌ RoomProvider 리스너 등록 실패: $e");
+      _roomListenersRegistered = true; // 실패해도 무한 재시도 방지
+    }
+  }
+
+  // 🔧 **수정: 순차적 리스너 등록**
+  Future<void> _registerListenersSequentially() async {
+    // 1. ChatProvider 리스너 먼저 등록
+    if (!_chatListenersRegistered) {
+      await _registerChatListeners();
+    }
+
+    // 2. ChatProvider 완료 후 RoomProvider 등록
+    if (_chatListenersRegistered && !_roomListenersRegistered) {
+      await Future.delayed(const Duration(milliseconds: 200));
+      await _registerRoomListeners();
+    }
+  }
+
+  // 🔧 **수정: 대기 중인 ChatProvider 리스너 처리**
+  void _processPendingChatListeners() {
+    if (_pendingChatListeners.isNotEmpty) {
+      debugPrint("🔧 대기 중인 ChatProvider 리스너 ${_pendingChatListeners.length}개 등록");
+      final pending = List.from(_pendingChatListeners);
+      _pendingChatListeners.clear();
 
       for (final registration in pending) {
         try {
           registration();
         } catch (e) {
-          debugPrint("❌ 대기 리스너 등록 실패: $e");
+          debugPrint("❌ 대기 ChatProvider 리스너 등록 실패: $e");
+        }
+      }
+    }
+  }
+
+  // 🔧 **수정: 대기 중인 RoomProvider 리스너 처리**
+  void _processPendingRoomListeners() {
+    if (_pendingRoomListeners.isNotEmpty) {
+      debugPrint("🔧 대기 중인 RoomProvider 리스너 ${_pendingRoomListeners.length}개 등록");
+      final pending = List.from(_pendingRoomListeners);
+      _pendingRoomListeners.clear();
+
+      for (final registration in pending) {
+        try {
+          registration();
+        } catch (e) {
+          debugPrint("❌ 대기 RoomProvider 리스너 등록 실패: $e");
         }
       }
     }
@@ -458,26 +527,47 @@ class SocketManager {
         socket!.dispose();
         socket = null;
       }
-      _listenersRegistered = false; // **추가**
+      _resetListenerStates(); // **수정**
     } catch (e) {
       debugPrint("❌ 소켓 정리 중 오류: $e");
     }
   }
 
-  // **수정: 안전한 이벤트 리스너 등록**
-  void on(String event, Function(dynamic) handler) {
-    if (isReallyConnected && socket != null) {
+  // 🔧 **수정: 안전한 ChatProvider 이벤트 리스너 등록**
+  void onChatEvent(String event, Function(dynamic) handler) {
+    if (isChatListenersReady && socket != null) {
       socket!.on(event, handler);
-      debugPrint("✅ 리스너 등록 성공: $event");
+      debugPrint("✅ ChatProvider 리스너 등록 성공: $event");
     } else {
-      debugPrint("⚠️ 소켓이 준비되지 않음 - 리스너 대기열에 추가: $event");
-      _pendingListenerRegistrations.add(() {
-        if (isReallyConnected && socket != null) {
+      debugPrint("⚠️ ChatProvider 소켓이 준비되지 않음 - 리스너 대기열에 추가: $event");
+      _pendingChatListeners.add(() {
+        if (isChatListenersReady && socket != null) {
           socket!.on(event, handler);
-          debugPrint("✅ 대기열에서 리스너 등록: $event");
+          debugPrint("✅ 대기열에서 ChatProvider 리스너 등록: $event");
         }
       });
     }
+  }
+
+  // 🔧 **수정: 안전한 RoomProvider 이벤트 리스너 등록**
+  void onRoomEvent(String event, Function(dynamic) handler) {
+    if (isRoomListenersReady && socket != null) {
+      socket!.on(event, handler);
+      debugPrint("✅ RoomProvider 리스너 등록 성공: $event");
+    } else {
+      debugPrint("⚠️ RoomProvider 소켓이 준비되지 않음 - 리스너 대기열에 추가: $event");
+      _pendingRoomListeners.add(() {
+        if (isRoomListenersReady && socket != null) {
+          socket!.on(event, handler);
+          debugPrint("✅ 대기열에서 RoomProvider 리스너 등록: $event");
+        }
+      });
+    }
+  }
+
+  // 🔧 **기존 on 메서드는 ChatProvider용으로 사용**
+  void on(String event, Function(dynamic) handler) {
+    onChatEvent(event, handler);
   }
 
   // 이벤트 리스너 제거
@@ -516,7 +606,7 @@ class SocketManager {
     _stopHealthCheck();
     _isConnected = false;
     _isConnecting = false;
-    _listenersRegistered = false; // **추가**
+    _resetListenerStates(); // **수정**
     _reconnectAttempts = 0;
     _needsReconnectOnResume = false;
 
@@ -533,6 +623,6 @@ class SocketManager {
     _stopHealthCheck();
     _cleanupSocket();
     _needsReconnectOnResume = false;
-    _pendingListenerRegistrations.clear(); // **추가**
+    _resetListenerStates(); // **수정**
   }
 }
