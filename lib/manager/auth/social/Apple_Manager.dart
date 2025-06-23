@@ -32,7 +32,7 @@ class AppleManager {
       // Firebase 로그인
       final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
 
-      // 🔧 사용자 정보 업데이트 (이메일 포함)
+      // 🔧 Apple에서 제공하는 정보만 사용 (추가 정보 요청 금지)
       await _updateAppleUserInfo(userCredential, appleCredential);
 
       AppRoute.popLoading();
@@ -69,34 +69,63 @@ class AppleManager {
       print('🍎 Apple familyName: ${appleCredential.familyName}');
       print('🍎 Firebase Email: ${user.email}');
 
-      // 🔧 이름 조합 및 업데이트 (먼저 처리)
+      // 🔧 Apple에서 제공하는 정보만 사용 (가이드라인 4.0 준수)
+      // Apple에서 이름 정보를 제공한 경우에만 업데이트
       if (appleCredential.givenName != null || appleCredential.familyName != null) {
         final String displayName = '${appleCredential.givenName ?? ''}${appleCredential.familyName ?? ''}'.trim();
         if (displayName.isNotEmpty) {
           await user.updateDisplayName(displayName);
-          print('✅ 애플 displayName 업데이트 성공: $displayName');
+          print('✅ Apple에서 제공한 displayName 적용: $displayName');
+        }
+      } else {
+        // Apple에서 이름을 제공하지 않은 경우 기본값 설정 (추가 요청 없이)
+        if (user.displayName == null || user.displayName!.isEmpty) {
+          // 🔧 사용자에게 추가 정보를 요청하지 않고 기본값 사용
+          await user.updateDisplayName('Apple 사용자');
+          print('✅ Apple 기본 displayName 적용');
         }
       }
 
-      // 이메일 업데이트
+      // 🔧 이메일 처리 - Apple에서 제공한 정보만 사용
       if (appleCredential.email != null && appleCredential.email!.isNotEmpty) {
         try {
+          // Apple에서 제공한 이메일이 있으면 사용
           await user.updateEmail(appleCredential.email!);
-          print('✅ 애플 이메일 업데이트 성공: ${appleCredential.email}');
+          print('✅ Apple에서 제공한 이메일 적용: ${appleCredential.email}');
         } catch (emailError) {
           print('이메일 업데이트 실패 (무시): $emailError');
         }
+      } else {
+        // 🔧 Apple에서 이메일을 제공하지 않은 경우
+        // 사용자에게 추가 입력을 요구하지 않고 Firebase의 기본 이메일 사용
+        print('Apple에서 이메일을 제공하지 않음 - Firebase 기본 이메일 사용');
       }
 
-      // 🔧 강제 새로고침
+      // 🔧 Firebase 사용자 정보 새로고침
       await user.reload();
 
-      // 🔧 잠시 대기 후 다시 새로고침
-      await Future.delayed(Duration(milliseconds: 500));
+      // 🔧 잠시 대기 후 다시 새로고침 (안정성 확보)
+      await Future.delayed(const Duration(milliseconds: 500));
       await user.reload();
+
+      print('✅ Apple 로그인 완료 - 추가 정보 요청 없이 진행');
 
     } catch (e) {
       print('Apple 사용자 정보 업데이트 실패: $e');
+      // 🔧 실패해도 로그인은 계속 진행 (Apple 가이드라인 준수)
     }
+  }
+
+  // 🔧 Apple 로그인 후 사용자 정보 검증 (필요시 사용)
+  Future<Map<String, String?>> getAppleUserInfo() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return {};
+
+    return {
+      'uid': user.uid,
+      'email': user.email,
+      'displayName': user.displayName,
+      'photoURL': user.photoURL,
+    };
   }
 }

@@ -8,9 +8,7 @@ class PermissionManager {
   static const String _permissionResultPrefix = 'epin_nadal_permission_result_';
   static const String _canRetryPrefix = 'epin_nadal_can_retry_';
   static const String _permissionRequestedDate = 'epin_nadal_permission_requested_date';
-  // 🔧 개별 권한 Skip 상태 저장용
   static const String _permissionSkippedPrefix = 'epin_nadal_permission_skipped_';
-  // 🔧 전체 권한 프로세스 완료 여부
   static const String _permissionProcessCompleted = 'epin_nadal_permission_process_completed';
 
   // 권한 정보 클래스
@@ -44,7 +42,7 @@ class PermissionManager {
 
     final prefs = await SharedPreferences.getInstance();
 
-    // 🔧 권한 프로세스가 완료되었는지 확인
+    // 권한 프로세스가 완료되었는지 확인
     final isProcessCompleted = prefs.getBool(_permissionProcessCompleted) ?? false;
 
     if (isProcessCompleted) {
@@ -55,7 +53,7 @@ class PermissionManager {
     // 플랫폼별 권한 리스트 결정
     final allPermissions = await _getPermissionsForDevice();
 
-    // 🔧 Skip되지 않고 아직 허용되지 않은 권한들만 필터링
+    // Skip되지 않고 아직 허용되지 않은 권한들만 필터링
     final filteredPermissions = await _filterNonSkippedAndNonGrantedPermissions(allPermissions);
 
     // 요청할 권한이 없으면 프로세스 완료 처리
@@ -65,11 +63,23 @@ class PermissionManager {
       return;
     }
 
-    // 권한 요청 시트 표시
-    _showPermissionSheet(context, filteredPermissions);
+    // 🔧 가이드라인 준수: 권한 요청 전 설명 시트 표시
+    _showPermissionExplanationSheet(context, filteredPermissions);
   }
 
-  // 🔧 Skip되지 않고 허용되지 않은 권한들만 필터링하는 함수
+  // 🔧 권한 설명 시트 (App Store 가이드라인 준수)
+  static void _showPermissionExplanationSheet(BuildContext context, List<PermissionInfo> permissions) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: true, // 🔧 자유롭게 닫기 가능
+      enableDrag: true,    // 🔧 드래그 가능
+      builder: (context) => PermissionExplanationSheet(permissions: permissions),
+    );
+  }
+
+  // Skip되지 않고 허용되지 않은 권한들만 필터링하는 함수
   static Future<List<PermissionInfo>> _filterNonSkippedAndNonGrantedPermissions(List<PermissionInfo> permissions) async {
     final prefs = await SharedPreferences.getInstance();
     final List<PermissionInfo> filteredPermissions = [];
@@ -98,7 +108,7 @@ class PermissionManager {
     return filteredPermissions;
   }
 
-  // 🔧 설정 페이지에서 호출할 권한 관리 함수
+  // 설정 페이지에서 호출할 권한 관리 함수
   static Future<void> showPermissionSettingsSheet(BuildContext context) async {
     final allPermissions = await _getPermissionsForDevice();
     _showPermissionSettingsSheet(context, allPermissions);
@@ -107,7 +117,7 @@ class PermissionManager {
   // 즉시 권한 요청 (다른 곳에서 사용할 경우)
   static Future<void> requestPermissionsImmediately(BuildContext context) async {
     final permissions = await _getPermissionsForDevice();
-    _showPermissionSheet(context, permissions);
+    _showPermissionExplanationSheet(context, permissions);
   }
 
   // 디바이스에 따른 권한 리스트 반환
@@ -128,7 +138,6 @@ class PermissionManager {
     final deviceInfoPlugin = DeviceInfoPlugin();
     final info = await deviceInfoPlugin.androidInfo;
 
-    // 저장소 권한 (Android 버전별)
     if (info.version.sdkInt < 33) {
       permissions.add(PermissionInfo(
         permission: Permission.storage,
@@ -167,24 +176,7 @@ class PermissionManager {
     ));
   }
 
-  // 🔧 최초 권한 요청 바텀시트 표시
-  static void _showPermissionSheet(BuildContext context, List<PermissionInfo> permissions) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      // 🔧 바깥 탭으로 닫기 방지
-      isDismissible: false,
-      // 🔧 드래그로 닫기 방지
-      enableDrag: false,
-      builder: (context) => PermissionBottomSheet(
-        permissions: permissions,
-        isSettingsMode: false,
-      ),
-    );
-  }
-
-  // 🔧 설정용 권한 관리 시트 표시
+  // 설정용 권한 관리 시트 표시
   static void _showPermissionSettingsSheet(BuildContext context, List<PermissionInfo> permissions) {
     showModalBottomSheet(
       context: context,
@@ -196,21 +188,21 @@ class PermissionManager {
     );
   }
 
-  // 🔧 개별 권한 Skip 상태 저장
+  // 개별 권한 Skip 상태 저장
   static Future<void> _savePermissionSkipped(Permission permission, bool skipped) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('$_permissionSkippedPrefix${permission.toString()}', skipped);
     print('권한 Skip 상태 저장: ${permission.toString()} = $skipped');
   }
 
-  // 🔧 권한 프로세스 완료 처리
+  // 권한 프로세스 완료 처리
   static Future<void> _markPermissionProcessCompleted() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_permissionProcessCompleted, true);
     print('권한 프로세스 완료로 표시');
   }
 
-  // 개별 권한 확인 및 재요청
+  // 🔧 개별 권한 확인 및 재요청 (설정 페이지 링크 포함)
   static Future<bool> ensurePermission(Permission permission, BuildContext context) async {
     final status = await permission.status;
 
@@ -228,16 +220,19 @@ class PermissionManager {
           return true;
         } else if (result.isPermanentlyDenied) {
           await prefs.setBool('$_canRetryPrefix${permission.toString()}', false);
+          // 🔧 영구 거부 시 설정 페이지로 안내
+          _showSettingsDialog(context, permission);
         }
       }
     } else if (status.isPermanentlyDenied) {
+      // 🔧 영구 거부된 권한은 설정으로 안내
       _showSettingsDialog(context, permission);
     }
 
     return false;
   }
 
-  // 권한 설명 다이얼로그
+  // 🔧 권한 설명 다이얼로그 (가이드라인 준수)
   static Future<bool> _showPermissionRationalDialog(BuildContext context, Permission permission) async {
     final permissionInfo = await _findPermissionInfo(permission);
 
@@ -249,12 +244,20 @@ class PermissionManager {
           children: [
             Icon(permissionInfo.icon, color: Theme.of(context).primaryColor),
             SizedBox(width: 8.w),
-            Text('${permissionInfo.title} 권한 필요'),
+            Text('${permissionInfo.title} 권한'),
           ],
         ),
-        content: Text(
-          permissionInfo.description,
-          style: Theme.of(context).textTheme.bodyMedium,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(permissionInfo.description),
+            SizedBox(height: 16.h),
+            Text(
+              '이 권한을 허용하시겠습니까?',
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -263,21 +266,23 @@ class PermissionManager {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('권한 허용'),
+            child: Text('허용'),
           ),
         ],
       ),
     ) ?? false;
   }
 
-  // 설정으로 이동 다이얼로그
+  // 🔧 설정으로 이동 다이얼로그 (가이드라인 5.1.1 준수)
   static void _showSettingsDialog(BuildContext context, Permission permission) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-        title: Text('권한 설정 필요'),
-        content: Text('설정에서 ${_getPermissionName(permission)} 권한을 허용해주세요.'),
+        title: Text('권한 설정이 필요합니다'),
+        content: Text(
+          '${_getPermissionName(permission)} 권한이 필요합니다.\n설정에서 권한을 허용해주세요.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -286,9 +291,9 @@ class PermissionManager {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              openAppSettings();
+              openAppSettings(); // 🔧 설정 페이지로 이동
             },
-            child: Text('설정으로 이동'),
+            child: Text('설정'),
           ),
         ],
       ),
@@ -349,7 +354,7 @@ class PermissionManager {
     return statusMap;
   }
 
-  // 🔧 Skip된 선택 권한들을 다시 요청할 수 있도록 리셋하는 함수 (설정 화면에서 사용)
+  // Skip된 선택 권한들을 다시 요청할 수 있도록 리셋하는 함수
   static Future<void> resetSkippedPermissions() async {
     final prefs = await SharedPreferences.getInstance();
     final allPermissions = await _getPermissionsForDevice();
@@ -365,7 +370,7 @@ class PermissionManager {
     print('Skip된 선택 권한들과 프로세스 완료 상태가 리셋되었습니다');
   }
 
-  // 🔧 권한 프로세스 완료 여부 확인
+  // 권한 프로세스 완료 여부 확인
   static Future<bool> isPermissionProcessCompleted() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_permissionProcessCompleted) ?? false;
@@ -389,219 +394,140 @@ class PermissionInfo {
   });
 }
 
-// 🔧 권한 요청 바텀시트 위젯
-class PermissionBottomSheet extends StatefulWidget {
+// 🔧 권한 설명 시트 위젯 (App Store 가이드라인 5.1.1 준수)
+class PermissionExplanationSheet extends StatefulWidget {
   final List<PermissionInfo> permissions;
-  final bool isSettingsMode;
 
-  const PermissionBottomSheet({
+  const PermissionExplanationSheet({
     super.key,
     required this.permissions,
-    this.isSettingsMode = false,
   });
 
   @override
-  State<PermissionBottomSheet> createState() => _PermissionBottomSheetState();
+  State<PermissionExplanationSheet> createState() => _PermissionExplanationSheetState();
 }
 
-class _PermissionBottomSheetState extends State<PermissionBottomSheet> {
+class _PermissionExplanationSheetState extends State<PermissionExplanationSheet> {
   bool _isRequesting = false;
-  // 🔧 권한 상태를 실시간으로 관리
-  Map<Permission, PermissionStatus> _permissionStatuses = {};
-  bool _isLoadingStatuses = true;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.isSettingsMode) {
-      _loadPermissionStatuses();
-    } else {
-      _isLoadingStatuses = false;
-    }
-  }
-
-  // 🔧 권한 상태 로드
-  Future<void> _loadPermissionStatuses() async {
-    final Map<Permission, PermissionStatus> statuses = {};
-
-    for (final permission in widget.permissions) {
-      try {
-        final status = await permission.permission.status;
-        statuses[permission.permission] = status;
-      } catch (e) {
-        print('권한 상태 로드 실패: ${permission.permission} - $e');
-        statuses[permission.permission] = PermissionStatus.denied;
-      }
-    }
-
-    if (mounted) {
-      setState(() {
-        _permissionStatuses = statuses;
-        _isLoadingStatuses = false;
-      });
-    }
-  }
-
-  // 🔧 개별 권한 상태 업데이트
-  Future<void> _updatePermissionStatus(Permission permission) async {
-    try {
-      final status = await permission.status;
-      if (mounted) {
-        setState(() {
-          _permissionStatuses[permission] = status;
-        });
-      }
-    } catch (e) {
-      print('권한 상태 업데이트 실패: $permission - $e');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    // 🔧 뒤로가기 버튼 막기 (설정 모드가 아닐 때만)
-    return WillPopScope(
-      onWillPop: () async {
-        // 설정 모드에서는 자유롭게 닫기 가능
-        if (widget.isSettingsMode) return true;
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.8,
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      ),
+      child: Column(
+        children: [
+          // 핸들
+          Container(
+            width: 40.w,
+            height: 4.h,
+            margin: EdgeInsets.symmetric(vertical: 12.h),
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2.r),
+            ),
+          ),
 
-        // 로딩 중이거나 권한 요청 중일 때는 뒤로가기 완전 차단
-        if (_isRequesting) return false;
-
-        // 권한 요청이 끝났을 때도 버튼으로만 닫을 수 있게 차단
-        return false;
-      },
-      child: Container(
-        height: MediaQuery.of(context).size.height * 0.8,
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
-        ),
-        child: Column(
-          children: [
-            // 🔧 핸들 제거 (드래그 힌트 제거) - 설정 모드가 아닐 때만
-            if (!widget.isSettingsMode)
-              SizedBox(height: 16.h)
-            else
-              Container(
-                width: 40.w,
-                height: 4.h,
-                margin: EdgeInsets.symmetric(vertical: 12.h),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2.r),
+          // 헤더
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24.w),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.security,
+                  size: 60.r,
+                  color: Theme.of(context).primaryColor,
                 ),
-              ),
+                SizedBox(height: 16.h),
+                Text(
+                  "앱 권한 안내",
+                  style: Theme.of(context).textTheme.headlineSmall,
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 8.h),
+                Text(
+                  "다음 권한들이 더 나은 서비스 제공을 위해 필요합니다.\n모든 권한은 선택사항이며, 언제든지 설정에서 변경할 수 있습니다.",
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
 
-            // 헤더
-            Padding(
+          SizedBox(height: 24.h),
+
+          // 권한 리스트
+          Expanded(
+            child: ListView.builder(
               padding: EdgeInsets.symmetric(horizontal: 24.w),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.security,
-                    size: 60.r,
-                    color: Theme.of(context).primaryColor,
-                  ),
-                  SizedBox(height: 16.h),
-                  Text(
-                    widget.isSettingsMode
-                        ? "권한 설정"
-                        : "더 나은 서비스를 위해\n권한이 필요합니다",
-                    style: Theme.of(context).textTheme.headlineSmall,
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: 8.h),
-                  Text(
-                    widget.isSettingsMode
-                        ? "앱 설정에서 권한을 관리할 수 있습니다"
-                        : "알림 외 모든 권한은 선택사항이며\n거부하셔도 기본 기능은 이용 가능합니다",
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
+              itemCount: widget.permissions.length,
+              itemBuilder: (context, index) {
+                return _buildPermissionCard(widget.permissions[index]);
+              },
             ),
+          ),
 
-            SizedBox(height: 24.h),
-
-            // 권한 리스트
-            Expanded(
-              child: ListView.builder(
-                padding: EdgeInsets.symmetric(horizontal: 24.w),
-                itemCount: widget.permissions.length,
-                itemBuilder: (context, index) {
-                  return _buildPermissionCard(widget.permissions[index]);
-                },
-              ),
+          // 🔧 가이드라인 준수 버튼들
+          Padding(
+            padding: EdgeInsets.all(24.w),
+            child: Column(
+              children: [
+                // 🔧 "계속" 버튼 (기존 "모든 권한 허용" 대신)
+                SizedBox(
+                  width: double.infinity,
+                  height: 48.h,
+                  child: ElevatedButton(
+                    onPressed: _isRequesting ? null : _continueWithPermissions,
+                    child: _isRequesting
+                        ? SizedBox(
+                      width: 20.w,
+                      height: 20.h,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                        : Text(
+                      "계속", // 🔧 "모든 권한 허용" → "계속"
+                      style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 12.h),
+                // 🔧 나중에 설정 버튼 수정
+                TextButton(
+                  onPressed: _isRequesting ? null : _skipForNow,
+                  child: Text(
+                    "나중에 하기",
+                    style: TextStyle(fontSize: 14.sp),
+                  ),
+                ),
+                SizedBox(height: 8.h),
+                // 🔧 설정 페이지 안내 추가
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    openAppSettings();
+                  },
+                  child: Text(
+                    "앱 설정에서 직접 관리",
+                    style: TextStyle(fontSize: 12.sp),
+                  ),
+                ),
+              ],
             ),
-
-            // 버튼들
-            Padding(
-              padding: EdgeInsets.all(24.w),
-              child: Column(
-                children: [
-                  if (!widget.isSettingsMode) ...[
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48.h,
-                      child: ElevatedButton(
-                        onPressed: _isRequesting ? null : _requestAllPermissions,
-                        child: _isRequesting
-                            ? SizedBox(
-                          width: 20.w,
-                          height: 20.h,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                            : Text(
-                          "계속",
-                          style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 12.h),
-                    TextButton(
-                      onPressed: _isRequesting ? null : _skipPermissions,
-                      child: Text(
-                        "나중에 설정하기",
-                        style: TextStyle(fontSize: 14.sp),
-                      ),
-                    ),
-                  ] else ...[
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48.h,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          openAppSettings();
-                        },
-                        child: Text(
-                          "앱 설정으로 이동",
-                          style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildPermissionCard(PermissionInfo info) {
-    // 🔧 설정 모드에서는 실시간 상태를 사용
-    final currentStatus = widget.isSettingsMode
-        ? (_permissionStatuses[info.permission] ?? PermissionStatus.denied)
-        : null;
-
     return Card(
       margin: EdgeInsets.only(bottom: 12.h),
       child: Padding(
@@ -657,121 +583,22 @@ class _PermissionBottomSheetState extends State<PermissionBottomSheet> {
                     info.description,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
-                  // 🔧 설정 모드에서만 상태 표시
-                  if (widget.isSettingsMode) ...[
-                    SizedBox(height: 8.h),
-                    if (_isLoadingStatuses)
-                      SizedBox(
-                        width: 16.w,
-                        height: 16.h,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    else
-                      Row(
-                        children: [
-                          Container(
-                            width: 8.w,
-                            height: 8.h,
-                            decoration: BoxDecoration(
-                              color: currentStatus!.isGranted ? Colors.green : Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          SizedBox(width: 8.w),
-                          Text(
-                            _getStatusText(currentStatus),
-                            style: TextStyle(
-                              color: currentStatus.isGranted ? Colors.green : Colors.red,
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
                 ],
               ),
             ),
-            // 🔧 설정 모드에서만 개별 요청 버튼 표시
-            if (widget.isSettingsMode && !_isLoadingStatuses) ...[
-              if (currentStatus != null && !currentStatus.isGranted)
-                TextButton(
-                  onPressed: () async {
-                    try {
-                      final result = await info.permission.request();
-
-                      // 🔧 상태 즉시 업데이트
-                      await _updatePermissionStatus(info.permission);
-
-                      // 사용자에게 결과 알림
-                      if (mounted) {
-                        final message = result.isGranted
-                            ? '${info.title} 권한이 허용되었습니다'
-                            : result.isPermanentlyDenied
-                            ? '설정에서 ${info.title} 권한을 허용해주세요'
-                            : '${info.title} 권한이 거부되었습니다';
-
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(message),
-                            duration: Duration(seconds: 2),
-                            action: result.isPermanentlyDenied
-                                ? SnackBarAction(
-                              label: '설정',
-                              onPressed: () => openAppSettings(),
-                            )
-                                : null,
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      print('권한 요청 실패: ${info.permission} - $e');
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('권한 요청 중 오류가 발생했습니다'),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  child: Text(
-                    '요청',
-                    style: TextStyle(fontSize: 12.sp),
-                  ),
-                ),
-            ],
           ],
         ),
       ),
     );
   }
 
-  String _getStatusText(PermissionStatus status) {
-    switch (status) {
-      case PermissionStatus.granted:
-        return '허용됨';
-      case PermissionStatus.denied:
-        return '거부됨';
-      case PermissionStatus.restricted:
-        return '제한됨';
-      case PermissionStatus.limited:
-        return '제한적 허용';
-      case PermissionStatus.permanentlyDenied:
-        return '영구 거부됨';
-      default:
-        return '알 수 없음';
-    }
-  }
-
-  Future<void> _requestAllPermissions() async {
+  // 🔧 "계속" 버튼 - 바로 권한 요청으로 진행
+  Future<void> _continueWithPermissions() async {
     if (_isRequesting) return;
 
-    _isRequesting = true;
-    if (mounted) {
-      setState(() {});
-    }
+    setState(() {
+      _isRequesting = true;
+    });
 
     final results = <Permission, PermissionStatus>{};
 
@@ -787,42 +614,46 @@ class _PermissionBottomSheetState extends State<PermissionBottomSheet> {
       }
     }
 
-    // 🔧 권한 프로세스 완료 처리
+    // 권한 프로세스 완료 처리
     await PermissionManager._markPermissionProcessCompleted();
 
-    _isRequesting = false;
+    setState(() {
+      _isRequesting = false;
+    });
+
     if (mounted) {
       Navigator.pop(context);
       _showPermissionResult(results);
     }
   }
 
-  // 🔧 수정된 Skip 처리 함수
-  Future<void> _skipPermissions() async {
+  // 🔧 나중에 하기 - 선택 권한만 Skip 처리
+  Future<void> _skipForNow() async {
     if (_isRequesting) return;
 
-    // 🔧 선택 권한들만 Skip 상태로 저장
+    // 선택 권한들만 Skip 상태로 저장
     for (final permissionInfo in widget.permissions) {
       if (!permissionInfo.isEssential) {
-        // 선택 권한만 Skip 처리
         await PermissionManager._savePermissionSkipped(permissionInfo.permission, true);
-        print('선택 권한 Skip: ${permissionInfo.title}');
       }
     }
 
-    // 🔧 권한 프로세스 완료 처리
+    // 권한 프로세스 완료 처리
     await PermissionManager._markPermissionProcessCompleted();
 
     if (mounted) {
       Navigator.pop(context);
 
-      // 🔧 Skip된 권한 수 알림
       final skippedCount = widget.permissions.where((p) => !p.isEssential).length;
       if (skippedCount > 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('$skippedCount개의 선택 권한이 설정에서 변경 가능합니다'),
+            content: Text('권한은 설정에서 언제든지 변경할 수 있습니다'),
             duration: Duration(seconds: 2),
+            action: SnackBarAction(
+              label: '설정',
+              onPressed: () => openAppSettings(),
+            ),
           ),
         );
       }
@@ -839,6 +670,10 @@ class _PermissionBottomSheetState extends State<PermissionBottomSheet> {
       SnackBar(
         content: Text('$granted/$total 개의 권한이 허용되었습니다'),
         duration: Duration(seconds: 2),
+        action: granted < total ? SnackBarAction(
+          label: '설정',
+          onPressed: () => openAppSettings(),
+        ) : null,
       ),
     );
   }
@@ -858,7 +693,6 @@ class PermissionSettingsSheet extends StatefulWidget {
 }
 
 class _PermissionSettingsSheetState extends State<PermissionSettingsSheet> {
-  // 🔧 권한 상태를 실시간으로 관리
   Map<Permission, PermissionStatus> _permissionStatuses = {};
   bool _isLoading = true;
 
@@ -868,7 +702,6 @@ class _PermissionSettingsSheetState extends State<PermissionSettingsSheet> {
     _loadPermissionStatuses();
   }
 
-  // 🔧 모든 권한 상태 로드
   Future<void> _loadPermissionStatuses() async {
     final Map<Permission, PermissionStatus> statuses = {};
 
@@ -890,7 +723,6 @@ class _PermissionSettingsSheetState extends State<PermissionSettingsSheet> {
     }
   }
 
-  // 🔧 개별 권한 상태 업데이트
   Future<void> _updatePermissionStatus(Permission permission) async {
     try {
       final status = await permission.status;
@@ -1087,7 +919,7 @@ class _PermissionSettingsSheetState extends State<PermissionSettingsSheet> {
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   SizedBox(height: 8.h),
-                  // 🔧 실시간 상태 표시
+                  // 실시간 상태 표시
                   Row(
                     children: [
                       Container(
@@ -1112,14 +944,14 @@ class _PermissionSettingsSheetState extends State<PermissionSettingsSheet> {
                 ],
               ),
             ),
-            // 🔧 실시간 업데이트되는 개별 권한 요청 버튼
+            // 실시간 업데이트되는 개별 권한 요청 버튼
             if (!currentStatus.isGranted)
               TextButton(
                 onPressed: () async {
                   try {
                     final result = await info.permission.request();
 
-                    // 🔧 상태 즉시 업데이트
+                    // 상태 즉시 업데이트
                     await _updatePermissionStatus(info.permission);
 
                     // 사용자에게 결과 알림
