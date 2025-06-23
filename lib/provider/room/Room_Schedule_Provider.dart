@@ -47,8 +47,11 @@ class RoomScheduleProvider extends ChangeNotifier{
         _schedules!.removeAt(index);
         notifyListeners();
       }else if(response.statusCode == 203){
-        _schedules![index]['scheduleMemberCount'] = response.data;
-        notifyListeners();
+        // 더 안전한 방법 (null 체크 포함)
+        if (response.data != null && response.data['scheduleMemberCount'] != null) {
+          _schedules![index]['scheduleMemberCount'] = response.data['scheduleMemberCount'];
+          notifyListeners();
+        }
       }
     }
   }

@@ -174,7 +174,16 @@ class CreateRoom extends StatelessWidget {
                         ),
                       ),
                       NadalButton(
-                        onPressed: (){
+                        onPressed: () async{
+                          if(TextFormManager.removeSpace(provider.tagController.text.replaceAll('#', '')).isNotEmpty){
+                            await DialogManager.showBasicDialog(title: '작성중인 태그가존재해요', content: '작성중인 태그를 등록할까요?',
+                                cancelText: '아니오',
+                                confirmText: '네',
+                                onConfirm: (){
+                                  provider.setTag('${provider.tagController.text},');
+                                }
+                            );
+                          }
                           provider.createRoom();
                         },
                         isActive: true,

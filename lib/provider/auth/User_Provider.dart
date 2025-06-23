@@ -8,6 +8,10 @@ import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
 import 'package:my_sports_calendar/util/handler/Security_Handler.dart';
 import '../../manager/project/Import_Manager.dart';
 
+enum BanType{
+  none, schedule, community
+}
+
 enum UserProviderState {
   none,
   loggedIn,
@@ -20,6 +24,9 @@ class UserProvider extends ChangeNotifier {
   // ============================================
   UserProviderState _state = UserProviderState.none;
   UserProviderState get state => _state;
+
+  BanType _banType = BanType.none;
+  BanType get banType => _banType;
 
   final _auth = FirebaseAuth.instance;
   Map? _user;
@@ -171,6 +178,7 @@ class UserProvider extends ChangeNotifier {
 
     try {
       final banType = _user?['banType'];
+      _banType = _user?['banType'] == 'schedule' ? BanType.schedule : _user?['banType'] == 'community' ? BanType.community : BanType.none;
       final startBlock = DateTime.tryParse(_user?['startBlock'] ?? '');
       final endBlock = DateTime.tryParse(_user?['endBlock'] ?? '');
       final lastLogin = DateTime.tryParse(response.data?['lastLogin'] ?? '');
@@ -204,6 +212,20 @@ class UserProvider extends ChangeNotifier {
       default:
         return '일정 활동';
     }
+  }
+
+  bool canSchedule(){
+      if(_banType == BanType.none || _banType == BanType.community){
+        return true;
+      }
+      return false;
+  }
+
+  bool canCommunity(){
+    if(_banType == BanType.none || _banType == BanType.schedule){
+      return true;
+    }
+    return false;
   }
 
   Future<void> _handleDeviceConflict(dynamic response) async {

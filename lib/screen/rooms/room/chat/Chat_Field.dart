@@ -1,7 +1,9 @@
 import 'package:animate_do/animate_do.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:my_sports_calendar/animation/Send_Button.dart';
 import 'package:my_sports_calendar/provider/room/Room_Provider.dart';
 
+import '../../../../manager/permission/Permission_Manager.dart';
 import '../../../../manager/project/Import_Manager.dart';
 import '../../../../manager/server/Socket_Manager.dart';
 
@@ -101,7 +103,7 @@ class _ChatFieldState extends State<ChatField> {
     }
   }
 
-  // 🔧 **수정: 안전한 이미지 전송 (간단화 및 에러 처리 개선)**
+  // 🔧 **수정: 권한 확인 후 이미지 전송**
   Future<void> _sendImage({bool fromCamera = false}) async {
     if (widget.roomProvider.sendingImage.isNotEmpty) {
       SnackBarManager.showCleanSnackBar(context, '이미지 전송 중 입니다. 잠시만 기다려주세요');
@@ -109,12 +111,40 @@ class _ChatFieldState extends State<ChatField> {
     }
 
     try {
-      // 🔧 **수정: 연결 상태 확인 로직 간소화**
+      // 🔧 **연결 상태 확인**
       if (!_isConnected()) {
         SnackBarManager.showCleanSnackBar(context, '연결 상태를 확인하고 다시 시도해주세요');
         return;
       }
 
+      // 🔧 **권한 확인 및 요청**
+      bool hasPermission;
+      if (fromCamera) {
+        hasPermission = await PermissionManager.ensurePermission(Permission.camera, context);
+      } else {
+        // 갤러리는 플랫폼별로 다른 권한 필요
+        if (Platform.isAndroid) {
+          final deviceInfoPlugin = DeviceInfoPlugin();
+          final info = await deviceInfoPlugin.androidInfo;
+
+          if (info.version.sdkInt < 33) {
+            hasPermission = await PermissionManager.ensurePermission(Permission.storage, context);
+          } else {
+            hasPermission = await PermissionManager.ensurePermission(Permission.photos, context);
+          }
+        } else {
+          hasPermission = await PermissionManager.ensurePermission(Permission.photos, context);
+        }
+      }
+
+      // 권한이 없으면 중단
+      if (!hasPermission) {
+        final permissionName = fromCamera ? '카메라' : '사진';
+        SnackBarManager.showCleanSnackBar(context, '$permissionName 권한이 필요합니다');
+        return;
+      }
+
+      // 권한이 있으면 이미지 전송 실행
       if (fromCamera) {
         await widget.roomProvider.sentImageByCamera();
       } else {
@@ -129,6 +159,8 @@ class _ChatFieldState extends State<ChatField> {
 
         if (e.toString().contains('연결')) {
           errorMessage = '연결이 불안정합니다. 잠시 후 다시 시도해주세요';
+        } else if (e.toString().contains('permission') || e.toString().contains('권한')) {
+          errorMessage = '권한이 필요합니다. 설정에서 권한을 허용해주세요';
         }
 
         SnackBarManager.showCleanSnackBar(context, errorMessage);

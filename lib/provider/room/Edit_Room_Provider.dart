@@ -84,7 +84,7 @@ class EditRoomProvider extends ChangeNotifier{
   late final TextEditingController _tagController;
   TextEditingController get tagController => _tagController;
 
-  setTag(String value){
+  void setTag(String value){
     final val = value.trim();
     if(val.endsWith(',')){
       var tag = val.replaceRange(value.length - 1, null, '').replaceAll('#', '');
@@ -96,7 +96,8 @@ class EditRoomProvider extends ChangeNotifier{
         return;
       }
 
-      _tags.add('#$tag');
+      final formTag = TextFormManager.removeSpace(tag);
+      _tags.add('#$formTag');
       _tagController.text = '#';
       notifyListeners();
     }
@@ -125,8 +126,10 @@ class EditRoomProvider extends ChangeNotifier{
     }
 
     final updateField = await setUpdateField();
+
       if(updateField.keys.isEmpty){
         DialogManager.warningHandler('흠.. 변경할 내용이 없는데요? 🤔');
+        return;
       }
 
      await _startUpdate(updateField);
@@ -215,29 +218,31 @@ class EditRoomProvider extends ChangeNotifier{
   }
 
 
-  Future<void> _startUpdate(updateField) async{
+  Future<void> _startUpdate(Map<String, dynamic> updateField) async{
+    if(updateField.isEmpty) return;
     AppRoute.pushLoading();
-    bool? state;
+    int? state;
     try{
       final isMultipart = updateField.values.any((value) => value is MultipartFile);
       final dataToSend = isMultipart ? FormData.fromMap(updateField) : updateField;
+
+      print(dataToSend);
+
       final res = await serverManager.put('room/update', data: dataToSend);
 
+      state = res.statusCode;
       if(res.statusCode == 200){
         await AppRoute.context?.read<RoomsProvider>().updateRoom(_originRoom['roomId']);
-        state = true;
-      }else if(res.statusCode == 202){
-        state = null;
       }
     }catch(e, stack){
       print(e);
       print(stack);
-      state = false;
+      state = 404;
     }finally{
       AppRoute.popLoading();
-      if(state == null) {
+      if(state == 202) {
         DialogManager.showBasicDialog(title: '동일한 클럽명이 이미 존재해요', content: '같은 지역에서는 같은 이름의 채팅방을 만들 수 없어요.', confirmText: '확인');
-      }else if(state){
+      }else if(state == 200){
         await DialogManager.showBasicDialog(title: '업데이트 성공', content: '해당 내용을 성공적으로 저장했어요', confirmText: '확인');
         AppRoute.context?.pop('update');
       }else{

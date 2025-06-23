@@ -192,7 +192,18 @@ class RoomEdit extends StatelessWidget {
                           return NadalButton( //업데이트한지 7일이 안되면 flase
                               onPressed: (){
                                 if(active){
-                                  DialogManager.showBasicDialog(title: '정말 수정할까요?', content: '클럽 정보는 일주일에 한번만 수정 가능해요', confirmText: '수정하기', cancelText: '취소', onConfirm: (){
+                                  DialogManager.showBasicDialog(title: '정말 수정할까요?', content: '클럽 정보는 일주일에 한번만 수정 가능해요',
+                                      confirmText: '수정하기', cancelText: '취소',
+                                      onConfirm: () async{
+                                    if(TextFormManager.removeSpace(provider.tagController.text.replaceAll('#', '')).isNotEmpty){
+                                      await DialogManager.showBasicDialog(title: '작성중인 태그가 존재해요', content: '작성중인 태그를 등록할까요?',
+                                          confirmText: '네',
+                                          cancelText: '아니오',
+                                          onConfirm: (){
+                                            provider.setTag('${provider.tagController.text},');
+                                          }
+                                     );
+                                    }
                                     provider.updateRoom();
                                   });
                                 }else{

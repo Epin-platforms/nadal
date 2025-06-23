@@ -70,6 +70,11 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
 
   Future<void> _onScheduleTap(Map schedule) async {
     try {
+      if(!context.read<UserProvider>().canSchedule()){ //스케줄 생성이 불가할 경우 다이알로그
+        DialogManager.showBasicDialog(title: '스케줄을 사용할 수 없어요', content: '이용방침 미준수로 스케줄 사용이 제재됩니다', confirmText: '확인');
+        return;
+      }
+
       await context.push('/schedule/${schedule['scheduleId']}');
       if (mounted) {
         final userProvider = context.read<UserProvider>();
@@ -174,6 +179,11 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
                   ),
                   GestureDetector(
                     onTap: () {
+                      if(!context.read<UserProvider>().canSchedule()){ //스케줄 생성이 불가할 경우 다이알로그
+                        DialogManager.showBasicDialog(title: '스케줄을 사용할 수 없어요', content: '이용방침 미준수로 스케줄 사용이 제재됩니다', confirmText: '확인');
+                        return;
+                      }
+
                       context.push('/create/schedule',
                           extra: ScheduleParams(date: _selectedDay));
                     },
@@ -410,6 +420,11 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
                     title: '이 날은 아직 비어 있어요',
                     subtitle: '일정을 하나 추가해볼까요?',
                     onAction: () {
+                      if(!context.read<UserProvider>().canSchedule()){ //스케줄 생성이 불가할 경우 다이알로그
+                        DialogManager.showBasicDialog(title: '스케줄을 사용할 수 없어요', content: '이용방침 미준수로 스케줄 사용이 제재됩니다', confirmText: '확인');
+                        return;
+                      }
+
                       context.push('/create/schedule',
                           extra: ScheduleParams(date: _selectedDay));
                     },

@@ -642,25 +642,28 @@ class _TournamentTeamViewState extends State<TournamentTeamView> {
                 ],
               ),
               SizedBox(height: 4.h),
-              ...members.map((member) => Padding(
-                padding: EdgeInsets.only(left: 8.w, top: 2.h),
-                child: Text(
-                  TextFormManager.profileText(
-                    member['nickName'],
-                    member['name'],
-                    member['birthYear'],
-                    member['gender'],
-                    useNickname: member['useNickname'] == 1,
+              ...members.map((member){
+                print(member);
+                return Padding(
+                  padding: EdgeInsets.only(left: 8.w, top: 2.h),
+                  child: Text(
+                    TextFormManager.profileText(
+                      member['nickName'],
+                      member['name'],
+                      member['birthYear'],
+                      member['gender'],
+                      useNickname: member['name'] == null,
+                    ),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: isByeTeam
+                          ? theme.colorScheme.error.withValues(alpha: 0.7)
+                          : theme.hintColor,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: isByeTeam
-                        ? theme.colorScheme.error.withValues(alpha: 0.7)
-                        : theme.hintColor,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              )),
+                );
+              }),
             ],
           ));
     });

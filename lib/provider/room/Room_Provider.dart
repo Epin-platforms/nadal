@@ -306,34 +306,55 @@ class RoomProvider extends ChangeNotifier {
     }
   }
 
-  // 이미지 선택 (갤러리)
+  // 이미지 선택 (갤러리) - 권한 체크 제거 (상위에서 이미 확인함)
   Future<List<File>> _getImages() async {
     try {
       final List<XFile> images = await _picker.pickMultiImage();
       return images.map((image) => File(image.path)).toList();
     } catch (e) {
       debugPrint('❌ 이미지 선택 오류: $e');
-      return [];
+
+      // 🔧 더 구체적인 에러 처리
+      if (e.toString().contains('photo_access_denied') ||
+          e.toString().contains('camera_access_denied')) {
+        throw Exception('권한이 거부되었습니다');
+      }
+
+      throw Exception('이미지를 선택할 수 없습니다');
     }
   }
 
-  // 이미지 선택 (카메라)
+  // 이미지 선택 (카메라) - 권한 체크 제거 (상위에서 이미 확인함)
   Future<File?> _pickImageFromCamera() async {
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 80, // 🔧 이미지 품질 조정으로 용량 최적화
+      );
       return image != null ? File(image.path) : null;
     } catch (e) {
       debugPrint('❌ 카메라 이미지 선택 오류: $e');
-      return null;
+
+      // 🔧 더 구체적인 에러 처리
+      if (e.toString().contains('camera_access_denied')) {
+        throw Exception('카메라 권한이 거부되었습니다');
+      }
+
+      throw Exception('카메라를 사용할 수 없습니다');
     }
   }
 
   // 이미지 전송 (갤러리)
   Future<void> sendImage() async {
     if (_sendingImage.isNotEmpty) return;
+
     try {
       final images = await _getImages();
-      if (images.isEmpty) return;
+      if (images.isEmpty) {
+        // 🔧 사용자가 선택하지 않은 경우는 에러가 아님
+        debugPrint('사용자가 이미지를 선택하지 않음');
+        return;
+      }
 
       if (images.length > 5) {
         DialogManager.showBasicDialog(
@@ -348,22 +369,28 @@ class RoomProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('❌ 이미지 전송 오류: $e');
       _clearSendingImages();
-      rethrow; // 상위에서 에러 처리하도록
+      rethrow;
     }
   }
+
 
   // 이미지 전송 (카메라)
   Future<void> sentImageByCamera() async {
     if (_sendingImage.isNotEmpty) return;
+
     try {
       final image = await _pickImageFromCamera();
-      if (image == null) return;
+      if (image == null) {
+        // 🔧 사용자가 취소한 경우는 에러가 아님
+        debugPrint('사용자가 카메라 촬영을 취소함');
+        return;
+      }
 
       await _uploadImages([image]);
     } catch (e) {
       debugPrint('❌ 카메라 이미지 전송 오류: $e');
       _clearSendingImages();
-      rethrow; // 상위에서 에러 처리하도록
+      rethrow;
     }
   }
 

@@ -12,6 +12,7 @@ void shareApp(BuildContext context, String uid) {
     title: "함께 나스달에서 경기해요!",
     subTitle: '나스달에서 일정을 만들고 친구와 함께해보세요',
     routing: '/user/$uid',
+    imageUrl: 'https://cdn.imweb.me/upload/S20210504abb03b32eca7b/be92729d7b3bd.png'
   );
 
   if (shareParameter.isValid) {
@@ -62,6 +63,7 @@ void shareSchedule(BuildContext context, int scheduleId, String title){
     title: title,
     subTitle: '지금 일정에 참여해볼까요?',
     routing: '/schedule/$scheduleId', // 정규화됨
+    imageUrl: 'https://cdn.imweb.me/upload/S20210504abb03b32eca7b/bc91c38b12779.png'
   );
 
   _executeShare(context, shareParameter);

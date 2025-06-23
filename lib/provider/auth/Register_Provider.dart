@@ -81,6 +81,11 @@ class RegisterProvider extends ChangeNotifier {
 
   Future<void> resetForm() async{
     print('resetForm 호출');
+    print('🔍 현재 Firebase 사용자 정보:');
+    print('  - Email: ${_auth.currentUser?.email}');
+    print('  - DisplayName: ${_auth.currentUser?.displayName}');
+    print('  - UID: ${_auth.currentUser?.uid}');
+
     _setLoading(true);
 
     try{
@@ -132,6 +137,8 @@ class RegisterProvider extends ChangeNotifier {
 
   Future getUserData() async{
     if(_auth.currentUser != null){
+      await _auth.currentUser!.reload();
+
       final map = {
         'email' : _auth.currentUser!.email ?? '',
         'name' : _auth.currentUser!.displayName ?? '',
@@ -191,25 +198,28 @@ class RegisterProvider extends ChangeNotifier {
       } else if (social == "apple.com") {
         // 🔧 애플 로그인 처리 추가
         try {
-          // 애플의 경우 첫 로그인 시에만 이메일/이름 제공
-          // Firebase Auth에 저장된 정보가 우선이므로 별도 처리 불필요
-          // 하지만 디버그 로그는 추가
-          print('🍎 애플 로그인 - Firebase에서 정보 사용');
+          print('🍎 애플 로그인 - Firebase 정보 확인');
           print('🍎 Firebase Email: ${_auth.currentUser!.email}');
           print('🍎 Firebase DisplayName: ${_auth.currentUser!.displayName}');
+          print('🍎 Firebase UID: ${_auth.currentUser!.uid}');
 
-          // 만약 Firebase에 이메일이 없다면 사용자에게 직접 입력 요청
-          if(_auth.currentUser!.email == null || _auth.currentUser!.email!.isEmpty) {
-            print('⚠️ 애플 로그인: 이메일 정보 없음 - 사용자 입력 필요');
-            map['email'] = ''; // 빈 문자열로 설정하여 이메일 입력 필드 표시
+          // 🔧 displayName이 있으면 name 필드에 적용
+          if(_auth.currentUser!.displayName != null && _auth.currentUser!.displayName!.isNotEmpty) {
+            map['name'] = _auth.currentUser!.displayName!;
+            map['nickName'] = _auth.currentUser!.displayName!;
           }
+
         } catch (e) {
           print('❌ 애플 정보 처리 실패: $e');
         }
       }
 
       // 🔍 디버그 로그 추가
-      print('🔍 최종 이메일: ${map['email']}');
+      print('🔍 최종 사용자 정보:');
+      print('  - Email: ${map['email']}');
+      print('  - Name: ${map['name']}');
+      print('  - NickName: ${map['nickName']}');
+      print('  - VerificationCode: ${map['verificationCode']}');
 
       return map;
     }

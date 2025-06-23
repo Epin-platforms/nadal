@@ -1,4 +1,5 @@
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:my_sports_calendar/provider/notification/Notification_Provider.dart';
 import 'package:my_sports_calendar/provider/room/Room_Provider.dart';
 import 'package:my_sports_calendar/screen/rooms/room/chat/Chat_Field.dart';
 import 'package:my_sports_calendar/screen/rooms/room/chat/Chat_List.dart';
@@ -151,6 +152,7 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
       _handleInitializationError('방 정보를 불러오는데 실패했습니다');
     } finally {
       _setInitializingState(false);
+      context.read<NotificationProvider>().clearRoomNotifications(widget.roomId);
     }
   }
 
@@ -490,7 +492,15 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
                     ),
                   ),
                   SizedBox(height: 10.h),
-                  ChatField(roomProvider: roomProvider),
+                  if(context.read<UserProvider>().canCommunity())
+                  ChatField(roomProvider: roomProvider)
+                  else
+                    SizedBox(
+                      height: 40.h,
+                      child: Center(
+                        child: Text('이용 규칙 미준수로 채팅을 이용할 수 없어요', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Theme.of(context).hintColor),),
+                      ),
+                    )
                 ],
               ),
               if (hasAnnouncement)

@@ -65,43 +65,38 @@ class AppleManager {
 
       print('🍎 Apple 로그인 정보:');
       print('🍎 Apple Email: ${appleCredential.email}');
+      print('🍎 Apple givenName: ${appleCredential.givenName}');
+      print('🍎 Apple familyName: ${appleCredential.familyName}');
       print('🍎 Firebase Email: ${user.email}');
 
-      // 🔧 이메일 우선 업데이트 (애플 계정 이메일 보장)
-      if (appleCredential.email != null &&
-          appleCredential.email!.isNotEmpty &&
-          user.email != appleCredential.email) {
-        try {
-          // 신규 사용자의 경우 updateEmail 사용
-          if (user.metadata.creationTime != null &&
-              user.metadata.lastSignInTime != null &&
-              user.metadata.creationTime!.millisecondsSinceEpoch ==
-                  user.metadata.lastSignInTime!.millisecondsSinceEpoch) {
-            // 첫 로그인인 경우
-            await user.updateEmail(appleCredential.email!);
-            print('✅ 애플 이메일 업데이트 성공: ${appleCredential.email}');
-          }
-        } catch (emailError) {
-          print('이메일 업데이트 실패 (무시): $emailError');
-          // 이메일 업데이트 실패해도 로그인은 계속 진행
-        }
-      }
-
-      // 이름 조합 및 업데이트
+      // 🔧 이름 조합 및 업데이트 (먼저 처리)
       if (appleCredential.givenName != null || appleCredential.familyName != null) {
         final String displayName = '${appleCredential.givenName ?? ''}${appleCredential.familyName ?? ''}'.trim();
-        if (displayName.isNotEmpty && user.displayName != displayName) {
+        if (displayName.isNotEmpty) {
           await user.updateDisplayName(displayName);
           print('✅ 애플 displayName 업데이트 성공: $displayName');
         }
       }
 
-      // 사용자 정보 새로고침
+      // 이메일 업데이트
+      if (appleCredential.email != null && appleCredential.email!.isNotEmpty) {
+        try {
+          await user.updateEmail(appleCredential.email!);
+          print('✅ 애플 이메일 업데이트 성공: ${appleCredential.email}');
+        } catch (emailError) {
+          print('이메일 업데이트 실패 (무시): $emailError');
+        }
+      }
+
+      // 🔧 강제 새로고침
+      await user.reload();
+
+      // 🔧 잠시 대기 후 다시 새로고침
+      await Future.delayed(Duration(milliseconds: 500));
       await user.reload();
 
     } catch (e) {
       print('Apple 사용자 정보 업데이트 실패: $e');
-      // 로그인은 성공했으므로 에러 다이얼로그는 표시하지 않음
     }
   }
 }

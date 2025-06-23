@@ -164,6 +164,12 @@ class ScheduleProvider extends ChangeNotifier {
 
   Future<void> initializeSchedule(int scheduleId) async {
     try {
+      if(AppRoute.context?.read<UserProvider>().canSchedule() == false){ //스케줄 생성이 불가할 경우 다이알로그
+        AppRoute.context!.pop();
+        DialogManager.showBasicDialog(title: '스케줄을 사용할 수 없어요', content: '이용방침 미준수로 스케줄 사용이 제재됩니다', confirmText: '확인');
+        return;
+      }
+
       _setLoading(true);
       _clearError();
       _scheduleId = scheduleId;

@@ -25,6 +25,11 @@ class _RoomScheduleState extends State<RoomSchedule> {
           title: '일정',
           actions: [
             NadalIconButton(icon: BootstrapIcons.calendar2_plus, size: 22, onTap: (){
+              if(!context.read<UserProvider>().canSchedule()){ //스케줄 생성이 불가할 경우 다이알로그
+                DialogManager.showBasicDialog(title: '스케줄을 사용할 수 없어요', content: '이용방침 미준수로 스케줄 사용이 제재됩니다', confirmText: '확인');
+                return;
+              }
+
               final date = provider.selectedDay;
               final roomId = provider.roomId;
               final canUseGenderLimit = context.read<RoomProvider>().room?['useNickname'] == 0;
@@ -72,6 +77,11 @@ class _RoomScheduleState extends State<RoomSchedule> {
                       SizedBox(
                         height: 300,
                         child: NadalEmptyList(title: '이 날은 아직 비어 있어요', subtitle: '일정을 하나 추가해볼까요?', onAction: () async{
+                          if(!context.read<UserProvider>().canSchedule()){ //스케줄 생성이 불가할 경우 다이알로그
+                            DialogManager.showBasicDialog(title: '스케줄을 사용할 수 없어요', content: '이용방침 미준수로 스케줄 사용이 제재됩니다', confirmText: '확인');
+                            return;
+                          }
+
                           final date = provider.selectedDay;
                           final roomId = provider.roomId;
                           final canUseGenderLimit = context.read<RoomProvider>().room?['useNickname'] == 0;
@@ -91,6 +101,11 @@ class _RoomScheduleState extends State<RoomSchedule> {
                           itemBuilder: (context, index){
                             final item = provider.getEventsForDay(provider.selectedDay)[index];
                             return NadalSimpleScheduleList(schedule: item, onTap: () async{
+                              if(!context.read<UserProvider>().canSchedule()){ //스케줄 생성이 불가할 경우 다이알로그
+                                DialogManager.showBasicDialog(title: '스케줄을 사용할 수 없어요', content: '이용방침 미준수로 스케줄 사용이 제재됩니다', confirmText: '확인');
+                                return;
+                              }
+
                               await context.push('/schedule/${item['scheduleId']}');
                               provider.updateSchedule(scheduleId: item['scheduleId']);
                             },);

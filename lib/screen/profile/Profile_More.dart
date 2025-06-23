@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:my_sports_calendar/manager/project/ThemeMode_Manager.dart';
+import '../../manager/permission/Permission_Manager.dart';
 import '../../manager/project/Import_Manager.dart';
 
 class ProfileMore extends StatefulWidget {
@@ -31,6 +32,16 @@ class _ProfileMoreState extends State<ProfileMore> {
       ),
       body: ListView(
         children: [
+          ListTile(
+            leading: Icon(Icons.security, size: 24.r,),
+            title: Text('권한 관리', style: titleStyle,),
+            trailing: Icon(Icons.arrow_forward_ios, size: 18.r),
+            onTap: () {
+              // 설정용 권한 시트 표시
+              PermissionManager.showPermissionSettingsSheet(context);
+            },
+          ),
+          Divider(height: 0.5,),
           ListTile(
             onTap: () async{
               showCupertinoModalPopup(context: context,
@@ -63,7 +74,7 @@ class _ProfileMoreState extends State<ProfileMore> {
                     ]);
                   });
             },
-            leading: Icon(BootstrapIcons.brush, size: 24,),
+            leading: Icon(BootstrapIcons.brush, size: 24.r,),
             title: Text('테마', style: titleStyle),
           ),
           Divider(height: 0.5,),
@@ -85,14 +96,14 @@ class _ProfileMoreState extends State<ProfileMore> {
                     }
                 );
             },
-            leading: Icon(BootstrapIcons.clipboard_data, size: 24,),
+            leading: Icon(BootstrapIcons.clipboard_data, size: 24.r,),
             title: Text('저장공간', style: titleStyle,),
             trailing: Text('사용량: ${appProvider.cacheSize.toStringAsFixed(2)} MB', style: Theme.of(context).textTheme.labelSmall)
           ),
           Divider(height: 0.5,),
           ListTile(
             onTap: ()=> showLicensePage(context: context),
-            leading: Icon(BootstrapIcons.file_earmark_code, size: 24,),
+            leading: Icon(BootstrapIcons.file_earmark_code, size: 24.r,),
             title: Text('오픈소스', style: titleStyle),
           ),
           Divider(),

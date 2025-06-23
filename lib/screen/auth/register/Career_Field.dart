@@ -14,6 +14,7 @@ class CareerField extends StatelessWidget {
       child: Row(
         children: [
           Text('이제 마지막이에요,\n테니스를 시작한 지 얼마나 되셨나요?', style: theme.textTheme.titleLarge,),
+          SizedBox(width: 8.w,),
           Expanded(
             child: GestureDetector(
               onTap: () {
@@ -26,13 +27,18 @@ class CareerField extends StatelessWidget {
                     initialValue: registerProvider.careerDate,
                 )));
               },
-              child: SizedBox(
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: theme.highlightColor, width: 2)
+                ),
+                alignment: Alignment.center,
                 width: 60.w,
-                child: Center(child: Text('${registerProvider.careerDate} 년', style: theme.textTheme.bodyLarge?.copyWith(
+                child: Text('${registerProvider.careerDate} 년', style: theme.textTheme.bodyLarge?.copyWith(
+                    fontSize: 18.sp,
                     color: theme.colorScheme.secondary,
                     fontWeight: FontWeight.w500
                 )),
-              ),
             )
           ))
         ],

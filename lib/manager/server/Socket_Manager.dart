@@ -20,15 +20,25 @@ class SocketManager {
 
 
   // 🔧 연결끊김
+  Timer? _reconnectTimer;
   void setConnected(bool isConnected) {
     if (_isConnected == isConnected) return;
-
-    _isConnected = isConnected;
-
-    if (isConnected) {
-      debugPrint("📱 앱이 소켓과 연결이 종료됨");
-    } else {
+    if (isConnected){
       debugPrint("📱 앱이 소켓과 연결됨");
+      _reconnectTimer?.cancel(); // 이전 타이머 제거
+      _reconnectTimer = Timer(const Duration(milliseconds: 300), () {
+        debugPrint("📱 소켓 연결 체크");
+        if (socket?.disconnected ?? true) {
+          debugPrint("📱 연결이 끊겨있어 다시 연결합니다");
+          connect();
+        }else{
+          debugPrint("📱 소켓이 연결되어있습니다");
+        }
+      });
+    } else {
+      _isConnected = isConnected; //
+      _reconnectTimer?.cancel(); // 끊길 때도 타이머 정리
+      debugPrint("📱 앱이 소켓과 연결이 종료됨");
     }
   }
 
@@ -77,7 +87,7 @@ class SocketManager {
       // 연결 시작
       socket?.connect();
       debugPrint("🔗 소켓 연결 시도: ${dotenv.get('SOCKET_URL')}");
-
+      _isConnected = true;
     } catch (e) {
       debugPrint("❌ 소켓 연결 초기화 오류: $e");
       _isConnecting = false;
