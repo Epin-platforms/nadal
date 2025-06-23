@@ -342,6 +342,7 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   // 🔧 FCM 초기화 (간소화된 안정적 버전)
+  // 🔧 FCM 초기화 (중복 알림 방지 개선)
   Future<void> _initializeFCM() async {
     try {
       _messaging = FirebaseMessaging.instance;
@@ -360,14 +361,20 @@ class NotificationProvider extends ChangeNotifier {
         return;
       }
 
-      // 🔥 간소화된 iOS 설정 (모든 상태에서 FCM 시스템 알림 사용)
+      // 🔥 플랫폼별 설정 개선
       if (Platform.isIOS) {
+        // 🔥 iOS: 포그라운드에서 FCM 시스템 알림 비활성화 (중복 방지)
         await _messaging!.setForegroundNotificationPresentationOptions(
-          alert: true,    // ✅ 모든 상태에서 알림 표시
-          badge: true,    // 배지 활성화
-          sound: true,    // 소리 활성화
+          alert: false,   // 🔥 포그라운드에서 FCM 시스템 알림 비활성화
+          badge: true,    // 배지만 활성화
+          sound: false,   // 포그라운드에서 FCM 소리 비활성화
         );
-        debugPrint('✅ iOS FCM 설정 완료 (모든 상태에서 시스템 알림 사용)');
+        debugPrint('✅ iOS FCM 설정 완료 (포그라운드 중복 알림 방지)');
+      }
+
+      if (Platform.isAndroid) {
+        // 🔥 Android: 포그라운드에서는 로컬 알림만 사용
+        debugPrint('✅ Android FCM 설정 완료 (로컬 알림 우선 사용)');
       }
 
       // 토큰 및 리스너 설정
@@ -439,6 +446,7 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   // 🔧 포그라운드 메시지 처리 (백그라운드 상태 고려 수정) : 안드로이드에서 출력
+  // 🔧 포그라운드 메시지 처리 (수정된 버전)
   void _handleForegroundMessage(RemoteMessage message) {
     try {
       final data = message.data;
@@ -448,7 +456,7 @@ class NotificationProvider extends ChangeNotifier {
 
       _updateBadgeSafely(data);
 
-      // 🔧 Room 알림 추적 (FCM 알림이지만 추적은 필요)
+      // 🔧 Room 알림 추적
       _trackRoomNotificationIfNeeded(data);
 
       // 🔥 핵심 수정: 백그라운드 상태 체크
@@ -457,20 +465,79 @@ class NotificationProvider extends ChangeNotifier {
 
       if (isBackground) {
         // 🔥 백그라운드 상태면 무조건 알림 표시
-        debugPrint('🌙 백그라운드 상태 - 무조건 FCM 시스템 알림 표시');
+        debugPrint('🌙 백그라운드 상태 - 로컬 알림 표시');
         _showBackgroundNotificationSafely(data);
-        return; // FCM이 자동으로 시스템 알림을 표시함
-      }
-
-      // 🔥 포그라운드 상태에서만 중복 체크
-      if (!_shouldShowForegroundNotification(data)) {
-        debugPrint('🚫 포그라운드 상태 - 현재 화면과 동일한 알림이므로 표시하지 않음');
         return;
       }
 
-      _showBackgroundNotificationSafely(data);
+      // 🔥 포그라운드 상태에서 중복 체크
+      if (!_shouldShowForegroundNotification(data)) {
+        debugPrint('🚫 포그라운드 상태 - 현재 화면과 동일한 알림이므로 표시하지 않음');
+        return; // 🔥 여기서 return하여 알림 표시 안함
+      }
+
+      // 🔥 포그라운드에서 다른 화면일 때만 알림 표시
+      debugPrint('✅ 포그라운드 상태 - 다른 화면이므로 알림 표시');
+      _showLocalNotificationOnly(data); // 🔥 로컬 알림만 표시
     } catch (e) {
       debugPrint('❌ 포그라운드 메시지 처리 오류: $e');
+    }
+  }
+
+// 🔧 로컬 알림만 표시하는 새로운 메서드 (FCM 시스템 알림과 중복 방지)
+  Future<void> _showLocalNotificationOnly(Map<String, dynamic> data) async {
+    try {
+      final routing = data['routing'];
+      final bool alarm = data['alarm'] == '1';
+      final int? badge = data['badge'] == null ? null : (data['badge'] is String) ? int.parse(data['badge']) : null;
+
+      //묶이는 단위 지정
+      final type = data['type'];
+      final thread = type == 'chat' ? 'nadal_room_${data['roomId'] ?? ''}' : type == 'general' ? 'nadal_general' : 'nadal_schedule_${data['scheduleId'] ?? ''}';
+
+      final androidDetails = AndroidNotificationDetails(
+          NotificationConstants.channelId,
+          NotificationConstants.channelName,
+          channelDescription: NotificationConstants.channelDesc,
+          importance: Importance.high,
+          priority: Priority.high,
+          icon: NotificationConstants.androidIcon,
+          color: NotificationConstants.notificationColor,
+          autoCancel: true,
+          playSound: alarm,
+          enableVibration: alarm,
+          tag: thread
+      );
+
+      final iosDetails = DarwinNotificationDetails(
+        presentAlert: alarm,
+        presentBadge: true,
+        presentSound: alarm,
+        badgeNumber: badge,
+        interruptionLevel: InterruptionLevel.active,
+        categoryIdentifier: 'nadal_notification',
+        threadIdentifier: thread,
+      );
+
+      final details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+
+      final id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+      if(data['title'] != null){
+        await _localNotifications.show(
+          id,
+          data['title'],
+          data['body'],
+          details,
+          payload: jsonEncode(data),
+        );
+        debugPrint('✅ 로컬 알림만 표시 완료');
+      }
+    } catch (e) {
+      debugPrint('❌ 로컬 알림 표시 오류: $e');
     }
   }
 
@@ -501,24 +568,43 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   // 🔧 포그라운드에서만 사용되는 중복 방지 체크 (백그라운드는 항상 true)
+  // 🔧 포그라운드에서만 사용되는 중복 방지 체크 (개선된 버전)
   bool _shouldShowForegroundNotification(Map<String, dynamic> data) {
     try {
       final context = AppRoute.context;
-      if (context == null) return true;
+      if (context == null) {
+        debugPrint('⚠️ Context가 null - 알림 표시');
+        return true;
+      }
 
       final router = GoRouter.of(context);
       final currentUri = router.state.uri.toString();
       final routing = data['routing'] as String?;
 
-      if (routing?.isEmpty != false) return true;
+      debugPrint('📍 현재 경로: $currentUri');
+      debugPrint('📍 알림 경로: $routing');
+
+      if (routing?.isEmpty != false) {
+        debugPrint('✅ 라우팅 정보 없음 - 알림 표시');
+        return true;
+      }
+
+      // 🔥 정확한 경로 비교
+      if (currentUri == routing) {
+        debugPrint('🚫 완전히 동일한 경로 - 알림 숨김');
+        return false;
+      }
 
       // 채팅방 체크 (같은 방에 있으면 알림 숨김)
       if (routing!.contains('/room/') && currentUri.contains('/room/')) {
         final routingRoomId = _extractIdSafely(routing, r'/room/(\d+)');
         final currentRoomId = _extractIdSafely(currentUri, r'/room/(\d+)');
-        if (routingRoomId == currentRoomId) {
-          debugPrint('🏠 동일한 방($routingRoomId)에 있음 - 포그라운드에서 알림 숨김');
-          return false; // 같은 방이면 알림 숨김
+
+        debugPrint('🏠 채팅방 비교 - 알림: $routingRoomId, 현재: $currentRoomId');
+
+        if (routingRoomId != null && currentRoomId != null && routingRoomId == currentRoomId) {
+          debugPrint('🚫 동일한 방($routingRoomId)에 있음 - 포그라운드에서 알림 숨김');
+          return false;
         }
       }
 
@@ -526,16 +612,20 @@ class NotificationProvider extends ChangeNotifier {
       if (routing.contains('/schedule/') && currentUri.contains('/schedule/')) {
         final routingScheduleId = _extractIdSafely(routing, r'/schedule/(\d+)');
         final currentScheduleId = _extractIdSafely(currentUri, r'/schedule/(\d+)');
-        if (routingScheduleId == currentScheduleId) {
-          debugPrint('📅 동일한 스케줄($routingScheduleId)에 있음 - 포그라운드에서 알림 숨김');
-          return false; // 같은 스케줄이면 알림 숨김
+
+        debugPrint('📅 스케줄 비교 - 알림: $routingScheduleId, 현재: $currentScheduleId');
+
+        if (routingScheduleId != null && currentScheduleId != null && routingScheduleId == currentScheduleId) {
+          debugPrint('🚫 동일한 스케줄($routingScheduleId)에 있음 - 포그라운드에서 알림 숨김');
+          return false;
         }
       }
 
+      debugPrint('✅ 다른 화면이므로 알림 표시');
       return true; // 다른 화면이면 알림 표시
     } catch (e) {
       debugPrint('❌ 알림 표시 여부 판단 오류: $e');
-      return true;
+      return true; // 오류 시 알림 표시
     }
   }
 
