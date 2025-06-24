@@ -6,8 +6,6 @@ import 'package:my_sports_calendar/model/app/Notifications_Model.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:app_badge_plus/app_badge_plus.dart';
 
-import '../../manager/server/Socket_Manager.dart';
-
 // 🔧 알림 상수 (경량화)
 class NotificationConstants {
   static const String channelId = 'epin.nadal.chat.channel';
@@ -58,7 +56,7 @@ class NotificationGroupManager {
   }
 }
 
-// 🔧 알림 추적 관리 클래스
+// 🔧 알림 추적 관리 클래스 (기존 구조 유지하되 내부 로직 개선)
 class NotificationTracker {
   static final Map<String, Set<int>> _groupNotifications = {};
 
@@ -74,147 +72,16 @@ class NotificationTracker {
     return _groupNotifications[groupTag] ?? <int>{};
   }
 
-  // 그룹 알림 정리
+  // 특정 그룹 정리
   static void clearGroup(String groupTag) {
-    final removed = _groupNotifications.remove(groupTag);
-    if (removed != null) {
-      debugPrint('🗑️ 알림 추적 그룹 제거: $groupTag (${removed.length}개)');
-    }
+    _groupNotifications.remove(groupTag);
+    debugPrint('🗑️ 그룹 추적 정리: $groupTag');
   }
 
-  // 전체 정리
+  // 모든 추적 데이터 정리
   static void clearAll() {
     _groupNotifications.clear();
-    debugPrint('🗑️ 모든 알림 추적 정리');
-  }
-}
-
-// 🔧 글로벌 인스턴스 (메모리 효율성)
-final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
-
-// 🔧 백그라운드 메시지 핸들러 (일관성 개선)
-@pragma('vm:entry-point')
-Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  try {
-    debugPrint('🔔 백그라운드 메시지: ${message.messageId}');
-
-    final data = message.data;
-    if (data.isEmpty) return;
-
-    await Future.wait([
-      _updateBadgeSafely(data),
-      _showConsistentNotification(data, isBackground: true)
-    ]);
-
-  } catch (e) {
-    debugPrint('❌ 백그라운드 핸들러 오류: $e');
-  }
-}
-
-// 🔧 안전한 배지 업데이트
-Future<void> _updateBadgeSafely(Map<String, dynamic> data) async {
-  try {
-    final badgeStr = data['badge'] as String?;
-
-    if(data['type'] != 'chat'){
-      try{
-        final context = AppRoute.context;
-        if(context != null){
-          context.read<NotificationProvider>().initialize();
-        }
-      }catch(e){
-        debugPrint('노티피케이션 리셋 실패:$e');
-      }
-    }
-
-    if (badgeStr?.isNotEmpty == true) {
-      final count = int.tryParse(badgeStr!) ?? 0;
-      if (count >= 0) {
-        await AppBadgePlus.updateBadge(count);
-      }
-    }
-  } catch (e) {
-    debugPrint('❌ 배지 업데이트 오류: $e');
-  }
-}
-
-// 🔧 일관된 알림 표시 함수 (FCM과 로컬 알림 통합)
-Future<void> _showConsistentNotification(Map<String, dynamic> data, {bool isBackground = false}) async {
-  try {
-    final routing = data['routing'];
-
-    // 🔧 라우팅 중복 체크 (백그라운드에서만)
-    if (isBackground && routing != null) {
-      try {
-        final router = AppRoute.router;
-        if (router.canPop() || router.state != null) {
-          final currentUri = router.state.uri.toString();
-          if (routing == currentUri) {
-            debugPrint('🚫 현재 화면과 동일한 알림이므로 숨김: $routing');
-            return;
-          }
-        }
-      } catch (e) {
-        debugPrint('⚠️ 라우터 접근 실패 (정상적): $e');
-      }
-    }
-
-    final bool alarm = data['alarm'] == '1';
-    final int? badge = data['badge'] == null ? null : (data['badge'] is String) ? int.parse(data['badge']) : null;
-
-    // 🔧 일관된 그룹 정보 사용
-    final type = data['type'];
-    final groupInfo = NotificationGroupManager.getGroupInfo(type, data);
-    final notificationId = NotificationGroupManager.generateNotificationId(data);
-
-    // 🔧 알림 추적 (FCM과 로컬 알림 모두)
-    NotificationTracker.trackNotification(groupInfo['tag']!, notificationId);
-
-    final androidDetails = AndroidNotificationDetails(
-      NotificationConstants.channelId,
-      NotificationConstants.channelName,
-      channelDescription: NotificationConstants.channelDesc,
-      importance: Importance.high,
-      priority: Priority.high,
-      icon: NotificationConstants.androidIcon,
-      color: NotificationConstants.notificationColor,
-      autoCancel: true,
-      playSound: alarm,
-      enableVibration: alarm,
-      // 🔧 일관된 그룹화 정보
-      tag: groupInfo['tag'],
-      groupKey: groupInfo['groupKey'],
-      setAsGroupSummary: false,
-    );
-
-    final iosDetails = DarwinNotificationDetails(
-      presentAlert: alarm,
-      presentBadge: true,
-      presentSound: alarm,
-      badgeNumber: badge,
-      interruptionLevel: InterruptionLevel.active,
-      categoryIdentifier: 'nadal_notification',
-      threadIdentifier: groupInfo['tag'], // Android와 동일한 식별자
-    );
-
-    final details = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    if(data['title'] != null){
-      await _localNotifications.show(
-        notificationId, // 🔧 일관된 ID 사용
-        data['title'],
-        data['body'],
-        details,
-        payload: jsonEncode(data),
-      );
-
-      debugPrint('✅ 일관된 알림 표시 완료: ID=$notificationId, Tag=${groupInfo['tag']}');
-    }
-  } catch (e) {
-    debugPrint('❌ 일관된 알림 표시 오류: $e');
+    debugPrint('🗑️ 모든 알림 추적 데이터 정리');
   }
 }
 
@@ -228,6 +95,21 @@ void notificationTapBackgroundHandler(NotificationResponse response) {
     }
   } catch (e) {
     debugPrint('❌ 백그라운드 터치 오류: $e');
+  }
+}
+
+// 🔧 백그라운드 메시지 핸들러 (수정: 로컬 알림 생성 안함)
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  debugPrint('📳 백그라운드 FCM 수신: ${message.data}');
+
+  // 🔧 백그라운드에서는 FCM 자체 알림만 사용 (로컬 알림 생성 안함)
+  try {
+    if (message.data.isNotEmpty) {
+      debugPrint('✅ 백그라운드 메시지 데이터 처리 완료');
+    }
+  } catch (e) {
+    debugPrint('❌ 백그라운드 메시지 처리 오류: $e');
   }
 }
 
@@ -270,37 +152,36 @@ Future<void> _navigateToRouteSafely(BuildContext context, String routing) async 
   }
 }
 
-// 🔧 메인 알림 프로바이더 (일관성 개선)
-class NotificationProvider extends ChangeNotifier {
+// 🔧 메인 알림 프로바이더 (기존 구조 유지)
+class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<NotificationModel>? _notifications;
   bool _isLoading = false;
   bool _isInitialized = false;
   String? _fcmToken;
+  AppLifecycleState _appLifecycleState = AppLifecycleState.resumed;
 
   final Set<int> _pendingReadIds = <int>{};
+  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
 
   FirebaseMessaging? _messaging;
 
-  // Getters
+  // Getters (기존 유지)
   List<NotificationModel>? get notifications => _notifications;
   bool get isLoading => _isLoading;
   bool get isInitialized => _isInitialized;
 
-  bool get _isAppInBackground {
-    try {
-      return !SocketManager.instance.isConnected;
-    } catch (e) {
-      debugPrint('❌ 앱 상태 체크 오류: $e');
-      return false;
-    }
-  }
+  // 🔧 정확한 앱 상태 판단
+  bool get isAppInBackground => _appLifecycleState != AppLifecycleState.resumed;
 
-  // 🔧 안전한 초기화
+  // 🔧 안전한 초기화 (기존 함수명 유지)
   Future<void> initialize() async {
     if (_isInitialized) return;
 
     try {
       debugPrint('🚀 일관된 알림 시스템 초기화 시작');
+
+      // 🔧 앱 라이프사이클 관찰자 등록
+      WidgetsBinding.instance.addObserver(this);
 
       await _initializeLocalNotifications();
       await _initializeFCM();
@@ -314,7 +195,31 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 🔧 로컬 알림 초기화
+  // 🔧 앱 라이프사이클 변화 감지
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    _appLifecycleState = state;
+
+    switch (state) {
+      case AppLifecycleState.resumed:
+        debugPrint('📱 앱이 포그라운드로 전환됨');
+        break;
+      case AppLifecycleState.paused:
+        debugPrint('📱 앱이 백그라운드로 전환됨');
+        break;
+      case AppLifecycleState.detached:
+        debugPrint('📱 앱이 종료됨');
+        break;
+      case AppLifecycleState.inactive:
+        debugPrint('📱 앱이 비활성 상태');
+        break;
+      default : debugPrint('📱 상태: $state');
+      break;
+    }
+  }
+
+  // 🔧 로컬 알림 초기화 (기존 함수명 유지)
   Future<void> _initializeLocalNotifications() async {
     try {
       const androidSettings = AndroidInitializationSettings(
@@ -361,7 +266,7 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 🔧 Android 채널 생성
+  // 🔧 Android 채널 생성 (기존 함수명 유지)
   Future<void> _createAndroidNotificationChannels() async {
     try {
       const channel = AndroidNotificationChannel(
@@ -382,7 +287,7 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 🔧 iOS 권한 요청
+  // 🔧 iOS 권한 요청 (기존 함수명 유지)
   Future<void> _requestIOSPermissions() async {
     try {
       await _localNotifications
@@ -397,7 +302,7 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 🔧 FCM 초기화
+  // 🔧 FCM 초기화 (기존 함수명 유지, 내부 로직만 수정)
   Future<void> _initializeFCM() async {
     try {
       _messaging = FirebaseMessaging.instance;
@@ -416,12 +321,13 @@ class NotificationProvider extends ChangeNotifier {
       }
 
       if (Platform.isIOS) {
+        // 🔧 수정: iOS 포그라운드 알림 표시 활성화
         await _messaging!.setForegroundNotificationPresentationOptions(
-          alert: false,
+          alert: true,  // 수정: false -> true
           badge: true,
-          sound: false,
+          sound: true,
         );
-        debugPrint('✅ iOS FCM 설정 완료 (포그라운드 중복 알림 방지)');
+        debugPrint('✅ iOS FCM 설정 완료 (포그라운드 알림 활성화)');
       }
 
       await Future.wait([
@@ -437,7 +343,7 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 🔧 FCM 토큰 설정
+  // 🔧 FCM 토큰 설정 (기존 함수명 유지)
   Future<void> _setupFCMToken() async {
     try {
       final token = await _messaging?.getToken();
@@ -446,144 +352,111 @@ class NotificationProvider extends ChangeNotifier {
         await _saveTokenToServerSafely(token!);
       }
 
-      _messaging?.onTokenRefresh.listen((newToken) async {
-        if (newToken.isNotEmpty && newToken != _fcmToken) {
+      _messaging?.onTokenRefresh.listen((newToken) {
+        if (newToken != _fcmToken) {
           _fcmToken = newToken;
-          await _saveTokenToServerSafely(newToken);
+          _saveTokenToServerSafely(newToken);
         }
-      }).onError((error) {
-        debugPrint('❌ 토큰 갱신 오류: $error');
       });
+
+      debugPrint('✅ FCM 토큰 설정 완료');
     } catch (e) {
       debugPrint('❌ FCM 토큰 설정 오류: $e');
     }
   }
 
-  // 🔧 메시지 리스너 설정
+  // 🔧 메시지 리스너 설정 (기존 함수명 유지, 내부 로직 수정)
   Future<void> _setupMessageListeners() async {
     try {
-      FirebaseMessaging.onMessage.listen((message) {
-        debugPrint('📱 포그라운드 메시지: ${message.messageId}');
+      // 포그라운드 메시지 리스너
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        debugPrint('📨 포그라운드 FCM 수신: ${message.data}');
         _handleForegroundMessage(message);
-      }).onError((error) {
-        debugPrint('❌ 포그라운드 메시지 오류: $error');
       });
 
-      FirebaseMessaging.onMessageOpenedApp.listen((message) {
-        debugPrint('📱 앱 실행 중 알림 탭: ${message.messageId}');
+      // 백그라운드에서 알림 탭 리스너
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        debugPrint('📱 백그라운드 알림 탭: ${message.data}');
         _handleNotificationTapSafely(message.data);
-      }).onError((error) {
-        debugPrint('❌ 알림 탭 처리 오류: $error');
       });
 
+      // 앱이 종료된 상태에서 알림으로 앱 열기
       final initialMessage = await _messaging?.getInitialMessage();
       if (initialMessage != null) {
-        debugPrint('📱 초기 메시지: ${initialMessage.messageId}');
-        Future.microtask(() => _handleNotificationTapSafely(initialMessage.data));
+        debugPrint('🚀 종료 상태에서 알림으로 앱 시작: ${initialMessage.data}');
+        Future.delayed(const Duration(seconds: 2), () {
+          _handleNotificationTapSafely(initialMessage.data);
+        });
       }
+
+      debugPrint('✅ FCM 메시지 리스너 설정 완료');
     } catch (e) {
       debugPrint('❌ 메시지 리스너 설정 오류: $e');
     }
   }
 
-  // 🔧 포그라운드 메시지 처리 (일관성 개선)
+  // 🔧 포그라운드 메시지 처리 (기존 함수명 유지, 내부 로직 개선)
   void _handleForegroundMessage(RemoteMessage message) {
     try {
       final data = message.data;
-      if (data.isEmpty) return;
+      final routing = data['routing'] ?? '';
 
-      debugPrint('📱 포그라운드 메시지 수신');
+      // 현재 라우트 확인
+      final context = AppRoute.context;
+      if (context?.mounted != true) return;
 
-      _updateBadgeSafely(data);
+      final currentRoute = GoRouter.of(context!).state.uri.toString();
 
-      final isBackground = _isAppInBackground;
-      debugPrint('📱 앱 상태: ${isBackground ? "백그라운드" : "포그라운드"}');
+      debugPrint('🔄 포그라운드 알림 처리 - 현재: $currentRoute, 대상: $routing');
 
-      if (isBackground) {
-        debugPrint('🌙 백그라운드 상태 - 알림 표시');
-        _showConsistentNotification(data, isBackground: true);
-        return;
+      // 🔧 수정: 더 정확한 라우트 비교 로직
+      final shouldShowNotification = _shouldShowForegroundNotification(currentRoute, routing);
+
+      if (shouldShowNotification) {
+        debugPrint('✅ 포그라운드에서 로컬 알림 표시');
+        showConsistentNotification(data);
+      } else {
+        debugPrint('⏭️ 포그라운드 알림 건너뛰기 (같은 화면)');
       }
 
-      if (!_shouldShowForegroundNotification(data)) {
-        debugPrint('🚫 포그라운드 상태 - 현재 화면과 동일한 알림이므로 표시하지 않음');
-        return;
-      }
-
-      debugPrint('✅ 포그라운드 상태 - 다른 화면이므로 알림 표시');
-      _showConsistentNotification(data, isBackground: false);
     } catch (e) {
       debugPrint('❌ 포그라운드 메시지 처리 오류: $e');
     }
   }
 
-  // 🔧 포그라운드 알림 표시 여부 판단
-  bool _shouldShowForegroundNotification(Map<String, dynamic> data) {
+  // 🔧 새로 추가: 포그라운드 알림 표시 판단 로직
+  bool _shouldShowForegroundNotification(String currentRoute, String targetRoute) {
+    // 빈 라우팅인 경우 항상 표시
+    if (targetRoute.isEmpty) return true;
+
+    // 정확히 같은 라우트인 경우 표시 안함
+    if (currentRoute == targetRoute) return false;
+
+    // 채팅방 관련 특별 처리
+    if (targetRoute.startsWith('/room/') && currentRoute.startsWith('/room/')) {
+      return currentRoute != targetRoute;
+    }
+
+    // 스케줄 관련 특별 처리
+    if (targetRoute.startsWith('/schedule/') && currentRoute.startsWith('/schedule/')) {
+      return currentRoute != targetRoute;
+    }
+
+    // 그 외의 경우 모두 표시
+    return true;
+  }
+
+  // 🔧 안전한 토큰 저장 (기존 함수명 유지)
+  Future<void> _saveTokenToServerSafely(String token) async {
     try {
-      final context = AppRoute.context;
-      if (context == null) {
-        debugPrint('⚠️ Context가 null - 알림 표시');
-        return true;
-      }
-
-      final router = GoRouter.of(context);
-      final currentUri = router.state.uri.toString();
-      final routing = data['routing'] as String?;
-
-      debugPrint('📍 현재 경로: $currentUri');
-      debugPrint('📍 알림 경로: $routing');
-
-      if (routing?.isEmpty != false) {
-        debugPrint('✅ 라우팅 정보 없음 - 알림 표시');
-        return true;
-      }
-
-      if (currentUri == routing) {
-        debugPrint('🚫 완전히 동일한 경로 - 알림 숨김');
-        return false;
-      }
-
-      // 채팅방 체크
-      if (routing!.contains('/room/') && currentUri.contains('/room/')) {
-        final routingRoomId = _extractIdSafely(routing, r'/room/(\d+)');
-        final currentRoomId = _extractIdSafely(currentUri, r'/room/(\d+)');
-
-        if (routingRoomId != null && currentRoomId != null && routingRoomId == currentRoomId) {
-          debugPrint('🚫 동일한 방($routingRoomId)에 있음 - 알림 숨김');
-          return false;
-        }
-      }
-
-      // 스케줄 체크
-      if (routing.contains('/schedule/') && currentUri.contains('/schedule/')) {
-        final routingScheduleId = _extractIdSafely(routing, r'/schedule/(\d+)');
-        final currentScheduleId = _extractIdSafely(currentUri, r'/schedule/(\d+)');
-
-        if (routingScheduleId != null && currentScheduleId != null && routingScheduleId == currentScheduleId) {
-          debugPrint('🚫 동일한 스케줄($routingScheduleId)에 있음 - 알림 숨김');
-          return false;
-        }
-      }
-
-      debugPrint('✅ 다른 화면이므로 알림 표시');
-      return true;
+      await serverManager.post('notification/fcmToken', data: {'fcmToken': token});
+      debugPrint('✅ FCM 토큰 서버 저장 성공');
     } catch (e) {
-      debugPrint('❌ 알림 표시 여부 판단 오류: $e');
-      return true;
+      debugPrint('❌ FCM 토큰 서버 저장 실패: $e');
     }
   }
 
-  // 🔧 안전한 ID 추출
-  String? _extractIdSafely(String path, String pattern) {
-    try {
-      final match = RegExp(pattern).firstMatch(path);
-      return match?.group(1);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  // 🔧 로컬 알림 터치 처리
+  // 🔧 로컬 알림 터치 핸들러 (기존 함수명 유지)
   void _handleLocalNotificationTap(NotificationResponse response) {
     try {
       if (response.payload?.isNotEmpty == true) {
@@ -595,22 +468,127 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 🔧 안전한 토큰 서버 저장
-  Future<void> _saveTokenToServerSafely(String token) async {
+  // 🔧 새로 추가: 안드로이드 그룹 요약 알림 생성
+  Future<void> _createGroupSummaryNotification(String groupKey, String groupTag, int count) async {
+    if (!Platform.isAndroid) return;
+
     try {
-      await serverManager.post('notification/fcmToken', data: {'fcmToken': token});
-      debugPrint('✅ FCM 토큰 저장 완료');
+      final androidDetails = AndroidNotificationDetails(
+        NotificationConstants.channelId,
+        NotificationConstants.channelName,
+        channelDescription: NotificationConstants.channelDesc,
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: NotificationConstants.androidIcon,
+        color: NotificationConstants.notificationColor,
+        autoCancel: true,
+        groupKey: groupKey,
+        setAsGroupSummary: true, // 그룹 요약으로 설정
+        styleInformation: InboxStyleInformation(
+          [],
+          contentTitle: '새 메시지 $count개',
+          summaryText: 'Nadal',
+        ),
+      );
+
+      final details = NotificationDetails(android: androidDetails);
+      final summaryId = groupTag.hashCode.abs();
+
+      await _localNotifications.show(
+        summaryId,
+        '새 알림',
+        '$count개의 새 알림이 있습니다',
+        details,
+      );
+
+      debugPrint('✅ 안드로이드 그룹 요약 알림 생성: $groupKey ($count개)');
     } catch (e) {
-      debugPrint('❌ FCM 토큰 저장 오류: $e');
+      debugPrint('❌ 그룹 요약 알림 생성 오류: $e');
     }
   }
 
-  // 🔧 알림 데이터 로드
+  // 🔧 일관된 알림 표시 (기존 함수명 유지, 내부 로직 개선)
+  Future<void> showConsistentNotification(Map<String, dynamic> data) async {
+    try {
+      final alarm = data['alarm'] == '1';
+      int? badge = data['badge'] == null ? null :
+      (data['badge'] is String) ? int.parse(data['badge']) : null;
+
+      // 🔧 일관된 그룹 정보 사용
+      final type = data['type'];
+      final groupInfo = NotificationGroupManager.getGroupInfo(type, data);
+      final notificationId = NotificationGroupManager.generateNotificationId(data);
+
+      // 🔧 알림 추적 (FCM과 로컬 알림 모두)
+      NotificationTracker.trackNotification(groupInfo['tag']!, notificationId);
+
+      final androidDetails = AndroidNotificationDetails(
+        NotificationConstants.channelId,
+        NotificationConstants.channelName,
+        channelDescription: NotificationConstants.channelDesc,
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: NotificationConstants.androidIcon,
+        color: NotificationConstants.notificationColor,
+        autoCancel: true,
+        playSound: alarm,
+        enableVibration: alarm,
+        // 🔧 일관된 그룹화 정보
+        tag: groupInfo['tag'],
+        groupKey: groupInfo['groupKey'],
+        setAsGroupSummary: false,
+      );
+
+      final iosDetails = DarwinNotificationDetails(
+        presentAlert: alarm,
+        presentBadge: true,
+        presentSound: alarm,
+        badgeNumber: badge,
+        interruptionLevel: InterruptionLevel.active,
+        categoryIdentifier: 'nadal_notification',
+        threadIdentifier: groupInfo['tag'], // Android와 동일한 식별자
+      );
+
+      final details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+
+      if(data['title'] != null){
+        await _localNotifications.show(
+          notificationId, // 🔧 일관된 ID 사용
+          data['title'],
+          data['body'],
+          details,
+          payload: jsonEncode(data),
+        );
+
+        // 🔧 새로 추가: 안드로이드 그룹화를 위한 요약 알림 생성
+        if (Platform.isAndroid) {
+          final groupNotifications = NotificationTracker.getGroupNotifications(groupInfo['tag']!);
+          if (groupNotifications.length > 1) {
+            await _createGroupSummaryNotification(
+                groupInfo['groupKey']!,
+                groupInfo['tag']!,
+                groupNotifications.length
+            );
+          }
+        }
+
+        debugPrint('✅ 일관된 알림 표시 완료: ID=$notificationId, Tag=${groupInfo['tag']}');
+      }
+    } catch (e) {
+      debugPrint('❌ 일관된 알림 표시 오류: $e');
+    }
+  }
+
+  // 🔧 알림 데이터 로드 (기존 함수명 유지)
   Future<void> _loadNotificationsData() async {
     if (_isLoading) return;
 
     try {
       _isLoading = true;
+      notifyListeners();
 
       final res = await serverManager.get('notification');
       if (res.statusCode == 200 && res.data != null) {
@@ -618,97 +596,140 @@ class NotificationProvider extends ChangeNotifier {
         _notifications = data
             .map((e) => NotificationModel.fromJson(json: e))
             .toList();
-
-        await _processPendingReads();
       }
-    } catch (e) {
-      debugPrint('❌ 알림 데이터 로드 오류: $e');
-    } finally {
+
       _isLoading = false;
       notifyListeners();
-    }
-  }
-
-  // 🔧 대기 중인 읽음 처리
-  Future<void> _processPendingReads() async {
-    if (_pendingReadIds.isEmpty) return;
-
-    final pendingIds = List<int>.from(_pendingReadIds);
-    _pendingReadIds.clear();
-
-    for (final id in pendingIds) {
-      await _markAsReadSafely(id);
-    }
-  }
-
-  // 🔧 Push에서 읽음 처리
-  Future<void> markNotificationAsReadFromPush(int notificationId) async {
-    if (_notifications != null) {
-      await _markAsReadSafely(notificationId);
+      debugPrint('✅ 알림 데이터 로드 완료: ${_notifications?.length ?? 0}개');
+    } catch (e) {
+      _isLoading = false;
       notifyListeners();
-    } else {
-      _pendingReadIds.add(notificationId);
+      debugPrint('❌ 알림 데이터 로드 오류: $e');
     }
   }
 
-  // 🔧 안전한 읽음 처리
-  Future<void> _markAsReadSafely(int notificationId) async {
-    if (_notifications == null) return;
-
+  // 🔧 그룹 알림 제거 (기존 함수명 유지, 내부 로직 개선)
+  Future<void> clearGroupNotifications(String type, String identifier) async {
     try {
-      final index = _notifications!.indexWhere((e) => e.notificationId == notificationId);
-      if (index != -1 && !_notifications![index].isRead) {
-        _notifications![index].isRead = true;
-        _sendReadToServerSafely(notificationId);
+      final data = {type == 'chat' ? 'roomId' : 'scheduleId': identifier};
+      final groupInfo = NotificationGroupManager.getGroupInfo(type, data);
+      final groupTag = groupInfo['tag']!;
+
+      // 🔧 추적된 모든 알림 ID 가져오기
+      final notificationIds = NotificationTracker.getGroupNotifications(groupTag);
+
+      debugPrint('🗑️ 그룹 알림 제거 시작: $groupTag (${notificationIds.length}개)');
+
+      // 🔧 개별 알림 제거 (더 정확함)
+      for (final notificationId in notificationIds) {
+        await _localNotifications.cancel(notificationId);
+      }
+
+      // 🔧 수정: 안드로이드 그룹 요약 알림도 제거
+      if (Platform.isAndroid && notificationIds.isNotEmpty) {
+        final summaryId = groupTag.hashCode.abs();
+        await _localNotifications.cancel(summaryId);
+        debugPrint('🗑️ 안드로이드 그룹 요약 알림 제거: $summaryId');
+      }
+
+      // 🔧 플랫폼별 추가 정리
+      if (Platform.isAndroid) {
+        await _clearAndroidNotificationsByTag(groupTag);
+      }
+
+      if (Platform.isIOS) {
+        await _clearIOSNotificationsByThread(groupTag);
+      }
+
+      // 🔧 추적 데이터 정리
+      NotificationTracker.clearGroup(groupTag);
+
+      debugPrint('✅ 그룹 알림 제거 완료: $groupTag');
+    } catch (e) {
+      debugPrint('❌ 그룹 알림 제거 오류: $e');
+    }
+  }
+
+  // 🔧 특정 Room의 모든 알림 삭제 (기존 함수명 유지)
+  Future<void> clearRoomNotifications(int roomId) async {
+    await clearGroupNotifications('chat', roomId.toString());
+  }
+
+  // 🔧 특정 Schedule의 모든 알림 삭제 (기존 함수명 유지)
+  Future<void> clearScheduleNotifications(int scheduleId) async {
+    await clearGroupNotifications('schedule', scheduleId.toString());
+  }
+
+  // 기존 함수들 (함수명 유지, 내부 로직 개선)
+  Future<void> _clearAndroidNotificationsByTag(String tag) async {
+    try {
+      final activeNotifications = await _localNotifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.getActiveNotifications();
+
+      if (activeNotifications != null) {
+        for (final notification in activeNotifications) {
+          if (notification.tag == tag) {
+            await _localNotifications.cancel(notification.id!);
+          }
+        }
       }
     } catch (e) {
-      debugPrint('❌ 읽음 처리 오류: $e');
+      debugPrint('❌ Android 알림 정리 오류: $e');
     }
   }
 
-  // 🔧 안전한 서버 읽음 전송
-  Future<void> _sendReadToServerSafely(int notificationId) async {
+  Future<void> _clearIOSNotificationsByThread(String threadId) async {
     try {
+      final pendingNotifications = await _localNotifications.pendingNotificationRequests();
+
+      for (final notification in pendingNotifications) {
+        if (notification.payload?.contains('"${threadId.split('_')[1]}Id":"${threadId.split('_')[2]}"') == true) {
+          await _localNotifications.cancel(notification.id);
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ iOS 알림 정리 오류: $e');
+    }
+  }
+
+  // 🔧 기존 API 함수들 (함수명 유지)
+  Future<void> markNotificationAsReadFromPush(int notificationId) async {
+    try {
+      if (_pendingReadIds.contains(notificationId)) return;
+
+      _pendingReadIds.add(notificationId);
+
       await serverManager.put('notification/read', data: {'notificationId': notificationId});
+
+      if (_notifications != null) {
+        final index = _notifications!.indexWhere((n) => n.notificationId == notificationId);
+        if (index != -1) {
+          _notifications![index].isRead = true;
+          notifyListeners();
+        }
+      }
+
+      _pendingReadIds.remove(notificationId);
+      debugPrint('✅ 알림 읽음 처리 완료: $notificationId');
     } catch (e) {
-      debugPrint('❌ 서버 읽음 전송 오류: $e');
+      _pendingReadIds.remove(notificationId);
+      debugPrint('❌ 알림 읽음 처리 오류: $e');
     }
   }
 
-  // 🔧 UI에서 읽음 처리
-  Future<bool> readNotification(int notificationId) async {
-    final index = _notifications?.indexWhere((e) => e.notificationId == notificationId);
-    if (index == null || index == -1) return false;
-    if (_notifications![index].isRead) return true;
-
-    _notifications![index].isRead = true;
-    notifyListeners();
-
-    try {
-      final res = await serverManager.put('notification/read', data: {'notificationId': notificationId});
-      return res.statusCode == 204;
-    } catch (e) {
-      debugPrint('❌ 읽음 처리 오류: $e');
-      _notifications![index].isRead = false;
-      notifyListeners();
-      return false;
-    }
-  }
-
-  // 🔧 알림 삭제
-  Future<bool> deleteNotification(int notificationId) async {
+  Future<void> deleteNotification(int notificationId) async {
     try {
       final res = await serverManager.delete('notification/remove/$notificationId');
 
       if (res.statusCode == 204) {
-        _notifications?.removeWhere((e) => e.notificationId == notificationId);
+        _notifications?.removeWhere((n) => n.notificationId == notificationId);
         notifyListeners();
-        return true;
       }
-      return false;
+
+      debugPrint('✅ 알림 삭제 완료: $notificationId');
     } catch (e) {
       debugPrint('❌ 알림 삭제 오류: $e');
-      return false;
     }
   }
 
@@ -773,99 +794,42 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  // 🔧 알림 새로고침
   Future<void> refreshNotifications() async {
     await _loadNotificationsData();
   }
 
-  // 🔧 완전히 일관된 그룹 알림 제거
-  Future<void> clearGroupNotifications(String groupType, String id) async {
+  Future<void> clearAllNotifications() async {
     try {
-      // 🔧 일관된 그룹 태그 생성
-      final data = {
-        'type': groupType,
-        if (groupType == 'chat') 'roomId': id,
-        if (groupType == 'schedule') 'scheduleId': id,
-      };
-
-      final groupInfo = NotificationGroupManager.getGroupInfo(groupType, data);
-      final groupTag = groupInfo['tag']!;
-
-      // 🔧 추적된 모든 알림 ID 가져오기
-      final notificationIds = NotificationTracker.getGroupNotifications(groupTag);
-
-      debugPrint('🗑️ 그룹 알림 제거 시작: $groupTag (${notificationIds.length}개)');
-
-      // 🔧 개별 알림 제거 (더 정확함)
-      for (final notificationId in notificationIds) {
-        await _localNotifications.cancel(notificationId);
-      }
-
-      // 🔧 플랫폼별 추가 정리
-      if (Platform.isAndroid) {
-        await _clearAndroidNotificationsByTag(groupTag);
-      }
-
-      if (Platform.isIOS) {
-        await _clearIOSNotificationsByThread(groupTag);
-      }
-
-      // 🔧 추적 데이터 정리
-      NotificationTracker.clearGroup(groupTag);
-
-      debugPrint('✅ 그룹 알림 제거 완료: $groupTag');
+      await _localNotifications.cancelAll();
+      NotificationTracker.clearAll();
+      debugPrint('✅ 모든 알림 정리 완료');
     } catch (e) {
-      debugPrint('❌ 그룹 알림 제거 오류: $e');
+      debugPrint('❌ 모든 알림 정리 오류: $e');
     }
   }
 
-  // 🔧 특정 Room의 모든 알림 삭제 (호환성)
-  Future<void> clearRoomNotifications(int roomId) async {
-    await clearGroupNotifications('chat', roomId.toString());
-  }
-
-  // 🔧 특정 Schedule의 모든 알림 삭제
-  Future<void> clearScheduleNotifications(int scheduleId) async {
-    await clearGroupNotifications('schedule', scheduleId.toString());
-  }
-
-  Future<void> _clearAndroidNotificationsByTag(String tag) async {
+  Future<void> updateAppBadge(int count) async {
     try {
-      final activeNotifications = await _localNotifications
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-          ?.getActiveNotifications();
-
-      if (activeNotifications != null) {
-        for (final notification in activeNotifications) {
-          if (notification.tag == tag) {
-            await _localNotifications.cancel(notification.id!);
-          }
-        }
+      if (count > 0) {
+        await AppBadgePlus.updateBadge(count);
+      } else {
+        await AppBadgePlus.updateBadge(0);
       }
+      debugPrint('✅ 앱 배지 업데이트: $count');
     } catch (e) {
-      debugPrint('❌ Android 알림 정리 오류: $e');
+      debugPrint('❌ 앱 배지 업데이트 오류: $e');
     }
   }
 
-  Future<void> _clearIOSNotificationsByThread(String threadId) async {
-    try {
-      final pendingNotifications = await _localNotifications.pendingNotificationRequests();
-
-      for (final notification in pendingNotifications) {
-        if (notification.payload?.contains('"${threadId.split('_')[1]}Id":"${threadId.split('_')[2]}"') == true) {
-          await _localNotifications.cancel(notification.id);
-        }
-      }
-    } catch (e) {
-      debugPrint('❌ iOS 알림 정리 오류: $e');
-    }
-  }
-
-  // 🔧 안전한 정리
+  // 🔧 안전한 정리 (기존 함수명 유지)
   @override
   void dispose() {
     _pendingReadIds.clear();
     NotificationTracker.clearAll();
+
+    // 🔧 앱 라이프사이클 관찰자 제거
+    WidgetsBinding.instance.removeObserver(this);
+
     super.dispose();
   }
 }
