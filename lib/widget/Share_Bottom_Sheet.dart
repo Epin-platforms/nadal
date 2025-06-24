@@ -56,7 +56,7 @@ class ShareBottomSheet extends StatelessWidget {
                 // 카카오톡 공유 옵션
                 _buildShareOption(
                   context,
-                  image: 'assets/image/social/kakao.png',
+                  image: 'assets/image/social/kakao_x6.png',
                   color: Color(0xFFFEE500),
                   label: '카카오톡',
                   onTap: () {
@@ -155,8 +155,8 @@ class ShareBottomSheet extends StatelessWidget {
             width: 50.w,
             height: 50.w,
             decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
               color: color.withValues(alpha:isDisabled ? 0.3 : 0.9),
-              shape: BoxShape.circle,
               image: image != null ? DecorationImage(image: AssetImage(image), fit: BoxFit.cover) : null
             ),
             child:
@@ -166,7 +166,6 @@ class ShareBottomSheet extends StatelessWidget {
               color: isDisabled ? Colors.grey.shade600 : Colors.white,
               size: 24.r,
             ) : null
-            ,
           ),
           SizedBox(height: 8.h),
           Text(
