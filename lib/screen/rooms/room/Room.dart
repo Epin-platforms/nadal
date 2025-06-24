@@ -136,13 +136,13 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
   // Initialize room with proper error handling and sequential processing
   Future<void> _initializeRoom() async {
     if (_isDisposed || !mounted) return;
-
     // Validate room ID first
     if (widget.roomId <= 0) {
       _handleInitializationError('올바른 접근이 아닙니다');
       return;
     }
 
+    final notification = context.read<NotificationProvider>();
     _setInitializingState(true);
 
     try {
@@ -152,7 +152,7 @@ class _RoomState extends State<Room> with WidgetsBindingObserver {
       _handleInitializationError('방 정보를 불러오는데 실패했습니다');
     } finally {
       _setInitializingState(false);
-      context.read<NotificationProvider>().clearRoomNotifications(widget.roomId);
+      notification.clearRoomNotifications(widget.roomId);
     }
   }
 

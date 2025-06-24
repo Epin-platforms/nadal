@@ -1,7 +1,4 @@
-import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
-import 'package:my_sports_calendar/manager/dialog/Dialog_Manager.dart';
 import 'package:my_sports_calendar/manager/project/Import_Manager.dart';
 import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
 import 'package:my_sports_calendar/model/room/Room_Log.dart';
@@ -205,10 +202,12 @@ class RoomProvider extends ChangeNotifier {
     try {
       if (data != null && data is List && data.isNotEmpty) {
         final log = RoomLog.fromJson(data[0]);
-        final existingIndex = _roomLog.indexWhere((e) => e.logId == log.logId);
-        if (existingIndex == -1) {
-          _roomLog.add(log);
-          notifyListeners();
+        if(_room?['roomId'] != log.roomId){
+          final existingIndex = _roomLog.indexWhere((e) => e.logId == log.logId);
+          if (existingIndex == -1) {
+            _roomLog.add(log);
+            notifyListeners();
+          }
         }
       }
     } catch (e) {

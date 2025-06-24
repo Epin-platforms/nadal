@@ -1,12 +1,13 @@
 import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:my_sports_calendar/manager/project/Import_Manager.dart';
-import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
-import 'package:my_sports_calendar/model/app/Notifications_Model.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:app_badge_plus/app_badge_plus.dart';
 
-// 🔧 알림 상수 (경량화)
+// 🔧 기존 import 구조 유지
+import 'package:my_sports_calendar/manager/project/Import_Manager.dart';
+import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
+import 'package:my_sports_calendar/model/app/Notifications_Model.dart';
+// 🔧 알림 상수 (기존 구조 유지)
 class NotificationConstants {
   static const String channelId = 'epin.nadal.chat.channel';
   static const String channelName = 'Nadal_Chat_ver1.0.0';
@@ -15,9 +16,8 @@ class NotificationConstants {
   static const Color notificationColor = Color(0xFF00C4B4);
 }
 
-// 🔧 일관된 알림 그룹 관리 클래스
+// 🔧 일관된 알림 그룹 관리 클래스 (서버와 동일)
 class NotificationGroupManager {
-  // 🔧 그룹 정보 생성 (FCM과 로컬 알림 모두 동일 사용)
   static Map<String, String> getGroupInfo(String? type, Map<String, dynamic> data) {
     switch (type) {
       case 'chat':
@@ -25,67 +25,74 @@ class NotificationGroupManager {
         return {
           'tag': 'nadal_room_$roomId',
           'groupKey': 'nadal_chat_group',
-          'collapseKey': 'nadal_room_$roomId', // 백엔드와 동일
+          'collapseKey': 'nadal_room_$roomId',
+          'threadId': 'nadal_room_$roomId', // iOS용
         };
       case 'schedule':
         final scheduleId = data['scheduleId'] ?? '';
         return {
           'tag': 'nadal_schedule_$scheduleId',
           'groupKey': 'nadal_schedule_group',
-          'collapseKey': 'nadal_schedule_$scheduleId', // 백엔드와 동일
+          'collapseKey': 'nadal_schedule_$scheduleId',
+          'threadId': 'nadal_schedule_$scheduleId',
         };
       default:
         return {
           'tag': 'nadal_general',
           'groupKey': 'nadal_general_group',
-          'collapseKey': 'nadal_general', // 백엔드와 동일
+          'collapseKey': 'nadal_general',
+          'threadId': 'nadal_general',
         };
     }
   }
 
-  // 🔧 알림 ID 생성 (FCM과 로컬 알림 동일 사용)
   static int generateNotificationId(Map<String, dynamic> data) {
-    // 서버에서 온 notificationId가 있으면 사용, 없으면 chatId, 그것도 없으면 타임스탬프
+    // 🔧 수정: 32비트 정수 범위 내로 제한
     if (data['notificationId'] != null) {
-      return int.tryParse(data['notificationId'].toString()) ?? DateTime.now().millisecondsSinceEpoch;
+      final id = int.tryParse(data['notificationId'].toString());
+      if (id != null && id <= 2147483647 && id >= -2147483648) {
+        return id;
+      }
     }
     if (data['chatId'] != null) {
-      return int.tryParse(data['chatId'].toString()) ?? DateTime.now().millisecondsSinceEpoch;
+      final id = int.tryParse(data['chatId'].toString());
+      if (id != null && id <= 2147483647 && id >= -2147483648) {
+        return id;
+      }
     }
-    return DateTime.now().millisecondsSinceEpoch;
+
+    // 🔧 타임스탬프를 32비트 범위 내로 제한
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    return (timestamp % 2147483647).abs();
   }
 }
 
-// 🔧 알림 추적 관리 클래스 (기존 구조 유지하되 내부 로직 개선)
+// 🔧 알림 추적 관리 클래스 (기존 구조 유지)
 class NotificationTracker {
   static final Map<String, Set<int>> _groupNotifications = {};
 
-  // 알림 추가 추적
   static void trackNotification(String groupTag, int notificationId) {
     _groupNotifications[groupTag] ??= <int>{};
     _groupNotifications[groupTag]!.add(notificationId);
     debugPrint('📊 알림 추적 추가: $groupTag -> $notificationId');
   }
 
-  // 그룹의 모든 알림 ID 가져오기
   static Set<int> getGroupNotifications(String groupTag) {
     return _groupNotifications[groupTag] ?? <int>{};
   }
 
-  // 특정 그룹 정리
   static void clearGroup(String groupTag) {
     _groupNotifications.remove(groupTag);
     debugPrint('🗑️ 그룹 추적 정리: $groupTag');
   }
 
-  // 모든 추적 데이터 정리
   static void clearAll() {
     _groupNotifications.clear();
     debugPrint('🗑️ 모든 알림 추적 데이터 정리');
   }
 }
 
-// 🔧 백그라운드 알림 터치 핸들러
+// 🔧 백그라운드 알림 터치 핸들러 (기존 구조 유지)
 @pragma('vm:entry-point')
 void notificationTapBackgroundHandler(NotificationResponse response) {
   try {
@@ -98,22 +105,93 @@ void notificationTapBackgroundHandler(NotificationResponse response) {
   }
 }
 
-// 🔧 백그라운드 메시지 핸들러 (수정: 로컬 알림 생성 안함)
+// 🔧 백그라운드 메시지 핸들러 (기존 구조 유지)
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint('📳 백그라운드 FCM 수신: ${message.data}');
 
-  // 🔧 백그라운드에서는 FCM 자체 알림만 사용 (로컬 알림 생성 안함)
   try {
-    if (message.data.isNotEmpty) {
-      debugPrint('✅ 백그라운드 메시지 데이터 처리 완료');
-    }
+    final data = message.data;
+    if (data.isEmpty) return;
+
+    debugPrint('✅ 백그라운드 메시지 데이터 처리 완료');
+
+    if(data['title'] == null) return;
+
+    final type = data['type'] as String? ?? 'general';
+    final title = data['title'] ?? '알림';
+    final body = data['body'] ?? data['subTitle'] ?? '내용 없음';
+
+    // ✅ 알림 ID 생성
+    final int notificationId = int.tryParse(data['notificationId'] ?? '') ??
+        DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+    // ✅ 알림 그룹 ID / 태그 추출
+    final groupTag = _getGroupTag(type, data);
+    final threadId = _getThreadId(type, data);
+
+    // ✅ Android 알림
+    final androidDetails = AndroidNotificationDetails(
+      NotificationConstants.channelId,
+      NotificationConstants.channelName,
+      channelDescription: NotificationConstants.channelDesc,
+      importance: Importance.high,
+      priority: Priority.high,
+      tag: groupTag,
+      setAsGroupSummary: true,
+      groupKey: 'nadal_${type}_group',
+      playSound: true,
+      enableVibration: true,
+      color: NotificationConstants.notificationColor,
+      icon: NotificationConstants.androidIcon,
+    );
+
+    // ✅ iOS 알림 (백그라운드에서는 표시되지 않음, 참고용)
+    final iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      threadIdentifier: threadId,
+    );
+
+    final notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    // ✅ 로컬 알림 띄우기
+    await FlutterLocalNotificationsPlugin().show(
+      notificationId,
+      title,
+      body,
+      notificationDetails,
+      payload: jsonEncode(data),
+    );
+
+    debugPrint('✅ 백그라운드 알림 표시 완료: $notificationId');
   } catch (e) {
     debugPrint('❌ 백그라운드 메시지 처리 오류: $e');
   }
 }
 
-// 🔧 안전한 알림 터치 처리
+// 🔧 그룹 태그 생성 (서버와 동일한 방식)
+String _getGroupTag(String type, Map<String, dynamic> data) {
+  switch (type) {
+    case 'chat':
+      return 'nadal_room_${data['roomId'] ?? ''}';
+    case 'schedule':
+      return 'nadal_schedule_${data['scheduleId'] ?? ''}';
+    default:
+      return 'nadal_general';
+  }
+}
+
+// 🔧 iOS threadId 생성
+String _getThreadId(String type, Map<String, dynamic> data) {
+  return _getGroupTag(type, data); // 같은 로직 사용
+}
+
+// 🔧 안전한 알림 터치 처리 (기존 함수명 유지)
 void _handleNotificationTapSafely(Map<String, dynamic> data) {
   final context = AppRoute.context;
   if (context?.mounted != true) return;
@@ -121,8 +199,12 @@ void _handleNotificationTapSafely(Map<String, dynamic> data) {
   try {
     final notificationId = NotificationGroupManager.generateNotificationId(data);
     if (context!.mounted) {
-      final provider = context.read<NotificationProvider>();
-      provider.markNotificationAsReadFromPush(notificationId);
+      try{
+        final provider = context.read<NotificationProvider>();
+        provider.markNotificationAsReadFromPush(notificationId);
+      }catch(_){
+        //여기서 오류나도 무시
+      }
     }
 
     final routing = data['routing'] as String?;
@@ -134,7 +216,7 @@ void _handleNotificationTapSafely(Map<String, dynamic> data) {
   }
 }
 
-// 🔧 안전한 라우팅 처리
+// 🔧 안전한 라우팅 처리 (기존 함수명 유지)
 Future<void> _navigateToRouteSafely(BuildContext context, String routing) async {
   try {
     final router = GoRouter.of(context);
@@ -169,121 +251,76 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<NotificationModel>? get notifications => _notifications;
   bool get isLoading => _isLoading;
   bool get isInitialized => _isInitialized;
+  String? get fcmToken => _fcmToken;
 
-  // 🔧 정확한 앱 상태 판단
-  bool get isAppInBackground => _appLifecycleState != AppLifecycleState.resumed;
-
-  // 🔧 안전한 초기화 (기존 함수명 유지)
+  // 🔧 초기화 (기존 함수명 유지)
   Future<void> initialize() async {
     if (_isInitialized) return;
 
     try {
-      debugPrint('🚀 일관된 알림 시스템 초기화 시작');
-
-      // 🔧 앱 라이프사이클 관찰자 등록
       WidgetsBinding.instance.addObserver(this);
 
-      await _initializeLocalNotifications();
-      await _initializeFCM();
-      await _loadNotificationsData();
+      await Future.wait([
+        _initializeLocalNotifications(),
+        _initializeFCM(),
+        _requestIOSPermissions(),
+      ]);
 
       _isInitialized = true;
-      debugPrint('✅ 일관된 알림 시스템 초기화 완료');
+      debugPrint('✅ NotificationProvider 초기화 완료');
     } catch (e) {
-      debugPrint('❌ 알림 초기화 오류: $e');
-      _isInitialized = true;
+      debugPrint('❌ NotificationProvider 초기화 오류: $e');
     }
   }
 
-  // 🔧 앱 라이프사이클 변화 감지
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    _appLifecycleState = state;
-
-    switch (state) {
-      case AppLifecycleState.resumed:
-        debugPrint('📱 앱이 포그라운드로 전환됨');
-        break;
-      case AppLifecycleState.paused:
-        debugPrint('📱 앱이 백그라운드로 전환됨');
-        break;
-      case AppLifecycleState.detached:
-        debugPrint('📱 앱이 종료됨');
-        break;
-      case AppLifecycleState.inactive:
-        debugPrint('📱 앱이 비활성 상태');
-        break;
-      default : debugPrint('📱 상태: $state');
-      break;
-    }
+  void dispose() {
+    _pendingReadIds.clear();
+    NotificationTracker.clearAll();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   // 🔧 로컬 알림 초기화 (기존 함수명 유지)
   Future<void> _initializeLocalNotifications() async {
     try {
-      const androidSettings = AndroidInitializationSettings(
-          NotificationConstants.androidIcon
-      );
-
-      final iosSettings = DarwinInitializationSettings(
+      const androidInitializationSettings = AndroidInitializationSettings(NotificationConstants.androidIcon);
+      const iosInitializationSettings = DarwinInitializationSettings(
         requestAlertPermission: true,
-        requestSoundPermission: true,
         requestBadgePermission: true,
-        notificationCategories: [
-          DarwinNotificationCategory(
-            'nadal_notification',
-            actions: [
-              DarwinNotificationAction.plain(
-                'open',
-                '열기',
-                options: {DarwinNotificationActionOption.foreground},
-              ),
-            ],
-          ),
-        ],
+        requestSoundPermission: true,
       );
 
-      final settings = InitializationSettings(
-        android: androidSettings,
-        iOS: iosSettings,
+      const initializationSettings = InitializationSettings(
+        android: androidInitializationSettings,
+        iOS: iosInitializationSettings,
       );
 
       await _localNotifications.initialize(
-        settings,
+        initializationSettings,
         onDidReceiveNotificationResponse: _handleLocalNotificationTap,
         onDidReceiveBackgroundNotificationResponse: notificationTapBackgroundHandler,
       );
 
-      await Future.wait([
-        if (Platform.isAndroid) _createAndroidNotificationChannels(),
-        if (Platform.isIOS) _requestIOSPermissions(),
-      ]);
+      // 🔧 안드로이드 채널 생성 (기존 유지)
+      if (Platform.isAndroid) {
+        await _localNotifications
+            .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+            ?.createNotificationChannel(
+          const AndroidNotificationChannel(
+            NotificationConstants.channelId,
+            NotificationConstants.channelName,
+            description: NotificationConstants.channelDesc,
+            importance: Importance.high,
+            enableVibration: true,
+            playSound: true,
+          ),
+        );
+      }
 
       debugPrint('✅ 로컬 알림 초기화 완료');
     } catch (e) {
       debugPrint('❌ 로컬 알림 초기화 오류: $e');
-    }
-  }
-
-  // 🔧 Android 채널 생성 (기존 함수명 유지)
-  Future<void> _createAndroidNotificationChannels() async {
-    try {
-      const channel = AndroidNotificationChannel(
-        NotificationConstants.channelId,
-        NotificationConstants.channelName,
-        description: NotificationConstants.channelDesc,
-        importance: Importance.high,
-        groupId: 'nadal_main_group',
-      );
-
-      await _localNotifications
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(channel);
-
-      debugPrint('✅ Android 알림 채널 생성 완료');
-    } catch (e) {
-      debugPrint('❌ Android 채널 생성 오류: $e');
     }
   }
 
@@ -302,7 +339,7 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // 🔧 FCM 초기화 (기존 함수명 유지, 내부 로직만 수정)
+  // 🔧 FCM 초기화 (기존 함수명 유지)
   Future<void> _initializeFCM() async {
     try {
       _messaging = FirebaseMessaging.instance;
@@ -321,11 +358,10 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
       }
 
       if (Platform.isIOS) {
-        // 🔧 수정: iOS 포그라운드 알림 표시 활성화
         await _messaging!.setForegroundNotificationPresentationOptions(
-          alert: true,  // 수정: false -> true
+          alert: false,
           badge: true,
-          sound: true,
+          sound: false,
         );
         debugPrint('✅ iOS FCM 설정 완료 (포그라운드 알림 활성화)');
       }
@@ -365,22 +401,19 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // 🔧 메시지 리스너 설정 (기존 함수명 유지, 내부 로직 수정)
+  // 🔧 메시지 리스너 설정 (기존 함수명 유지)
   Future<void> _setupMessageListeners() async {
     try {
-      // 포그라운드 메시지 리스너
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         debugPrint('📨 포그라운드 FCM 수신: ${message.data}');
         _handleForegroundMessage(message);
       });
 
-      // 백그라운드에서 알림 탭 리스너
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         debugPrint('📱 백그라운드 알림 탭: ${message.data}');
         _handleNotificationTapSafely(message.data);
       });
 
-      // 앱이 종료된 상태에서 알림으로 앱 열기
       final initialMessage = await _messaging?.getInitialMessage();
       if (initialMessage != null) {
         debugPrint('🚀 종료 상태에서 알림으로 앱 시작: ${initialMessage.data}');
@@ -395,13 +428,12 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // 🔧 포그라운드 메시지 처리 (기존 함수명 유지, 내부 로직 개선)
+  // 🔧 포그라운드 메시지 처리 (개선된 라우팅 비교 로직)
   void _handleForegroundMessage(RemoteMessage message) {
     try {
       final data = message.data;
       final routing = data['routing'] ?? '';
 
-      // 현재 라우트 확인
       final context = AppRoute.context;
       if (context?.mounted != true) return;
 
@@ -409,7 +441,7 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
 
       debugPrint('🔄 포그라운드 알림 처리 - 현재: $currentRoute, 대상: $routing');
 
-      // 🔧 수정: 더 정확한 라우트 비교 로직
+      // 🔧 수정: 개선된 라우트 비교 로직
       final shouldShowNotification = _shouldShowForegroundNotification(currentRoute, routing);
 
       if (shouldShowNotification) {
@@ -424,26 +456,183 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // 🔧 새로 추가: 포그라운드 알림 표시 판단 로직
+  // 🔧 개선된 포그라운드 알림 표시 판단 로직 (동적 라우트 파라미터 처리)
   bool _shouldShowForegroundNotification(String currentRoute, String targetRoute) {
-    // 빈 라우팅인 경우 항상 표시
     if (targetRoute.isEmpty) return true;
-
-    // 정확히 같은 라우트인 경우 표시 안함
     if (currentRoute == targetRoute) return false;
 
-    // 채팅방 관련 특별 처리
-    if (targetRoute.startsWith('/room/') && currentRoute.startsWith('/room/')) {
-      return currentRoute != targetRoute;
+    // 🔧 동적 라우트 파라미터 추출 및 비교
+    final currentSegments = _extractRouteSegments(currentRoute);
+    final targetSegments = _extractRouteSegments(targetRoute);
+
+    // 같은 타입의 라우트인지 확인 (예: /room/123 vs /room/456)
+    if (currentSegments.length >= 2 && targetSegments.length >= 2) {
+      final currentType = currentSegments[1]; // 'room', 'schedule' 등
+      final targetType = targetSegments[1];
+
+      if (currentType == targetType && currentSegments.length >= 3 && targetSegments.length >= 3) {
+        final currentId = currentSegments[2]; // roomId, scheduleId 등
+        final targetId = targetSegments[2];
+
+        // 같은 타입에서 같은 ID이면 알림 표시 안함
+        return currentId != targetId;
+      }
     }
 
-    // 스케줄 관련 특별 처리
-    if (targetRoute.startsWith('/schedule/') && currentRoute.startsWith('/schedule/')) {
-      return currentRoute != targetRoute;
-    }
-
-    // 그 외의 경우 모두 표시
     return true;
+  }
+
+  // 🔧 라우트 세그먼트 추출 헬퍼 함수
+  List<String> _extractRouteSegments(String route) {
+    return route.split('/').where((segment) => segment.isNotEmpty).toList();
+  }
+
+  // 🔧 일관된 알림 표시 (alarm 설정에 따른 소리/진동 제어)
+  void showConsistentNotification(Map<String, dynamic> data) {
+    try {
+      final type = data['type'] as String?;
+      final groupInfo = NotificationGroupManager.getGroupInfo(type, data);
+      final groupTag = groupInfo['tag']!;
+      final notificationId = NotificationGroupManager.generateNotificationId(data);
+
+      // 🔧 방별 알람 설정 확인 (새로 추가)
+      final isAlarmEnabled = _isAlarmEnabled(data);
+
+      debugPrint('📱 일관된 알림 표시: $groupTag (ID: $notificationId, Alarm: $isAlarmEnabled)');
+
+      // 알림 추적
+      NotificationTracker.trackNotification(groupTag, notificationId);
+
+      if (Platform.isAndroid) {
+        _showAndroidNotification(data, groupInfo, notificationId, isAlarmEnabled);
+      } else if (Platform.isIOS) {
+        _showIOSNotification(data, groupInfo, notificationId, isAlarmEnabled);
+      }
+    } catch (e) {
+      debugPrint('❌ 일관된 알림 표시 오류: $e');
+    }
+  }
+
+  // 🔧 방별 알람 설정 확인 함수 (새로 추가)
+  bool _isAlarmEnabled(Map<String, dynamic> data) {
+    final alarm = data['alarm'] as String?;
+    return alarm == '1' || alarm == null; // 기본값은 true
+  }
+
+  // 🔧 안드로이드 알림 표시 (alarm 설정 반영)
+  Future<void> _showAndroidNotification(
+      Map<String, dynamic> data,
+      Map<String, String> groupInfo,
+      int notificationId,
+      bool isAlarmEnabled,
+      ) async {
+    try {
+      final title = data['title'] ?? '';
+      final body = data['body'] ?? data['subTitle'] ?? '';
+      final groupKey = groupInfo['groupKey']!;
+      final tag = groupInfo['tag']!;
+
+      // 🔧 알람 설정에 따른 소리/진동 제어
+      final androidDetails = AndroidNotificationDetails(
+        NotificationConstants.channelId,
+        NotificationConstants.channelName,
+        channelDescription: NotificationConstants.channelDesc,
+        importance: Importance.high,
+        priority: Priority.high,
+        groupKey: groupKey,
+        setAsGroupSummary: false,
+        tag: tag,
+        color: NotificationConstants.notificationColor,
+        // 🔧 alarm 설정에 따른 소리/진동 제어
+        playSound: isAlarmEnabled,
+        enableVibration: isAlarmEnabled,
+        sound: isAlarmEnabled ? null : const RawResourceAndroidNotificationSound(''),
+      );
+
+      await _localNotifications.show(
+        notificationId,
+        title,
+        body,
+        NotificationDetails(android: androidDetails),
+        payload: jsonEncode(data),
+      );
+
+      // 🔧 그룹 요약 알림 업데이트
+      await _updateAndroidGroupSummary(groupKey, tag, isAlarmEnabled);
+
+    } catch (e) {
+      debugPrint('❌ 안드로이드 알림 표시 오류: $e');
+    }
+  }
+
+  // 🔧 iOS 알림 표시 (alarm 설정 반영)
+  Future<void> _showIOSNotification(
+      Map<String, dynamic> data,
+      Map<String, String> groupInfo,
+      int notificationId,
+      bool isAlarmEnabled,
+      ) async {
+    try {
+      final title = data['title'] ?? '';
+      final body = data['body'] ?? data['subTitle'] ?? '';
+      final threadId = groupInfo['threadId']!;
+
+      // 🔧 alarm 설정에 따른 소리 제어
+      final iosDetails = DarwinNotificationDetails(
+        threadIdentifier: threadId,
+        presentAlert: true,
+        presentBadge: true,
+        // 🔧 alarm 설정에 따른 소리 제어
+        presentSound: isAlarmEnabled,
+        sound: isAlarmEnabled ? null : '',
+      );
+
+      await _localNotifications.show(
+        notificationId,
+        title,
+        body,
+        NotificationDetails(iOS: iosDetails),
+        payload: jsonEncode(data),
+      );
+
+    } catch (e) {
+      debugPrint('❌ iOS 알림 표시 오류: $e');
+    }
+  }
+
+  // 🔧 안드로이드 그룹 요약 알림 업데이트 (기존 함수명 유지)
+  Future<void> _updateAndroidGroupSummary(String groupKey, String tag, bool isAlarmEnabled) async {
+    try {
+      // 🔧 수정: 32비트 범위 내로 제한
+      final summaryId = (groupKey.hashCode % 2147483647).abs();
+      final groupNotifications = NotificationTracker.getGroupNotifications(tag);
+      final count = groupNotifications.length;
+
+      if (count > 1) {
+        final summaryDetails = AndroidNotificationDetails(
+          NotificationConstants.channelId,
+          NotificationConstants.channelName,
+          channelDescription: NotificationConstants.channelDesc,
+          importance: Importance.high,
+          priority: Priority.high,
+          groupKey: groupKey,
+          setAsGroupSummary: true,
+          color: NotificationConstants.notificationColor,
+          // 🔧 alarm 설정에 따른 소리/진동 제어
+          playSound: isAlarmEnabled,
+          enableVibration: isAlarmEnabled,
+        );
+
+        await _localNotifications.show(
+          summaryId,
+          '나달',
+          '$count개의 새로운 알림',
+          NotificationDetails(android: summaryDetails),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ 안드로이드 그룹 요약 업데이트 오류: $e');
+    }
   }
 
   // 🔧 안전한 토큰 저장 (기존 함수명 유지)
@@ -468,171 +657,31 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // 🔧 새로 추가: 안드로이드 그룹 요약 알림 생성
-  Future<void> _createGroupSummaryNotification(String groupKey, String groupTag, int count) async {
-    if (!Platform.isAndroid) return;
-
-    try {
-      final androidDetails = AndroidNotificationDetails(
-        NotificationConstants.channelId,
-        NotificationConstants.channelName,
-        channelDescription: NotificationConstants.channelDesc,
-        importance: Importance.high,
-        priority: Priority.high,
-        icon: NotificationConstants.androidIcon,
-        color: NotificationConstants.notificationColor,
-        autoCancel: true,
-        groupKey: groupKey,
-        setAsGroupSummary: true, // 그룹 요약으로 설정
-        styleInformation: InboxStyleInformation(
-          [],
-          contentTitle: '새 메시지 $count개',
-          summaryText: 'Nadal',
-        ),
-      );
-
-      final details = NotificationDetails(android: androidDetails);
-      final summaryId = groupTag.hashCode.abs();
-
-      await _localNotifications.show(
-        summaryId,
-        '새 알림',
-        '$count개의 새 알림이 있습니다',
-        details,
-      );
-
-      debugPrint('✅ 안드로이드 그룹 요약 알림 생성: $groupKey ($count개)');
-    } catch (e) {
-      debugPrint('❌ 그룹 요약 알림 생성 오류: $e');
-    }
-  }
-
-  // 🔧 일관된 알림 표시 (기존 함수명 유지, 내부 로직 개선)
-  Future<void> showConsistentNotification(Map<String, dynamic> data) async {
-    try {
-      final alarm = data['alarm'] == '1';
-      int? badge = data['badge'] == null ? null :
-      (data['badge'] is String) ? int.parse(data['badge']) : null;
-
-      // 🔧 일관된 그룹 정보 사용
-      final type = data['type'];
-      final groupInfo = NotificationGroupManager.getGroupInfo(type, data);
-      final notificationId = NotificationGroupManager.generateNotificationId(data);
-
-      // 🔧 알림 추적 (FCM과 로컬 알림 모두)
-      NotificationTracker.trackNotification(groupInfo['tag']!, notificationId);
-
-      final androidDetails = AndroidNotificationDetails(
-        NotificationConstants.channelId,
-        NotificationConstants.channelName,
-        channelDescription: NotificationConstants.channelDesc,
-        importance: Importance.high,
-        priority: Priority.high,
-        icon: NotificationConstants.androidIcon,
-        color: NotificationConstants.notificationColor,
-        autoCancel: true,
-        playSound: alarm,
-        enableVibration: alarm,
-        // 🔧 일관된 그룹화 정보
-        tag: groupInfo['tag'],
-        groupKey: groupInfo['groupKey'],
-        setAsGroupSummary: false,
-      );
-
-      final iosDetails = DarwinNotificationDetails(
-        presentAlert: alarm,
-        presentBadge: true,
-        presentSound: alarm,
-        badgeNumber: badge,
-        interruptionLevel: InterruptionLevel.active,
-        categoryIdentifier: 'nadal_notification',
-        threadIdentifier: groupInfo['tag'], // Android와 동일한 식별자
-      );
-
-      final details = NotificationDetails(
-        android: androidDetails,
-        iOS: iosDetails,
-      );
-
-      if(data['title'] != null){
-        await _localNotifications.show(
-          notificationId, // 🔧 일관된 ID 사용
-          data['title'],
-          data['body'],
-          details,
-          payload: jsonEncode(data),
-        );
-
-        // 🔧 새로 추가: 안드로이드 그룹화를 위한 요약 알림 생성
-        if (Platform.isAndroid) {
-          final groupNotifications = NotificationTracker.getGroupNotifications(groupInfo['tag']!);
-          if (groupNotifications.length > 1) {
-            await _createGroupSummaryNotification(
-                groupInfo['groupKey']!,
-                groupInfo['tag']!,
-                groupNotifications.length
-            );
-          }
-        }
-
-        debugPrint('✅ 일관된 알림 표시 완료: ID=$notificationId, Tag=${groupInfo['tag']}');
-      }
-    } catch (e) {
-      debugPrint('❌ 일관된 알림 표시 오류: $e');
-    }
-  }
-
-  // 🔧 알림 데이터 로드 (기존 함수명 유지)
-  Future<void> _loadNotificationsData() async {
-    if (_isLoading) return;
-
-    try {
-      _isLoading = true;
-      notifyListeners();
-
-      final res = await serverManager.get('notification');
-      if (res.statusCode == 200 && res.data != null) {
-        final List<dynamic> data = List.from(res.data);
-        _notifications = data
-            .map((e) => NotificationModel.fromJson(json: e))
-            .toList();
-      }
-
-      _isLoading = false;
-      notifyListeners();
-      debugPrint('✅ 알림 데이터 로드 완료: ${_notifications?.length ?? 0}개');
-    } catch (e) {
-      _isLoading = false;
-      notifyListeners();
-      debugPrint('❌ 알림 데이터 로드 오류: $e');
-    }
-  }
-
-  // 🔧 그룹 알림 제거 (기존 함수명 유지, 내부 로직 개선)
+  // 🔧 그룹 알림 제거 (기존 함수명 유지, 개선된 정리 로직)
   Future<void> clearGroupNotifications(String type, String identifier) async {
     try {
       final data = {type == 'chat' ? 'roomId' : 'scheduleId': identifier};
       final groupInfo = NotificationGroupManager.getGroupInfo(type, data);
       final groupTag = groupInfo['tag']!;
 
-      // 🔧 추적된 모든 알림 ID 가져오기
       final notificationIds = NotificationTracker.getGroupNotifications(groupTag);
 
       debugPrint('🗑️ 그룹 알림 제거 시작: $groupTag (${notificationIds.length}개)');
 
-      // 🔧 개별 알림 제거 (더 정확함)
+      // 🔧 개별 알림 제거
       for (final notificationId in notificationIds) {
         await _localNotifications.cancel(notificationId);
       }
 
-      // 🔧 수정: 안드로이드 그룹 요약 알림도 제거
+      // 🔧 안드로이드 그룹 요약 알림도 제거
       if (Platform.isAndroid && notificationIds.isNotEmpty) {
-        final summaryId = groupTag.hashCode.abs();
+        // 🔧 수정: 32비트 범위 내로 제한
+        final summaryId = (groupTag.hashCode % 2147483647).abs();
         await _localNotifications.cancel(summaryId);
         debugPrint('🗑️ 안드로이드 그룹 요약 알림 제거: $summaryId');
       }
 
-      // 🔧 플랫폼별 추가 정리
+      // 🔧 플랫폼별 추가 정리 (개선된 로직)
       if (Platform.isAndroid) {
         await _clearAndroidNotificationsByTag(groupTag);
       }
@@ -641,7 +690,6 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
         await _clearIOSNotificationsByThread(groupTag);
       }
 
-      // 🔧 추적 데이터 정리
       NotificationTracker.clearGroup(groupTag);
 
       debugPrint('✅ 그룹 알림 제거 완료: $groupTag');
@@ -660,7 +708,7 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
     await clearGroupNotifications('schedule', scheduleId.toString());
   }
 
-  // 기존 함수들 (함수명 유지, 내부 로직 개선)
+  // 🔧 안드로이드 태그별 정리 (개선된 로직)
   Future<void> _clearAndroidNotificationsByTag(String tag) async {
     try {
       final activeNotifications = await _localNotifications
@@ -679,12 +727,14 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  // 🔧 iOS 스레드별 정리 (수정: getDeliveredNotifications 제거)
   Future<void> _clearIOSNotificationsByThread(String threadId) async {
     try {
       final pendingNotifications = await _localNotifications.pendingNotificationRequests();
 
+      // 🔧 개선된 thread 식별 로직
       for (final notification in pendingNotifications) {
-        if (notification.payload?.contains('"${threadId.split('_')[1]}Id":"${threadId.split('_')[2]}"') == true) {
+        if (_isMatchingThread(notification.payload, threadId)) {
           await _localNotifications.cancel(notification.id);
         }
       }
@@ -693,7 +743,25 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // 🔧 기존 API 함수들 (함수명 유지)
+  // 🔧 스레드 매칭 헬퍼 함수 (개선된 파싱 로직)
+  bool _isMatchingThread(String? payload, String threadId) {
+    if (payload == null || payload.isEmpty) return false;
+
+    try {
+      final data = jsonDecode(payload) as Map<String, dynamic>;
+      final roomId = data['roomId']?.toString();
+      final scheduleId = data['scheduleId']?.toString();
+
+      if (roomId != null && threadId.contains('room_$roomId')) return true;
+      if (scheduleId != null && threadId.contains('schedule_$scheduleId')) return true;
+
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // 🔧 기존 API 함수들 (함수명 유지, copyWith 제거)
   Future<void> markNotificationAsReadFromPush(int notificationId) async {
     try {
       if (_pendingReadIds.contains(notificationId)) return;
@@ -705,6 +773,7 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
       if (_notifications != null) {
         final index = _notifications!.indexWhere((n) => n.notificationId == notificationId);
         if (index != -1) {
+          // 🔧 수정: copyWith 대신 직접 수정
           _notifications![index].isRead = true;
           notifyListeners();
         }
@@ -718,6 +787,7 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  // 🔧 기존 함수: deleteNotification (기존 API 유지)
   Future<void> deleteNotification(int notificationId) async {
     try {
       final res = await serverManager.delete('notification/remove/$notificationId');
@@ -733,7 +803,7 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // 🔧 알림 전송
+  // 🔧 기존 함수: 알림 전송
   Future<List<String>> sendNotification({
     required List<String> receivers,
     required String title,
@@ -771,7 +841,7 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
     return failed;
   }
 
-  // 🔧 단일 알림 전송
+  // 🔧 기존 함수: 단일 알림 전송
   Future<bool> _sendSingleNotification(
       String receiver,
       String title,
@@ -794,10 +864,41 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  // 🔧 기존 함수: refreshNotifications (기존 함수명 유지)
   Future<void> refreshNotifications() async {
     await _loadNotificationsData();
   }
 
+  // 🔧 기존 함수: 알림 데이터 로드 (기존 함수명 유지)
+  Future<void> _loadNotificationsData() async {
+    if (_isLoading) return;
+
+    try {
+      _isLoading = true;
+      notifyListeners();
+
+      final response = await serverManager.get('notification');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data;
+        _notifications = data.map((json) => NotificationModel.fromJson(json: json)).toList();
+
+        final unreadCount = _notifications?.where((n) => !n.isRead).length ?? 0;
+        await updateAppBadge(unreadCount);
+      }
+
+      _isLoading = false;
+      notifyListeners();
+
+      debugPrint('✅ 알림 로드 완료: ${_notifications?.length ?? 0}개');
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      debugPrint('❌ 알림 데이터 로드 오류: $e');
+    }
+  }
+
+  // 🔧 기존 함수: clearAllNotifications
   Future<void> clearAllNotifications() async {
     try {
       await _localNotifications.cancelAll();
@@ -808,6 +909,7 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  // 🔧 기존 함수: updateAppBadge
   Future<void> updateAppBadge(int count) async {
     try {
       if (count > 0) {
@@ -821,15 +923,13 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // 🔧 안전한 정리 (기존 함수명 유지)
+  // 🔧 앱 라이프사이클 관리
   @override
-  void dispose() {
-    _pendingReadIds.clear();
-    NotificationTracker.clearAll();
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appLifecycleState = state;
 
-    // 🔧 앱 라이프사이클 관찰자 제거
-    WidgetsBinding.instance.removeObserver(this);
-
-    super.dispose();
+    if (state == AppLifecycleState.resumed) {
+      refreshNotifications();
+    }
   }
 }
