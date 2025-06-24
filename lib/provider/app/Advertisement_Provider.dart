@@ -1,5 +1,4 @@
-// === Clean Advertisement Provider with Native Ad Support ===
-// 네이티브 광고 ID를 사용하는 깔끔한 버전
+// Advertisement_Provider.dart - ATT 권한 처리 추가
 
 import 'dart:io';
 import 'dart:async';
@@ -8,7 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
-import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
+import 'package:permission_handler/permission_handler.dart'; // 🔧 추가
+import 'package:device_info_plus/device_info_plus.dart'; // 🔧 추가
+import 'package:shared_preferences/shared_preferences.dart'; // 🔧 추가
+import 'package:my_sports_calendar/manager/server/Server_Manager.dart'; // 🔧 추가
 import 'package:my_sports_calendar/model/ad/Advertisement.dart';
 
 enum AdType {
@@ -29,7 +31,17 @@ class AdvertisementProvider extends ChangeNotifier {
   static const int _maxRetries = 2;
   static const int _timeoutSeconds = 10;
 
-  // === Ad Unit IDs ===
+  // 🔧 ATT 권한 관련 상태
+  bool _isATTInitialized = false;
+  bool _isATTGranted = false;
+  static const String _attRequestedKey = 'advertisement_att_requested';
+  static const String _attGrantedKey = 'advertisement_att_granted';
+
+  // 🔧 ATT 권한 상태 getter
+  bool get isATTGranted => _isATTGranted;
+  bool get isATTInitialized => _isATTInitialized;
+
+  // === Ad Unit IDs === (기존과 동일)
   static String get _bannerAdUnitId {
     if (Platform.isIOS) {
       if(kDebugMode){
@@ -59,15 +71,405 @@ class AdvertisementProvider extends ChangeNotifier {
     }
   }
 
-  // === Getters ===
+  // 🔧 AdMob 초기화 with ATT 권한 처리
+  Future<void> initializeWithATT() async {
+    if (_isATTInitialized) {
+      debugPrint('✅ ATT 이미 초기화됨 - 스킵');
+      return;
+    }
+
+    try {
+      debugPrint('🔧 Advertisement Provider - ATT 권한 처리 시작');
+
+      // 1. ATT 권한 요청 (iOS만)
+      if (Platform.isIOS) {
+        _isATTGranted = await _requestAppTrackingTransparency();
+      } else {
+        _isATTGranted = true; // Android는 항상 true
+      }
+
+      // 2. AdMob 초기화
+      await _initializeAdMob();
+
+      _isATTInitialized = true;
+      debugPrint('✅ Advertisement Provider 초기화 완료 - ATT: $_isATTGranted');
+
+    } catch (e) {
+      debugPrint('❌ Advertisement Provider 초기화 실패: $e');
+      _isATTInitialized = true; // 실패해도 마크하여 재시도 방지
+    }
+  }
+
+  // 🔧 ATT 권한 요청 처리
+  Future<bool> _requestAppTrackingTransparency() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // 이미 요청했는지 확인
+      final alreadyRequested = prefs.getBool(_attRequestedKey) ?? false;
+      if (alreadyRequested) {
+        final isGranted = prefs.getBool(_attGrantedKey) ?? false;
+        debugPrint('🍎 ATT 권한 이미 요청됨 - 결과: $isGranted');
+        return isGranted;
+      }
+
+      // iOS 버전 확인 (14.5+ 필요)
+      final deviceInfo = DeviceInfoPlugin();
+      final iosInfo = await deviceInfo.iosInfo;
+      final version = iosInfo.systemVersion.split('.');
+      final majorVersion = int.tryParse(version[0]) ?? 0;
+      final minorVersion = version.length > 1 ? int.tryParse(version[1]) ?? 0 : 0;
+
+      // iOS 14.5 미만은 권한 요청 불필요
+      if (majorVersion < 14 || (majorVersion == 14 && minorVersion < 5)) {
+        debugPrint('🍎 iOS 14.5 미만 - ATT 권한 불필요');
+        await prefs.setBool(_attRequestedKey, true);
+        await prefs.setBool(_attGrantedKey, true);
+        return true;
+      }
+
+      // 🔧 ATT 권한 실제 요청
+      debugPrint('🍎 ATT 권한 요청 시작');
+      final status = await Permission.appTrackingTransparency.request();
+      final isGranted = status == PermissionStatus.granted;
+
+      // 결과 저장
+      await prefs.setBool(_attRequestedKey, true);
+      await prefs.setBool(_attGrantedKey, isGranted);
+
+      debugPrint('🍎 ATT 권한 요청 완료 - 결과: $isGranted');
+      return isGranted;
+
+    } catch (e) {
+      debugPrint('❌ ATT 권한 요청 실패: $e');
+
+      // 실패 시에도 요청했다고 기록
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_attRequestedKey, true);
+      await prefs.setBool(_attGrantedKey, false);
+
+      return false;
+    }
+  }
+
+  // 🔧 AdMob 초기화 (ATT 권한 결과 반영)
+  Future<void> _initializeAdMob() async {
+    try {
+      // ATT 권한에 따른 AdMob 설정
+      final RequestConfiguration requestConfiguration = RequestConfiguration(
+        tagForChildDirectedTreatment: TagForChildDirectedTreatment.no,
+        tagForUnderAgeOfConsent: TagForUnderAgeOfConsent.no,
+        maxAdContentRating: MaxAdContentRating.g,
+        testDeviceIds: kDebugMode ? ['test-device-id'] : [], // 테스트 모드에서만
+      );
+
+      await MobileAds.instance.updateRequestConfiguration(requestConfiguration);
+      await MobileAds.instance.initialize();
+
+      debugPrint('📱 AdMob 초기화 완료 - 추적 권한: $_isATTGranted');
+
+    } catch (e) {
+      debugPrint('❌ AdMob 초기화 실패: $e');
+      rethrow;
+    }
+  }
+
+  // 🔧 광고 요청 시 ATT 권한 상태 반영
+  AdRequest _createAdRequest() {
+    return AdRequest(
+      // ATT 권한이 없으면 비개인화 광고 요청
+      nonPersonalizedAds: !_isATTGranted,
+    );
+  }
+
+  // === 기존 광고 로드 메서드들 수정 ===
+
+  // 배너 광고 로드 (ATT 권한 확인 추가)
+  Future<void> loadBannerAd(String key) async {
+    if (_isDisposed) return;
+
+    // ATT 초기화 확인
+    if (!_isATTInitialized) {
+      await initializeWithATT();
+    }
+
+    if (_loadingStates[key] == true || _loadedStates[key] == true) return;
+
+    _setLoadingState(key, true);
+    _startTimeout(key);
+
+    try {
+      final bannerAd = BannerAd(
+        adUnitId: _bannerAdUnitId,
+        size: AdSize.banner,
+        request: _createAdRequest(), // 🔧 ATT 권한 반영
+        listener: BannerAdListener(
+          onAdLoaded: (ad) => _onAdLoaded(key, ad),
+          onAdFailedToLoad: (ad, error) => _onAdFailedToLoad(key, ad, error),
+        ),
+      );
+
+      await bannerAd.load();
+      _bannerAds[key] = bannerAd;
+
+    } catch (e) {
+      _onLoadError(key, e);
+    }
+  }
+
+  // 미디엄 광고 로드 (ATT 권한 확인 추가)
+  Future<void> loadMediumAd(String key) async {
+    if (_isDisposed) return;
+
+    // ATT 초기화 확인
+    if (!_isATTInitialized) {
+      await initializeWithATT();
+    }
+
+    if (_loadingStates[key] == true || _loadedStates[key] == true) return;
+
+    _setLoadingState(key, true);
+    _startTimeout(key);
+
+    try {
+      final bannerAd = BannerAd(
+        adUnitId: _bannerAdUnitId,
+        size: AdSize.mediumRectangle,
+        request: _createAdRequest(), // 🔧 ATT 권한 반영
+        listener: BannerAdListener(
+          onAdLoaded: (ad) => _onAdLoaded(key, ad),
+          onAdFailedToLoad: (ad, error) => _onAdFailedToLoad(key, ad, error),
+        ),
+      );
+
+      await bannerAd.load();
+      _bannerAds[key] = bannerAd;
+
+    } catch (e) {
+      _onLoadError(key, e);
+    }
+  }
+
+  // 네이티브 광고 로드 (ATT 권한 확인 추가)
+  Future<void> loadNativeListTileAd(String key) async {
+    if (_isDisposed) return;
+
+    // ATT 초기화 확인
+    if (!_isATTInitialized) {
+      await initializeWithATT();
+    }
+
+    if (_loadingStates[key] == true || _loadedStates[key] == true) return;
+
+    _setLoadingState(key, true);
+    _startTimeout(key);
+
+    try {
+      final nativeAd = NativeAd(
+        adUnitId: _nativeAdUnitId,
+        request: _createAdRequest(), // 🔧 ATT 권한 반영
+        factoryId: 'listTile',
+        listener: NativeAdListener(
+          onAdLoaded: (ad) => _onAdLoaded(key, ad),
+          onAdFailedToLoad: (ad, error) => _onAdFailedToLoad(key, ad, error),
+        ),
+      );
+
+      await nativeAd.load();
+      _nativeAds[key] = nativeAd;
+
+    } catch (e) {
+      _onLoadError(key, e);
+    }
+  }
+
+  // 🔧 ATT 권한 상태 확인 메서드
+  Future<bool> checkATTPermissionStatus() async {
+    if (!Platform.isIOS) return true;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_attGrantedKey) ?? false;
+    } catch (e) {
+      debugPrint('ATT 권한 상태 확인 실패: $e');
+      return false;
+    }
+  }
+
+  // 🔧 ATT 권한 재요청 (설정 페이지용)
+  Future<void> showATTSettingsDialog(BuildContext context) async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        title: Row(
+          children: [
+            Icon(Icons.analytics, color: Theme.of(context).primaryColor),
+            SizedBox(width: 8.w),
+            Text('추적 권한 설정'),
+          ],
+        ),
+        content: Text(
+          '맞춤형 광고를 위한 추적 권한은 iOS 설정에서 변경할 수 있습니다.\n\n설정 > 개인 정보 보호 및 보안 > 추적 > 나스달',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              openAppSettings();
+            },
+            child: Text('설정 열기'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // === 기존 메서드들 (수정 없음) ===
   bool isLoading(String key) => _loadingStates[key] ?? false;
   bool isLoaded(String key) => _loadedStates[key] ?? false;
   BannerAd? getBannerAd(String key) => _bannerAds[key];
   NativeAd? getNativeAd(String key) => _nativeAds[key];
-  bool hasValidBannerAd(String key) => isLoaded(key) && getBannerAd(key) != null;
-  bool hasValidNativeAd(String key) => isLoaded(key) && getNativeAd(key) != null;
 
-  // === Server Ad (Original) ===
+  bool hasValidBannerAd(String key) {
+    final ad = _bannerAds[key];
+    return ad != null && _loadedStates[key] == true;
+  }
+
+  bool hasValidNativeAd(String key) {
+    final ad = _nativeAds[key];
+    return ad != null && _loadedStates[key] == true;
+  }
+
+  void _setLoadingState(String key, bool loading) {
+    _loadingStates[key] = loading;
+    if (!_isDisposed) notifyListeners();
+  }
+
+  void _setLoadedState(String key, bool loaded) {
+    _loadedStates[key] = loaded;
+    if (!_isDisposed) notifyListeners();
+  }
+
+  void _startTimeout(String key) {
+    _timeouts[key]?.cancel();
+    _timeouts[key] = Timer(Duration(seconds: _timeoutSeconds), () {
+      if (_loadingStates[key] == true) {
+        _onLoadError(key, Exception('광고 로드 타임아웃'));
+      }
+    });
+  }
+
+  void _onAdLoaded(String key, Ad ad) {
+    _timeouts[key]?.cancel();
+    _setLoadingState(key, false);
+    _setLoadedState(key, true);
+    debugPrint('✅ 광고 로드 성공: $key');
+  }
+
+  void _onAdFailedToLoad(String key, Ad ad, LoadAdError error) {
+    _timeouts[key]?.cancel();
+    _setLoadingState(key, false);
+    _setLoadedState(key, false);
+    debugPrint('❌ 광고 로드 실패: $key - $error');
+    ad.dispose();
+  }
+
+  void _onLoadError(String key, dynamic error) {
+    _timeouts[key]?.cancel();
+    _setLoadingState(key, false);
+    _setLoadedState(key, false);
+    debugPrint('❌ 광고 로드 에러: $key - $error');
+  }
+
+  // === 다중 광고 로드 ===
+  Future<void> loadMultipleAds(Map<String, AdType> adConfigs) async {
+    final futures = adConfigs.entries.map((entry) {
+      final key = entry.key;
+      final type = entry.value;
+
+      switch (type) {
+        case AdType.banner:
+          return loadBannerAd(key);
+        case AdType.medium:
+          return loadMediumAd(key);
+        case AdType.nativeListTile:
+          return loadNativeListTileAd(key);
+      }
+    });
+
+    await Future.wait(futures);
+  }
+
+  // === 정리 메서드들 ===
+  void disposeAd(String key) {
+    _timeouts[key]?.cancel();
+    _timeouts.remove(key);
+
+    _bannerAds[key]?.dispose();
+    _bannerAds.remove(key);
+
+    _nativeAds[key]?.dispose();
+    _nativeAds.remove(key);
+
+    _loadingStates.remove(key);
+    _loadedStates.remove(key);
+
+    if (!_isDisposed) notifyListeners();
+  }
+
+  void disposePageAds(String pageKey) {
+    final keysToRemove = <String>[];
+
+    for (final key in _bannerAds.keys) {
+      if (key.startsWith(pageKey)) {
+        keysToRemove.add(key);
+      }
+    }
+
+    for (final key in _nativeAds.keys) {
+      if (key.startsWith(pageKey)) {
+        keysToRemove.add(key);
+      }
+    }
+
+    for (final key in keysToRemove) {
+      disposeAd(key);
+    }
+
+    debugPrint('🗑️ 페이지 광고 정리 완료: $pageKey (${keysToRemove.length}개)');
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+
+    for (final timer in _timeouts.values) {
+      timer?.cancel();
+    }
+    _timeouts.clear();
+
+    for (final ad in _bannerAds.values) {
+      ad?.dispose();
+    }
+    _bannerAds.clear();
+
+    for (final ad in _nativeAds.values) {
+      ad?.dispose();
+    }
+    _nativeAds.clear();
+
+    _loadingStates.clear();
+    _loadedStates.clear();
+
+    super.dispose();
+  }
+
+  // === 서버 광고 관련 (기존과 동일하게 유지) ===
   Future<Advertisement> fetchServerAd() async {
     try {
       final response = await serverManager.get('app/ad');
@@ -79,303 +481,9 @@ class AdvertisementProvider extends ChangeNotifier {
       throw Exception('광고 로드 실패: $e');
     }
   }
-
-  // === Ad Loading Methods ===
-  Future<void> loadBannerAd(String key) async {
-    if (_isDisposed || _loadingStates[key] == true || _loadedStates[key] == true) {
-      return;
-    }
-    await _loadBannerAdInternal(key, AdSize.banner);
-  }
-
-  Future<void> loadMediumAd(String key) async {
-    if (_isDisposed || _loadingStates[key] == true || _loadedStates[key] == true) {
-      return;
-    }
-    await _loadBannerAdInternal(key, AdSize.mediumRectangle);
-  }
-
-  Future<void> loadNativeListTileAd(String key) async {
-    if (_isDisposed || _loadingStates[key] == true || _loadedStates[key] == true) {
-      return;
-    }
-    await _loadNativeAdInternal(key);
-  }
-
-  // === Internal Loading Methods ===
-  Future<void> _loadBannerAdInternal(String key, AdSize size) async {
-    _setLoadingState(key, true);
-    _startTimeout(key);
-
-    int retryCount = 0;
-    while (retryCount <= _maxRetries && !_isDisposed) {
-      try {
-        final ad = BannerAd(
-          adUnitId: _bannerAdUnitId,
-          size: size,
-          request: const AdRequest(),
-          listener: BannerAdListener(
-            onAdLoaded: (ad) => _onBannerAdLoaded(key, ad as BannerAd),
-            onAdFailedToLoad: (ad, error) => _onBannerAdFailed(key, ad, error),
-          ),
-        );
-
-        await ad.load();
-        _bannerAds[key] = ad;
-        return;
-
-      } catch (e) {
-        retryCount++;
-        if (retryCount > _maxRetries) {
-          _onLoadError(key, 'Banner ad max retries exceeded: $e');
-          return;
-        }
-        await Future.delayed(Duration(milliseconds: 500 * retryCount));
-      }
-    }
-  }
-
-  Future<void> _loadNativeAdInternal(String key) async {
-    _setLoadingState(key, true);
-    _startTimeout(key);
-
-    int retryCount = 0;
-    while (retryCount <= _maxRetries && !_isDisposed) {
-      try {
-        final nativeAd = NativeAd(
-          adUnitId: _nativeAdUnitId,
-          request: const AdRequest(),
-          listener: NativeAdListener(
-            onAdLoaded: (ad) => _onNativeAdLoaded(key, ad as NativeAd),
-            onAdFailedToLoad: (ad, error) => _onNativeAdFailed(key, ad, error),
-          ),
-          nativeTemplateStyle: NativeTemplateStyle(
-            templateType: TemplateType.small,
-            mainBackgroundColor: Colors.white,
-            cornerRadius: 8.0,
-            callToActionTextStyle: NativeTemplateTextStyle(
-              textColor: Colors.white,
-              backgroundColor: Colors.blue,
-              style: NativeTemplateFontStyle.bold,
-              size: 14.0,
-            ),
-            primaryTextStyle: NativeTemplateTextStyle(
-              textColor: Colors.black,
-              style: NativeTemplateFontStyle.bold,
-              size: 16.0,
-            ),
-            secondaryTextStyle: NativeTemplateTextStyle(
-              textColor: Colors.grey,
-              style: NativeTemplateFontStyle.normal,
-              size: 14.0,
-            ),
-          ),
-        );
-
-        await nativeAd.load();
-        _nativeAds[key] = nativeAd;
-        return;
-
-      } catch (e) {
-        retryCount++;
-        if (retryCount > _maxRetries) {
-          _onLoadError(key, 'Native ad max retries exceeded: $e');
-          return;
-        }
-        await Future.delayed(Duration(milliseconds: 500 * retryCount));
-      }
-    }
-  }
-
-  // === Batch Loading ===
-  Future<void> loadMultipleAds(Map<String, AdType> configs) async {
-    if (_isDisposed) return;
-
-    final futures = <Future<void>>[];
-
-    for (final entry in configs.entries) {
-      final key = entry.key;
-      final type = entry.value;
-
-      switch (type) {
-        case AdType.banner:
-          futures.add(loadBannerAd(key));
-          break;
-        case AdType.medium:
-          futures.add(loadMediumAd(key));
-          break;
-        case AdType.nativeListTile:
-          futures.add(loadNativeListTileAd(key));
-          break;
-      }
-    }
-
-    await Future.wait(futures, eagerError: false);
-  }
-
-  // === Event Handlers ===
-  void _onBannerAdLoaded(String key, BannerAd ad) {
-    if (_isDisposed) {
-      ad.dispose();
-      return;
-    }
-    _cancelTimeout(key);
-    _setLoadingState(key, false);
-    _setLoadedState(key, true);
-  }
-
-  void _onBannerAdFailed(String key, Ad ad, LoadAdError error) {
-    if (_isDisposed) return;
-    _cancelTimeout(key);
-    ad.dispose();
-    _cleanupBannerAd(key);
-    _onLoadError(key, 'Banner ad failed: ${error.message}');
-  }
-
-  void _onNativeAdLoaded(String key, NativeAd ad) {
-    if (_isDisposed) {
-      ad.dispose();
-      return;
-    }
-    _cancelTimeout(key);
-    _setLoadingState(key, false);
-    _setLoadedState(key, true);
-  }
-
-  void _onNativeAdFailed(String key, Ad ad, LoadAdError error) {
-    if (_isDisposed) return;
-    _cancelTimeout(key);
-    ad.dispose();
-    _cleanupNativeAd(key);
-    _onLoadError(key, 'Native ad failed: ${error.message}');
-  }
-
-  void _onLoadError(String key, String error) {
-    if (_isDisposed) return;
-    _setLoadingState(key, false);
-    _setLoadedState(key, false);
-    debugPrint('광고 로드 실패 [$key]: $error');
-  }
-
-  // === State Management ===
-  void _setLoadingState(String key, bool loading) {
-    if (_isDisposed) return;
-    _loadingStates[key] = loading;
-    notifyListeners();
-  }
-
-  void _setLoadedState(String key, bool loaded) {
-    if (_isDisposed) return;
-    _loadedStates[key] = loaded;
-    notifyListeners();
-  }
-
-  void _startTimeout(String key) {
-    _timeouts[key] = Timer(Duration(seconds: _timeoutSeconds), () {
-      if (!_isDisposed) {
-        _handleTimeout(key);
-      }
-    });
-  }
-
-  void _cancelTimeout(String key) {
-    _timeouts[key]?.cancel();
-    _timeouts.remove(key);
-  }
-
-  void _handleTimeout(String key) {
-    if (_isDisposed) return;
-    _cleanupAllForKey(key);
-    _onLoadError(key, 'Ad load timeout');
-  }
-
-  // === Cleanup Methods ===
-  void _cleanupBannerAd(String key) {
-    final ad = _bannerAds[key];
-    if (ad != null) {
-      ad.dispose();
-      _bannerAds.remove(key);
-    }
-  }
-
-  void _cleanupNativeAd(String key) {
-    final ad = _nativeAds[key];
-    if (ad != null) {
-      ad.dispose();
-      _nativeAds.remove(key);
-    }
-  }
-
-  void _cleanupAllForKey(String key) {
-    _cleanupBannerAd(key);
-    _cleanupNativeAd(key);
-    _loadingStates.remove(key);
-    _loadedStates.remove(key);
-    _cancelTimeout(key);
-  }
-
-  // === Public Cleanup Methods ===
-  void disposeAd(String key) {
-    if (_isDisposed) return;
-    _cleanupAllForKey(key);
-    notifyListeners();
-  }
-
-  void disposePageAds(String pagePrefix) {
-    if (_isDisposed) return;
-
-    final allKeys = {..._bannerAds.keys, ..._nativeAds.keys};
-    final keysToDispose = allKeys.where((key) => key.startsWith(pagePrefix)).toList();
-
-    for (final key in keysToDispose) {
-      _cleanupAllForKey(key);
-    }
-
-    //notifyListeners();
-  }
-
-  void refreshAd(String key, AdType type) {
-    if (_isDisposed) return;
-    disposeAd(key);
-
-    switch (type) {
-      case AdType.banner:
-        loadBannerAd(key);
-        break;
-      case AdType.medium:
-        loadMediumAd(key);
-        break;
-      case AdType.nativeListTile:
-        loadNativeListTileAd(key);
-        break;
-    }
-  }
-
-  @override
-  void dispose() {
-    _isDisposed = true;
-
-    // 모든 타이머 취소
-    for (final timer in _timeouts.values) {
-      timer?.cancel();
-    }
-    _timeouts.clear();
-
-    // 모든 광고 해제
-    for (final ad in _bannerAds.values) {
-      ad?.dispose();
-    }
-    for (final ad in _nativeAds.values) {
-      ad?.dispose();
-    }
-    _bannerAds.clear();
-    _nativeAds.clear();
-    _loadingStates.clear();
-    _loadedStates.clear();
-
-    super.dispose();
-  }
 }
+
+// === 기존 위젯들 그대로 유지 ===
 
 // === Simple Banner Widget ===
 class SimpleBannerAdWidget extends StatelessWidget {
@@ -618,49 +726,33 @@ class NativeListTileAdWidget extends StatelessWidget {
 
   Widget _buildLoadingListTile() {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 0.w, vertical: 2.h),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        border: Border(
-          left: BorderSide(
-            color: Colors.grey[300]!,
-            width: 3.w,
-          ),
-        ),
-      ),
+      margin: padding ?? EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
       child: ListTile(
-        contentPadding: padding ?? EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
         leading: Container(
-          width: 40.w,
-          height: 40.h,
+          width: 48.w,
+          height: 48.h,
           decoration: BoxDecoration(
             color: Colors.grey[200],
             borderRadius: BorderRadius.circular(8.r),
           ),
-          child: Center(
-            child: SizedBox(
-              width: 16.w,
-              height: 16.h,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.w,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.grey[400]!),
-              ),
-            ),
-          ),
         ),
         title: Container(
-          height: 16.h,
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            borderRadius: BorderRadius.circular(4.r),
-          ),
+          height: 12.h,
+          width: double.infinity,
+          color: Colors.grey[200],
         ),
         subtitle: Container(
-          height: 12.h,
+          height: 10.h,
+          width: 150.w,
+          color: Colors.grey[200],
           margin: EdgeInsets.only(top: 4.h),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(4.r),
+        ),
+        trailing: SizedBox(
+          width: 16.w,
+          height: 16.h,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.w,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.grey[400]!),
           ),
         ),
       ),
@@ -669,27 +761,30 @@ class NativeListTileAdWidget extends StatelessWidget {
 
   Widget _buildNativeAdListTile(NativeAd ad) {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 0.w, vertical: 2.h),
+      margin: padding ?? EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
       decoration: BoxDecoration(
-        color: Colors.orange[25],
-        border: Border(
-          left: BorderSide(
-            color: Colors.orange[300]!,
-            width: 3.w,
-          ),
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8.r),
+        border: Border.all(color: Colors.grey[200]!, width: 1.w),
       ),
       child: Column(
         children: [
           // 광고 라벨
           Container(
             width: double.infinity,
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
+            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+            decoration: BoxDecoration(
+              color: Colors.orange[50],
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(8.r),
+                topRight: Radius.circular(8.r),
+              ),
+            ),
             child: Row(
               children: [
                 Icon(
                   Icons.campaign_outlined,
-                  size: 12.sp,
+                  size: 10.sp,
                   color: Colors.orange[600],
                 ),
                 SizedBox(width: 4.w),
@@ -735,13 +830,18 @@ class NativeListTileAdWidget extends StatelessWidget {
   }
 }
 
-// === Ad Manager Helper ===
+// === AdManager 클래스 수정 ===
 class AdManager {
   static final AdvertisementProvider _instance = AdvertisementProvider();
 
   static AdvertisementProvider get instance => _instance;
 
-  // 페이지별 광고 로드
+  // 🔧 초기화 메서드 추가
+  static Future<void> initialize() async {
+    await _instance.initializeWithATT();
+  }
+
+  // 기존 메서드들 유지...
   static Future<void> loadPageAds({
     required String pageKey,
     bool includeBanner = true,
@@ -767,12 +867,10 @@ class AdManager {
     }
   }
 
-  // 페이지 광고 정리
   static void disposePageAds(String pageKey) {
     _instance.disposePageAds(pageKey);
   }
 
-  // 광고 새로고침
   static void refreshPageAds({
     required String pageKey,
     bool includeBanner = true,

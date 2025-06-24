@@ -4,6 +4,8 @@ import 'package:my_sports_calendar/manager/auth/social/Kakao_Manager.dart';
 import 'package:my_sports_calendar/manager/project/Import_Manager.dart';
 import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
 
+import '../../manager/auth/social/Apple_Manager.dart';
+
 
 class RegisterProvider extends ChangeNotifier {
   final _auth = FirebaseAuth.instance;
@@ -196,21 +198,50 @@ class RegisterProvider extends ChangeNotifier {
           print('❌ 구글 정보 가져오기 실패: $e');
         }
       } else if (social == "apple.com") {
-        // 🔧 애플 로그인 처리 추가
+        // 🔧 Apple 로그인 처리 - 가이드라인 4.0 준수 + deprecated 해결
         try {
-          print('🍎 애플 로그인 - Firebase 정보 확인');
+          print('🍎 Apple 로그인 - Firebase 정보 처리');
           print('🍎 Firebase Email: ${_auth.currentUser!.email}');
           print('🍎 Firebase DisplayName: ${_auth.currentUser!.displayName}');
-          print('🍎 Firebase UID: ${_auth.currentUser!.uid}');
 
-          // 🔧 displayName이 있으면 name 필드에 적용
+          // 🔧 Firebase에서 제공하는 정보만 사용 (가이드라인 4.0 준수)
           if(_auth.currentUser!.displayName != null && _auth.currentUser!.displayName!.isNotEmpty) {
             map['name'] = _auth.currentUser!.displayName!;
             map['nickName'] = _auth.currentUser!.displayName!;
           }
 
+          // 🔧 이메일 처리 개선 - 여러 소스에서 안전하게 가져오기
+          String? emailToUse = _auth.currentUser!.email;
+
+          // 1. Firebase Auth 이메일 우선 사용
+          if (emailToUse == null || emailToUse.isEmpty) {
+            // 2. Apple Manager에서 저장한 이메일 시도
+            try {
+              final appleManager = AppleManager();
+              final savedAppleEmail = await appleManager.getSavedAppleEmail();
+              if (savedAppleEmail != null && savedAppleEmail.isNotEmpty) {
+                emailToUse = savedAppleEmail;
+                print('✅ Apple Manager에서 저장된 이메일 사용: $emailToUse');
+              }
+            } catch (e) {
+              print('Apple Manager 이메일 조회 실패: $e');
+            }
+          }
+
+          // 3. 최종 이메일 설정
+          if (emailToUse != null && emailToUse.isNotEmpty) {
+            map['email'] = emailToUse;
+            print('✅ 최종 사용 이메일: $emailToUse');
+          } else {
+            // Apple에서 이메일을 제공하지 않은 경우 - 빈 값 유지
+            map['email'] = '';
+            print('⚠️ Apple에서 이메일 미제공 - 빈 값 유지');
+          }
+
+          print('✅ Apple 사용자 정보 처리 완료 - 가이드라인 4.0 준수');
         } catch (e) {
-          print('❌ 애플 정보 처리 실패: $e');
+          print('❌ Apple 정보 처리 실패: $e');
+          // 실패해도 기본값 유지
         }
       }
 

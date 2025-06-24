@@ -8,7 +8,6 @@ import 'package:my_sports_calendar/provider/friends/Friend_Provider.dart';
 import 'package:my_sports_calendar/provider/notification/Notification_Provider.dart';
 import 'firebase_options.dart';
 import 'package:kakao_flutter_sdk/kakao_flutter_sdk.dart';
-import 'manager/project/App_Initialize_Manager.dart';
 import 'manager/project/Import_Manager.dart';
 
 void main() async {
@@ -38,8 +37,8 @@ Future<void> _initializePackages() async {
     // 1. Firebase 초기화 (재시도 로직)
     await _initializeFirebase();
 
-    // 2. 광고 초기화 (Firebase 후)
-    await _initializeAds();
+    // 2. 🔧 기본 AdMob 초기화만 (ATT는 나중에)
+    await _initializeBasicAds();
 
     // 3. 기본 패키지들 초기화
     await _initializeBasicPackages();
@@ -47,7 +46,7 @@ Future<void> _initializePackages() async {
     // 4. 카카오 SDK 초기화 (마지막)
     await _initializeKakaoSdk();
 
-    //테마 초기와
+    // 5. 테마 초기화
     await ThemeModeManager().initialize();
   } catch (e) {
     debugPrint('패키지 초기화 실패: $e');
@@ -55,7 +54,7 @@ Future<void> _initializePackages() async {
   }
 }
 
-/// Firebase 초기화 with 재시도
+/// Firebase 초기화 with 재시도 (기존과 동일)
 Future<void> _initializeFirebase() async {
   const maxRetries = 3;
   int retryCount = 0;
@@ -81,30 +80,31 @@ Future<void> _initializeFirebase() async {
   }
 }
 
-/// 광고 초기화 - 안전하고 간단하게
-Future<void> _initializeAds() async {
+/// 🔧 기본 AdMob 초기화만 (ATT 권한 처리 제외)
+Future<void> _initializeBasicAds() async {
   try {
-    // 광고 초기화를 별도 함수로 분리하여 타임아웃 처리
+    debugPrint('🔧 기본 AdMob 초기화 시작 (ATT 제외)');
+
+    // 기본 AdMob 초기화만 수행 (ATT 권한 처리는 Advertisement_Provider에서)
     final initCompleter = Completer<void>();
 
-    // 광고 초기화 실행
     MobileAds.instance.initialize().then((status) {
       if (!initCompleter.isCompleted) {
         initCompleter.complete();
-        debugPrint('✅ 광고 초기화 성공');
+        debugPrint('✅ 기본 AdMob 초기화 성공');
       }
     }).catchError((error) {
       if (!initCompleter.isCompleted) {
         initCompleter.complete();
-        debugPrint('⚠️ 광고 초기화 실패 (계속 진행): $error');
+        debugPrint('⚠️ 기본 AdMob 초기화 실패 (계속 진행): $error');
       }
     });
 
-    // 타임아웃 설정
-    Timer(const Duration(seconds: 10), () {
+    // 타임아웃 설정 (5초)
+    Timer(const Duration(seconds: 5), () {
       if (!initCompleter.isCompleted) {
         initCompleter.complete();
-        debugPrint('⚠️ 광고 초기화 타임아웃 (계속 진행)');
+        debugPrint('⚠️ 기본 AdMob 초기화 타임아웃 (계속 진행)');
       }
     });
 
@@ -112,12 +112,12 @@ Future<void> _initializeAds() async {
     await initCompleter.future;
 
   } catch (e) {
-    debugPrint('⚠️ 광고 초기화 오류 (계속 진행): $e');
+    debugPrint('⚠️ 기본 AdMob 초기화 오류 (계속 진행): $e');
     // 광고 초기화 실패해도 앱은 계속 실행
   }
 }
 
-/// 기본 패키지 초기화
+/// 기본 패키지 초기화 (기존과 동일)
 Future<void> _initializeBasicPackages() async {
   try {
     // ScreenUtil 초기화
@@ -141,7 +141,7 @@ Future<void> _initializeBasicPackages() async {
   }
 }
 
-/// 카카오 SDK 초기화
+/// 카카오 SDK 초기화 (기존과 동일)
 Future<void> _initializeKakaoSdk() async {
   try {
     final nativeKey = dotenv.get('KAKAO_NATIVE_APP_KEY', fallback: '');
@@ -288,12 +288,10 @@ class RootApp extends StatefulWidget {
 
 class RootAppState extends State<RootApp> {
   Key _appKey = UniqueKey();
-  bool _hasError = false;
 
   void resetApp() {
     if (mounted) {
       _appKey = UniqueKey();
-      _hasError = false;
       if (mounted) {
         // setState 최소화
         WidgetsBinding.instance.addPostFrameCallback((_) {

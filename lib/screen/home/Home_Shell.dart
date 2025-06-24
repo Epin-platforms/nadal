@@ -1,15 +1,11 @@
 import 'package:app_links/app_links.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:my_sports_calendar/screen/home/Nadal_BottomNav.dart';
-
 import '../../manager/permission/Permission_Manager.dart';
 import '../../manager/project/App_Initialize_Manager.dart';
 import '../../manager/project/Import_Manager.dart';
 import '../../provider/notification/Notification_Provider.dart';
-// 🔧 개선된 초기화 시스템 import 추가가 필요할 수 있음
-// AppInitializationManager는 Import_Manager에 포함되어야 함
+import '../../provider/app/Advertisement_Provider.dart'; // 🔧 추가
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key, required this.child});
@@ -33,6 +29,9 @@ class _HomeShellState extends State<HomeShell> {
   bool _isInitializing = false;
   Timer? _initTimeoutTimer;
   static const Duration _initTimeout = Duration(seconds: 30);
+
+  // 🔧 ATT 초기화 상태 추가
+  bool _isATTInitialized = false;
 
   @override
   void initState() {
@@ -138,8 +137,11 @@ class _HomeShellState extends State<HomeShell> {
       // 🔧 알림 초기화를 먼저 완료 (라우팅 처리를 위해)
       await _initNotification();
 
-      // 권한 체크 (백그라운드에서)
+      // 🔧 기본 권한 체크 (백그라운드에서, ATT 제외)
       _checkPermissionsInBackground();
+
+      // 🔧 광고 ATT 권한 처리 (백그라운드에서)
+      _initializeAdvertisementATT();
 
       // 🔧 푸시메시지 체크 개선
       await _checkPushMessages();
@@ -162,15 +164,38 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
+  // 🔧 기본 권한 체크 (ATT 제외)
   void _checkPermissionsInBackground() {
     Future.microtask(() async {
       try {
         if (mounted) {
+          // 🔧 Permission_Manager에서 ATT 권한이 제거된 기본 권한들만 요청
           await PermissionManager.checkAndShowPermissions(context);
-          debugPrint('✅ 백그라운드 권한 체크 완료');
+          debugPrint('✅ 기본 권한 요청 완료 (ATT 제외)');
         }
       } catch (e) {
-        debugPrint('❌ 백그라운드 권한 체크 오류: $e');
+        debugPrint('❌ 기본 권한 체크 오류: $e');
+      }
+    });
+  }
+
+  // 🔧 광고 ATT 권한 처리 (백그라운드에서)
+  void _initializeAdvertisementATT() {
+    Future.microtask(() async {
+      try {
+        if (mounted && !_isATTInitialized) {
+          debugPrint('🔧 광고 ATT 권한 처리 시작');
+
+          // Advertisement_Provider에서 ATT 권한 처리
+          final adProvider = context.read<AdvertisementProvider>();
+          await adProvider.initializeWithATT();
+
+          _isATTInitialized = true;
+          debugPrint('✅ 광고 ATT 권한 처리 완료');
+        }
+      } catch (e) {
+        debugPrint('❌ 광고 ATT 권한 처리 오류: $e');
+        _isATTInitialized = true; // 실패해도 마크하여 재시도 방지
       }
     });
   }
@@ -446,7 +471,7 @@ class _HomeShellState extends State<HomeShell> {
 
       debugPrint('✅ 스케줄 데이터 새로고침 완료: $scheduleId');
     } catch (e) {
-      debugPrint('❌ 스케줄 데이터 새로고침 오류: $e');
+      debugPrint('❌ 스케줄 데이터 새로고침 오료: $e');
     }
   }
 

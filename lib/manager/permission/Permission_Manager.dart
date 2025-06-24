@@ -166,14 +166,6 @@ class PermissionManager {
       icon: Icons.photo_library,
       isEssential: false,
     ));
-
-    permissions.add(PermissionInfo(
-      permission: Permission.appTrackingTransparency,
-      title: "앱 추적 투명성",
-      description: "맞춤형 광고 제공 및 앱 성능 분석을 위해 필요합니다",
-      icon: Icons.analytics,
-      isEssential: false,
-    ));
   }
 
   // 설정용 권한 관리 시트 표시
@@ -336,7 +328,6 @@ class PermissionManager {
       case Permission.storage: return '저장소';
       case Permission.photos: return '사진';
       case Permission.phone: return '전화';
-      case Permission.appTrackingTransparency: return '앱 추적 투명성';
       default: return '권한';
     }
   }
