@@ -12,15 +12,21 @@ class SocketManager {
   bool _isConnecting = false;
   bool _isConnected = false;
 
+  // 🔧 핑퐁 관련 속성
+  Timer? _pingTimer;
+  Timer? _pongTimeoutTimer;
+  Timer? _reconnectTimer;
+  static const Duration _pingInterval = Duration(seconds: 25); // 25초마다 핑
+  static const Duration _pongTimeout = Duration(seconds: 10); // 퐁 응답 대기 시간
+  bool _waitingForPong = false;
+
   SocketManager._internal();
 
   // Getters
   bool get isConnected => _isConnected && socket?.connected == true;
   bool get isConnecting => _isConnecting;
 
-
   // 🔧 연결끊김
-  Timer? _reconnectTimer;
   void setConnected(bool isConnected) {
     if (_isConnected == isConnected) return;
     if (isConnected){
@@ -36,7 +42,7 @@ class SocketManager {
         }
       });
     } else {
-      _isConnected = isConnected; //
+      _isConnected = isConnected;
       _reconnectTimer?.cancel(); // 끊길 때도 타이머 정리
       debugPrint("📱 앱이 소켓과 연결이 종료됨");
     }
@@ -94,6 +100,72 @@ class SocketManager {
     }
   }
 
+  // 🚀 핑퐁 시작
+  void _startPingPong() {
+    _stopPingPong(); // 기존 타이머 정리
+
+    _pingTimer = Timer.periodic(_pingInterval, (timer) {
+      if (socket?.connected == true && !_waitingForPong) {
+        _sendPing();
+      }
+    });
+
+    debugPrint("🏓 핑퐁 시작");
+  }
+
+  // 🛑 핑퐁 중지
+  void _stopPingPong() {
+    _pingTimer?.cancel();
+    _pingTimer = null;
+    _pongTimeoutTimer?.cancel();
+    _pongTimeoutTimer = null;
+    _waitingForPong = false;
+    debugPrint("🛑 핑퐁 중지");
+  }
+
+  // 📤 핑 전송
+  void _sendPing() {
+    if (socket?.connected != true) return;
+
+    _waitingForPong = true;
+    socket!.emit('ping', DateTime.now().millisecondsSinceEpoch);
+    debugPrint("🏓 핑 전송");
+
+    // 퐁 응답 대기 타이머
+    _pongTimeoutTimer = Timer(_pongTimeout, () {
+      if (_waitingForPong) {
+        debugPrint("❌ 퐁 응답 없음 - 연결 재시도");
+        _handlePongTimeout();
+      }
+    });
+  }
+
+  // 📥 퐁 응답 처리
+  void _handlePong(dynamic data) {
+    _waitingForPong = false;
+    _pongTimeoutTimer?.cancel();
+
+    if (data is int) {
+      final latency = DateTime.now().millisecondsSinceEpoch - data;
+      debugPrint("🏓 퐁 수신 - 지연시간: ${latency}ms");
+    } else {
+      debugPrint("🏓 퐁 수신");
+    }
+  }
+
+  // ⚠️ 퐁 타임아웃 처리
+  void _handlePongTimeout() {
+    _waitingForPong = false;
+    _stopPingPong();
+
+    // 소켓 재연결 시도
+    if (socket?.connected == true) {
+      debugPrint("🔄 핑퐁 타임아웃으로 인한 소켓 재연결");
+      socket?.disconnect();
+      socket?.connect();
+    }
+  }
+
   // 소켓 이벤트 등록
   void _registerSocketEvents() {
     if (socket == null) return;
@@ -104,6 +176,9 @@ class SocketManager {
       _isConnected = true;
       _isConnecting = false;
 
+      // 🚀 핑퐁 시작
+      _startPingPong();
+
       _handleSocketConnected();
     });
 
@@ -113,6 +188,9 @@ class SocketManager {
       _isConnected = true;
       _isConnecting = false;
 
+      // 🚀 핑퐁 시작
+      _startPingPong();
+
       _handleSocketReconnected();
     });
 
@@ -121,6 +199,9 @@ class SocketManager {
       debugPrint("❌ 소켓 연결 종료: $reason");
       _isConnected = false;
       _isConnecting = false;
+
+      // 🛑 핑퐁 중지
+      _stopPingPong();
     });
 
     // 연결 오류
@@ -128,9 +209,14 @@ class SocketManager {
       debugPrint("❌ 소켓 연결 오류: $error");
       _isConnected = false;
       _isConnecting = false;
-    });
-  }
 
+      // 🛑 핑퐁 중지
+      _stopPingPong();
+    });
+
+    // 🏓 퐁 이벤트 리스너
+    socket!.on('pong', _handlePong);
+  }
 
   // 소켓 연결 성공 처리
   void _handleSocketConnected() {
@@ -166,7 +252,7 @@ class SocketManager {
       if(isCreated<ScheduleProvider>()){
         final scheduleProvider = context.read<ScheduleProvider>();
         if(scheduleProvider.isGameSchedule){
-         await scheduleProvider.reconnectSocket();
+          await scheduleProvider.reconnectSocket();
         }
       }
 
@@ -196,15 +282,18 @@ class SocketManager {
   /// 소켓 정리
   void _disposeSocket() {
     try {
+      _stopPingPong(); // 🛑 핑퐁 중지
       socket?.disconnect();
       socket?.dispose();
     } catch (_) {
-
+      // 에러 무시
     }
   }
 
   // 리소스 정리
   void dispose() {
+    _stopPingPong(); // 🛑 핑퐁 중지
+    _reconnectTimer?.cancel();
     _disposeSocket();
   }
 
@@ -219,5 +308,4 @@ class SocketManager {
       return false;
     }
   }
-
 }
