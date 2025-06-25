@@ -169,21 +169,21 @@ class _MorePageState extends State<MorePage> {
                     ),
                     SizedBox(height: 16),*/
                     Text(
-                      '이메일 문의: nadal_official@gmail.com',
+                      '이메일 문의: epinplatforms@gmail.com',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                     SizedBox(height: 4),
                     Text(
-                      '평일 09:00 - 18:00 (주말, 공휴일 휴무)',
+                      '평일 10:00 - 18:00 (주말, 공휴일 휴무)',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                       ),
                     ),
                     SizedBox(height: 12),
                     Text(
-                      '© ${DateTime.now().year} Nadal All Rights Reserved',
+                      '© ${DateTime.now().year} Nasdal All Rights Reserved',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                       ),

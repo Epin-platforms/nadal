@@ -353,6 +353,10 @@ class UserProvider extends ChangeNotifier {
         case "google.com":
           await GoogleManager().unLink();
           break;
+        case "apple.com":
+        // 🔧 Apple 연결 해제 추가
+          await AppleManager().unLink();
+          break;
       }
     } catch (e) {
       print('소셜 계정 연결 해제 실패: $e');

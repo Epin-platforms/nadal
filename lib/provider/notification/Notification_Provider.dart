@@ -7,6 +7,7 @@ import 'package:app_badge_plus/app_badge_plus.dart';
 import 'package:my_sports_calendar/manager/project/Import_Manager.dart';
 import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
 import 'package:my_sports_calendar/model/app/Notifications_Model.dart';
+
 // 🔧 알림 상수 (기존 구조 유지)
 class NotificationConstants {
   static const String channelId = 'epin.nadal.chat.channel';
@@ -47,7 +48,7 @@ class NotificationGroupManager {
   }
 
   static int generateNotificationId(Map<String, dynamic> data) {
-    // 🔧 수정: 32비트 정수 범위 내로 제한
+    // 🔧 수정: 32비트 정수 범위 내로 제한 + 안전 처리
     if (data['notificationId'] != null) {
       final id = int.tryParse(data['notificationId'].toString());
       if (id != null && id <= 2147483647 && id >= -2147483648) {
@@ -59,6 +60,14 @@ class NotificationGroupManager {
       if (id != null && id <= 2147483647 && id >= -2147483648) {
         return id;
       }
+    }
+
+    // 🔧 채팅 알림의 경우 roomId와 타임스탬프 조합으로 고유 ID 생성
+    if (data['type'] == 'chat' && data['roomId'] != null) {
+      final roomId = int.tryParse(data['roomId'].toString()) ?? 0;
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final combined = (roomId * 1000 + (timestamp % 1000)) % 2147483647;
+      return combined.abs();
     }
 
     // 🔧 타임스탬프를 32비트 범위 내로 제한
@@ -105,105 +114,39 @@ void notificationTapBackgroundHandler(NotificationResponse response) {
   }
 }
 
-// 🔧 백그라운드 메시지 핸들러 (기존 구조 유지)
+// 🔧 백그라운드 메시지 핸들러 (수정: 로컬 알림 생성 제거)
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint('📳 백그라운드 FCM 수신: ${message.data}');
 
   try {
-    final data = message.data;
-    if (data.isEmpty) return;
-
-    debugPrint('✅ 백그라운드 메시지 데이터 처리 완료');
-
-    if(data['title'] == null) return;
-
-    final type = data['type'] as String? ?? 'general';
-    final title = data['title'] ?? '알림';
-    final body = data['body'] ?? data['subTitle'] ?? '내용 없음';
-
-    // ✅ 알림 ID 생성
-    final int notificationId = int.tryParse(data['notificationId'] ?? '') ??
-        DateTime.now().millisecondsSinceEpoch ~/ 1000;
-
-    // ✅ 알림 그룹 ID / 태그 추출
-    final groupTag = _getGroupTag(type, data);
-    final threadId = _getThreadId(type, data);
-
-    // ✅ Android 알림
-    final androidDetails = AndroidNotificationDetails(
-      NotificationConstants.channelId,
-      NotificationConstants.channelName,
-      channelDescription: NotificationConstants.channelDesc,
-      importance: Importance.high,
-      priority: Priority.high,
-      tag: groupTag,
-      setAsGroupSummary: true,
-      groupKey: 'nadal_${type}_group',
-      playSound: true,
-      enableVibration: true,
-      color: NotificationConstants.notificationColor,
-      icon: NotificationConstants.androidIcon,
-    );
-
-    // ✅ iOS 알림 (백그라운드에서는 표시되지 않음, 참고용)
-    final iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-      threadIdentifier: threadId,
-    );
-
-    final notificationDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    // ✅ 로컬 알림 띄우기
-    await FlutterLocalNotificationsPlugin().show(
-      notificationId,
-      title,
-      body,
-      notificationDetails,
-      payload: jsonEncode(data),
-    );
-
-    debugPrint('✅ 백그라운드 알림 표시 완료: $notificationId');
+    if (message.data.isNotEmpty) {
+      debugPrint('✅ 백그라운드 메시지 데이터 처리 완료');
+      // 🔧 백그라운드에서는 FCM 자체 알림만 사용 (로컬 알림 생성 안함)
+    }
   } catch (e) {
     debugPrint('❌ 백그라운드 메시지 처리 오류: $e');
   }
 }
 
-// 🔧 그룹 태그 생성 (서버와 동일한 방식)
-String _getGroupTag(String type, Map<String, dynamic> data) {
-  switch (type) {
-    case 'chat':
-      return 'nadal_room_${data['roomId'] ?? ''}';
-    case 'schedule':
-      return 'nadal_schedule_${data['scheduleId'] ?? ''}';
-    default:
-      return 'nadal_general';
-  }
-}
-
-// 🔧 iOS threadId 생성
-String _getThreadId(String type, Map<String, dynamic> data) {
-  return _getGroupTag(type, data); // 같은 로직 사용
-}
-
-// 🔧 안전한 알림 터치 처리 (기존 함수명 유지)
+// 🔧 안전한 알림 터치 처리 (오류 무시 개선)
 void _handleNotificationTapSafely(Map<String, dynamic> data) {
   final context = AppRoute.context;
   if (context?.mounted != true) return;
 
   try {
     final notificationId = NotificationGroupManager.generateNotificationId(data);
+
+    // 🔧 알림 읽음 처리는 비동기로 실행하되 실패해도 라우팅 진행
     if (context!.mounted) {
-      try{
+      try {
         final provider = context.read<NotificationProvider>();
-        provider.markNotificationAsReadFromPush(notificationId);
-      }catch(_){
-        //여기서 오류나도 무시
+        // 🔧 await 제거하여 읽음 처리 실패해도 라우팅 계속 진행
+        provider.markNotificationAsReadFromPush(notificationId).catchError((error) {
+          debugPrint('⚠️ 알림 읽음 처리 실패하지만 라우팅 계속 진행: $error');
+        });
+      } catch (e) {
+        debugPrint('⚠️ 알림 프로바이더 접근 실패 (무시): $e');
       }
     }
 
@@ -339,7 +282,7 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // 🔧 FCM 초기화 (기존 함수명 유지)
+  // 🔧 FCM 초기화 (기존 함수명 유지, iOS 설정 수정)
   Future<void> _initializeFCM() async {
     try {
       _messaging = FirebaseMessaging.instance;
@@ -358,12 +301,13 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
       }
 
       if (Platform.isIOS) {
+        // 🔧 수정: iOS 포그라운드에서 FCM 자동 알림 끄고 수동 제어
         await _messaging!.setForegroundNotificationPresentationOptions(
-          alert: false,
+          alert: false,  // FCM 자동 알림 끄고 수동 제어
           badge: true,
-          sound: false,
+          sound: false,  // FCM 자동 사운드 끄고 수동 제어
         );
-        debugPrint('✅ iOS FCM 설정 완료 (포그라운드 알림 활성화)');
+        debugPrint('✅ iOS FCM 설정 완료 (수동 알림 제어)');
       }
 
       await Future.wait([
@@ -625,7 +569,7 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
 
         await _localNotifications.show(
           summaryId,
-          '나달',
+          '나스달',
           '$count개의 새로운 알림',
           NotificationDetails(android: summaryDetails),
         );
@@ -761,14 +705,21 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // 🔧 기존 API 함수들 (함수명 유지, copyWith 제거)
+  // 🔧 기존 API 함수들 (함수명 유지, 오류 무시 개선)
   Future<void> markNotificationAsReadFromPush(int notificationId) async {
     try {
       if (_pendingReadIds.contains(notificationId)) return;
 
       _pendingReadIds.add(notificationId);
 
-      await serverManager.put('notification/read', data: {'notificationId': notificationId});
+      final response = await serverManager.put('notification/read', data: {'notificationId': notificationId});
+
+      // 🔧 404 오류는 무시 (이미 삭제된 알림)
+      if (response.statusCode == 404) {
+        debugPrint('⚠️ 알림 ID를 찾을 수 없음 (무시): $notificationId');
+        _pendingReadIds.remove(notificationId);
+        return;
+      }
 
       if (_notifications != null) {
         final index = _notifications!.indexWhere((n) => n.notificationId == notificationId);
@@ -783,7 +734,8 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
       debugPrint('✅ 알림 읽음 처리 완료: $notificationId');
     } catch (e) {
       _pendingReadIds.remove(notificationId);
-      debugPrint('❌ 알림 읽음 처리 오류: $e');
+      // 🔧 오류 무시하고 경고만 출력
+      debugPrint('⚠️ 알림 읽음 처리 실패 (무시): $notificationId - $e');
     }
   }
 
@@ -869,7 +821,7 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
     await _loadNotificationsData();
   }
 
-  // 🔧 기존 함수: 알림 데이터 로드 (기존 함수명 유지)
+  // 🔧 기존 함수: 알림 데이터 로드 (수정: fromJson 호출 방식)
   Future<void> _loadNotificationsData() async {
     if (_isLoading) return;
 
@@ -881,6 +833,7 @@ class NotificationProvider extends ChangeNotifier with WidgetsBindingObserver {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
+        // 🔧 수정: fromJson 올바른 호출 방식
         _notifications = data.map((json) => NotificationModel.fromJson(json: json)).toList();
 
         final unreadCount = _notifications?.where((n) => !n.isRead).length ?? 0;

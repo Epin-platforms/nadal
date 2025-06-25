@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../project/Import_Manager.dart';
 
 class AppleManager {
+  final appleSaveNameKey = "epin.nadal.apple.name";
   Future<void> appleLogin() async {
     AppRoute.pushLoading();
 
@@ -63,6 +64,7 @@ class AppleManager {
     try {
       final user = userCredential.user;
       if (user == null) return;
+      final prefs = await SharedPreferences.getInstance();
 
       print('🍎 Apple 로그인 - 가이드라인 4.0 준수 모드');
       print('🍎 Apple Email: ${appleCredential.email}');
@@ -74,13 +76,15 @@ class AppleManager {
       if (appleCredential.givenName != null || appleCredential.familyName != null) {
         final String displayName = '${appleCredential.givenName ?? ''}${appleCredential.familyName ?? ''}'.trim();
         if (displayName.isNotEmpty) {
+          prefs.setString(appleSaveNameKey, displayName);
           await user.updateDisplayName(displayName);
           print('✅ Apple 제공 이름 적용: $displayName');
         }
       } else {
         // Apple에서 이름을 제공하지 않은 경우 - 기본값으로 처리
+        final name = prefs.getString(appleSaveNameKey);
         if (user.displayName == null || user.displayName!.isEmpty) {
-          await user.updateDisplayName('Apple 사용자');
+          await user.updateDisplayName(name ?? 'Apple 사용자');
           print('✅ Apple 기본 이름 적용');
         }
       }
@@ -153,6 +157,61 @@ class AppleManager {
     } catch (e) {
       print('Apple 이메일 정보 조회 실패: $e');
       return null;
+    }
+  }
+
+  // 🔧 Apple 로그인 연결 해제 (제한적)
+  Future<void> unLink() async {
+    try {
+      print('🍎 Apple 연결 해제 시작');
+
+      // 1. SharedPreferences에서 Apple 관련 데이터 삭제
+      await _clearAppleLocalData();
+
+      // 2. Firebase에서 Apple 제공자 해제 시도
+      await _unlinkAppleFromFirebase();
+
+      print('✅ Apple 로컬 연결 해제 완료');
+
+    } catch (e) {
+      print('❌ Apple 연결 해제 실패: $e');
+      // 실패해도 로그아웃 프로세스는 계속 진행
+    }
+  }
+
+  // 🔧 Apple 로컬 데이터 완전 삭제
+  Future<void> _clearAppleLocalData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Apple 관련 모든 로컬 데이터 삭제
+      await prefs.remove('apple_provided_email');
+
+      print('✅ Apple 로컬 데이터 삭제 완료');
+    } catch (e) {
+      print('❌ Apple 로컬 데이터 삭제 실패: $e');
+    }
+  }
+
+  // 🔧 Firebase에서 Apple 제공자 연결 해제
+  Future<void> _unlinkAppleFromFirebase() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      // Apple 제공자가 연결되어 있는지 확인
+      final hasAppleProvider = user.providerData.any(
+              (provider) => provider.providerId == 'apple.com'
+      );
+
+      if (hasAppleProvider) {
+        // Firebase에서 Apple 제공자 연결 해제
+        await user.unlink('apple.com');
+        print('✅ Firebase Apple 제공자 연결 해제 완료');
+      }
+    } catch (e) {
+      print('❌ Firebase Apple 연결 해제 실패: $e');
+      // 이미 해제되었거나 다른 이유로 실패 - 무시하고 계속 진행
     }
   }
 }

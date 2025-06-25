@@ -1,3 +1,4 @@
+import 'package:app_badge_plus/app_badge_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:my_sports_calendar/manager/project/Import_Manager.dart';
 import 'package:my_sports_calendar/manager/server/Server_Manager.dart';
@@ -190,11 +191,95 @@ class CancelProvider extends ChangeNotifier{
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // 최근 기록삭제
-      await prefs.remove('epin.nadal.rooms_search_key');
+      print('🗑️ 회원탈퇴 - 로컬 데이터 삭제 시작');
+
+      // ============================================
+      // 1. 🎨 테마 설정
+      // ============================================
+      await prefs.remove('epin.nadal.theme_mode');
+      print('✅ 테마 설정 삭제 완료');
+
+      // ============================================
+      // 2. 🔍 검색 기록
+      // ============================================
+      await prefs.remove('epin.nadal.rooms_search_key.open');
+      await prefs.remove('epin.nadal.rooms_search_key.club');
+      print('✅ 검색 기록 삭제 완료');
+
+      // ============================================
+      // 3. 🔐 권한 관리 관련 (모든 권한 데이터)
+      // ============================================
+
+      // 권한 프로세스 관련
+      await prefs.remove('epin_nadal_has_requested_permissions');
+      await prefs.remove('epin_nadal_permission_requested_date');
+      await prefs.remove('epin_nadal_permission_process_completed');
+
+      // 개별 권한별 데이터 삭제 (동적으로 처리)
+      final allKeys = prefs.getKeys();
+
+      // 권한 결과 키들 삭제
+      final permissionResultKeys = allKeys.where((key) =>
+          key.startsWith('epin_nadal_permission_result_')).toList();
+      for (final key in permissionResultKeys) {
+        await prefs.remove(key);
+      }
+
+      // 권한 재시도 키들 삭제
+      final canRetryKeys = allKeys.where((key) =>
+          key.startsWith('epin_nadal_can_retry_')).toList();
+      for (final key in canRetryKeys) {
+        await prefs.remove(key);
+      }
+
+      // 권한 스킵 키들 삭제
+      final permissionSkippedKeys = allKeys.where((key) =>
+          key.startsWith('epin_nadal_permission_skipped_')).toList();
+      for (final key in permissionSkippedKeys) {
+        await prefs.remove(key);
+      }
+
+      print('✅ 권한 관리 데이터 삭제 완료');
+
+      // ============================================
+      // 4. 📱 광고 ATT 권한 관련
+      // ============================================
+      await prefs.remove('advertisement_att_requested');
+      await prefs.remove('advertisement_att_granted');
+      print('✅ 광고 ATT 권한 데이터 삭제 완료');
+
+      // ============================================
+      // 5. 🍎 Apple 로그인 관련
+      // ============================================
+      await prefs.remove('apple_provided_email');
+      print('✅ Apple 로그인 데이터 삭제 완료');
+
+      // ============================================
+      // 6. 🔄 기타 사용자별 캐시/설정 (필요 시 추가)
+      // ============================================
+
+      // 향후 추가될 수 있는 사용자별 설정들을 위한 패턴 매칭
+      // 예: 'user_settings_', 'cache_', 'preference_' 등의 접두사를 가진 키들
+
+      final userSpecificKeys = allKeys.where((key) =>
+      key.startsWith('user_') ||
+          key.startsWith('cache_') ||
+          key.startsWith('preference_') ||
+          key.contains('_user_') ||
+          key.contains('_profile_')
+      ).toList();
+
+      for (final key in userSpecificKeys) {
+        await prefs.remove(key);
+        print('🗑️ 사용자별 키 삭제: $key');
+      }
+
+      print('✅ 모든 로컬 사용자 데이터 삭제 완료');
+
+      AppBadgePlus.updateBadge(0);
     } catch (e) {
       // 로컬 데이터 삭제 실패 시에도 탈퇴 프로세스는 계속 진행
-      debugPrint('로컬 데이터 삭제 중 오류: $e');
+      debugPrint('❌ 로컬 데이터 삭제 중 오류: $e');
     }
   }
 
