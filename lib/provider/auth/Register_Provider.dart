@@ -205,6 +205,11 @@ class RegisterProvider extends ChangeNotifier {
           print('🍎 Firebase DisplayName: ${_auth.currentUser!.displayName}');
 
           // 🔧 Firebase에서 제공하는 정보만 사용 (가이드라인 4.0 준수)
+          // 🔧 1. 강제 reload 후 다시 확인 (타이밍 문제 해결)
+          await _auth.currentUser!.reload();
+          await Future.delayed(const Duration(milliseconds: 300));
+          await _auth.currentUser!.reload();
+
           if(_auth.currentUser!.displayName != null && _auth.currentUser!.displayName!.isNotEmpty) {
             map['name'] = _auth.currentUser!.displayName!;
             map['nickName'] = _auth.currentUser!.displayName!;

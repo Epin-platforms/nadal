@@ -166,7 +166,6 @@ class RoomProvider extends ChangeNotifier {
     try {
       final roomId = _room?['roomId'] as int?;
       if (roomId == null) return;
-
       final res = await serverManager.get('room/log?roomId=$roomId');
       if (res.statusCode == 200 && res.data != null) {
         final logsData = res.data as List;
@@ -202,7 +201,7 @@ class RoomProvider extends ChangeNotifier {
     try {
       if (data != null && data is List && data.isNotEmpty) {
         final log = RoomLog.fromJson(data[0]);
-        if(_room?['roomId'] != log.roomId){
+        if(_room?['roomId'] == log.roomId){
           final existingIndex = _roomLog.indexWhere((e) => e.logId == log.logId);
           if (existingIndex == -1) {
             _roomLog.add(log);

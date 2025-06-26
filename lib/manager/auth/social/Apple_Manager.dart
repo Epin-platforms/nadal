@@ -84,8 +84,14 @@ class AppleManager {
         // Apple에서 이름을 제공하지 않은 경우 - 기본값으로 처리
         final name = prefs.getString(appleSaveNameKey);
         if (user.displayName == null || user.displayName!.isEmpty) {
-          await user.updateDisplayName(name ?? 'Apple 사용자');
-          print('✅ Apple 기본 이름 적용');
+          if(name == null){
+            await user.updateDisplayName('Apple 사용자');
+          }else if(name.isEmpty){
+            await user.updateDisplayName('Apple 사용자');
+          }else{
+            await user.updateDisplayName(name);
+          }
+          print('✅ Apple 기본 이름 적용 - $name');
         }
       }
 
