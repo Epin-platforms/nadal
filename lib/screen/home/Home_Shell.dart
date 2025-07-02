@@ -1,6 +1,7 @@
 import 'package:app_links/app_links.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:my_sports_calendar/screen/home/Nadal_BottomNav.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../manager/permission/Permission_Manager.dart';
 import '../../manager/project/App_Initialize_Manager.dart';
 import '../../manager/project/Import_Manager.dart';
@@ -30,8 +31,6 @@ class _HomeShellState extends State<HomeShell> {
   Timer? _initTimeoutTimer;
   static const Duration _initTimeout = Duration(seconds: 30);
 
-  // 🔧 ATT 초기화 상태 추가
-  bool _isATTInitialized = false;
 
   @override
   void initState() {
@@ -130,6 +129,7 @@ class _HomeShellState extends State<HomeShell> {
     });
   }
 
+
   Future<void> _initStep() async {
     if (!mounted) return;
 
@@ -140,8 +140,8 @@ class _HomeShellState extends State<HomeShell> {
       // 🔧 기본 권한 체크 (백그라운드에서, ATT 제외)
       _checkPermissionsInBackground();
 
-      // 🔧 광고 ATT 권한 처리 (백그라운드에서)
-      _initializeAdvertisementATT();
+      // 🔧 **수정: ATT 권한을 명확하게 표시**
+      await _requestATTPermissionExplicitly();
 
       // 🔧 푸시메시지 체크 개선
       await _checkPushMessages();
@@ -153,7 +153,6 @@ class _HomeShellState extends State<HomeShell> {
       _isInitialized = true;
     }
   }
-
   // 🔧 알림 초기화를 동기적으로 처리
   Future<void> _initNotification() async {
     try {
@@ -180,24 +179,135 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   // 🔧 광고 ATT 권한 처리 (백그라운드에서)
-  void _initializeAdvertisementATT() {
-    Future.microtask(() async {
-      try {
-        if (mounted && !_isATTInitialized) {
-          debugPrint('🔧 광고 ATT 권한 처리 시작');
+  Future<void> _requestATTPermissionExplicitly() async {
+    try {
+      if (!Platform.isIOS || !mounted) return;
 
-          // Advertisement_Provider에서 ATT 권한 처리
-          final adProvider = context.read<AdvertisementProvider>();
-          await adProvider.initializeWithATT();
+      final adProvider = context.read<AdvertisementProvider>();
 
-          _isATTInitialized = true;
-          debugPrint('✅ 광고 ATT 권한 처리 완료');
-        }
-      } catch (e) {
-        debugPrint('❌ 광고 ATT 권한 처리 오류: $e');
-        _isATTInitialized = true; // 실패해도 마크하여 재시도 방지
+      // 이미 ATT 초기화가 완료되었는지 확인
+      if (adProvider.isATTInitialized) {
+        debugPrint('✅ ATT 이미 초기화됨 - 스킵');
+        return;
       }
-    });
+
+      debugPrint('🔧 ATT 권한 명확하게 요청 시작');
+
+      // ATT 권한 상태 미리 확인
+      final prefs = await SharedPreferences.getInstance();
+      final alreadyRequested = prefs.getBool('advertisement_att_requested') ?? false;
+
+      if (alreadyRequested) {
+        // 이미 요청했다면 백그라운드에서 처리
+        await adProvider.initializeWithATT();
+        return;
+      }
+
+      // 🔧 **명확한 ATT 권한 안내 다이얼로그 표시**
+      final shouldRequest = await _showATTPermissionDialog();
+
+      if (shouldRequest) {
+        // 사용자가 동의했을 때만 ATT 권한 요청
+        await adProvider.initializeWithATT();
+      } else {
+        // 사용자가 거부했을 때도 비개인화 광고용으로 초기화
+        await adProvider.initializeWithoutATT();
+      }
+
+      debugPrint('✅ ATT 권한 명확한 요청 완료');
+    } catch (e) {
+      debugPrint('❌ ATT 권한 명확한 요청 오류: $e');
+      // 실패해도 계속 진행
+    }
+  }
+
+// 🔧 **새로운 메서드: ATT 권한 안내 다이얼로그**
+  Future<bool> _showATTPermissionDialog() async {
+    if (!mounted) return false;
+
+    return await showDialog<bool>(
+      context: context,
+      barrierDismissible: false, // 반드시 선택하도록
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              Icons.privacy_tip,
+              color: Theme.of(context).primaryColor,
+              size: 24.r,
+            ),
+            SizedBox(width: 8.w),
+            Text(
+              '개인정보 보호 안내',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '맞춤형 광고 제공 안내',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: 12.h),
+            Text(
+              '• 더 나은 광고 경험을 위해 앱 간 추적 권한을 요청합니다\n'
+                  '• 동의 시 귀하의 광고 식별자가 광고 서비스에 전송됩니다\n'
+                  '• 거부하셔도 앱 사용에는 제한이 없습니다\n'
+                  '• 언제든지 iOS 설정에서 변경 가능합니다',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                height: 1.5,
+              ),
+            ),
+            SizedBox(height: 16.h),
+            Container(
+              padding: EdgeInsets.all(12.w),
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              child: Text(
+                '이어서 iOS 시스템 권한 요청 화면이 표시됩니다',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).primaryColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              '거부',
+              style: TextStyle(
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+            ),
+            child: Text(
+              '동의하고 계속',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ) ?? false;
   }
 
   // 🔧 푸시 메시지 체크 개선

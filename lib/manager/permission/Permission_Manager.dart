@@ -440,7 +440,9 @@ class _PermissionExplanationSheetState extends State<PermissionExplanationSheet>
                 ),
                 SizedBox(height: 8.h),
                 Text(
-                  "다음 권한들이 더 나은 서비스 제공을 위해 필요합니다.\n모든 권한은 선택사항이며, 언제든지 설정에서 변경할 수 있습니다.",
+                  " 다음 권한들이 더 나은 서비스 제공을 위해 필요합니다.\n"
+                    "권한 허용 시 관련 데이터가 서버에 업로드될 수 있으며, "
+                    "모든 권한은 선택사항이고 언제든지 설정에서 변경할 수 있습니다.",
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
                   ),

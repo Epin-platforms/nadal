@@ -71,6 +71,164 @@ class AdvertisementProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> initializeWithoutATT() async {
+    if (_isATTInitialized) {
+      debugPrint('✅ ATT 이미 초기화됨 - 스킵');
+      return;
+    }
+
+    try {
+      debugPrint('🔧 Advertisement Provider - ATT 없이 초기화 시작');
+
+      // ATT 권한 거부 상태로 설정
+      _isATTGranted = false;
+
+      // SharedPreferences에 거부 상태 저장
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_attRequestedKey, true);
+      await prefs.setBool(_attGrantedKey, false);
+
+      // AdMob 초기화 (비개인화 광고용)
+      await _initializeAdMob();
+
+      _isATTInitialized = true;
+      debugPrint('✅ Advertisement Provider ATT 없이 초기화 완료');
+
+    } catch (e) {
+      debugPrint('❌ Advertisement Provider ATT 없이 초기화 실패: $e');
+      _isATTInitialized = true; // 실패해도 마크하여 재시도 방지
+    }
+  }
+
+// 🔧 **기존 _requestAppTrackingTransparency() 메서드 수정**
+  Future<bool> _requestAppTrackingTransparency() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // 이미 요청했는지 확인
+      final alreadyRequested = prefs.getBool(_attRequestedKey) ?? false;
+      if (alreadyRequested) {
+        final isGranted = prefs.getBool(_attGrantedKey) ?? false;
+        debugPrint('🍎 ATT 권한 이미 요청됨 - 결과: $isGranted');
+        return isGranted;
+      }
+
+      // iOS 버전 확인 (14.5+ 필요)
+      final deviceInfo = DeviceInfoPlugin();
+      final iosInfo = await deviceInfo.iosInfo;
+      final version = iosInfo.systemVersion.split('.');
+      final majorVersion = int.tryParse(version[0]) ?? 0;
+      final minorVersion = version.length > 1 ? int.tryParse(version[1]) ?? 0 : 0;
+
+      // iOS 14.5 미만은 권한 요청 불필요
+      if (majorVersion < 14 || (majorVersion == 14 && minorVersion < 5)) {
+        debugPrint('🍎 iOS 14.5 미만 - ATT 권한 불필요');
+        await prefs.setBool(_attRequestedKey, true);
+        await prefs.setBool(_attGrantedKey, true);
+        return true;
+      }
+
+      // 🔧 **ATT 권한 실제 요청 (더 명확한 로깅)**
+      debugPrint('🍎 iOS 시스템 ATT 권한 다이얼로그 표시');
+
+      // 잠시 대기 (사용자가 우리 다이얼로그를 충분히 읽을 시간)
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      final status = await Permission.appTrackingTransparency.request();
+      final isGranted = status == PermissionStatus.granted;
+
+      // 결과 저장
+      await prefs.setBool(_attRequestedKey, true);
+      await prefs.setBool(_attGrantedKey, isGranted);
+
+      debugPrint('🍎 ATT 권한 요청 완료 - 결과: $isGranted');
+      debugPrint('🍎 사용자 선택: ${isGranted ? "허용" : "거부"}');
+
+      return isGranted;
+
+    } catch (e) {
+      debugPrint('❌ ATT 권한 요청 실패: $e');
+
+      // 실패 시에도 요청했다고 기록
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_attRequestedKey, true);
+      await prefs.setBool(_attGrantedKey, false);
+
+      return false;
+    }
+  }
+
+// 🔧 **기존 _createAdRequest() 메서드 개선**
+  AdRequest _createAdRequest() {
+    return AdRequest(
+      // ATT 권한이 없으면 비개인화 광고 요청
+      nonPersonalizedAds: !_isATTGranted,
+      keywords: _isATTGranted ? null : ['general'], // 비개인화 광고용 키워드
+    );
+  }
+
+// 🔧 **ATT 권한 상태 확인 메서드 개선**
+  Future<String> getATTStatusForDebug() async {
+    if (!Platform.isIOS) return 'Android - ATT 불필요';
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final requested = prefs.getBool(_attRequestedKey) ?? false;
+      final granted = prefs.getBool(_attGrantedKey) ?? false;
+
+      if (!requested) return 'ATT 권한 미요청';
+      return granted ? 'ATT 권한 허용됨' : 'ATT 권한 거부됨';
+    } catch (e) {
+      return 'ATT 상태 확인 실패';
+    }
+  }
+
+// 🔧 **ATT 권한 재요청 다이얼로그 개선**
+  Future<void> showATTSettingsDialog(BuildContext context) async {
+    final status = await getATTStatusForDebug();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        title: Row(
+          children: [
+            Icon(Icons.analytics, color: Theme.of(context).primaryColor),
+            SizedBox(width: 8.w),
+            Text('추적 권한 설정'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('현재 상태: $status'),
+            SizedBox(height: 12.h),
+            Text(
+              '맞춤형 광고를 위한 추적 권한은 iOS 설정에서 변경할 수 있습니다.\n\n'
+                  '설정 경로:\n'
+                  '설정 → 개인 정보 보호 및 보안 → 추적 → 나스달',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              openAppSettings();
+            },
+            child: Text('설정 열기'),
+          ),
+        ],
+      ),
+    );
+  }
+
+
   // 🔧 AdMob 초기화 with ATT 권한 처리
   Future<void> initializeWithATT() async {
     if (_isATTInitialized) {
@@ -100,57 +258,6 @@ class AdvertisementProvider extends ChangeNotifier {
     }
   }
 
-  // 🔧 ATT 권한 요청 처리
-  Future<bool> _requestAppTrackingTransparency() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-
-      // 이미 요청했는지 확인
-      final alreadyRequested = prefs.getBool(_attRequestedKey) ?? false;
-      if (alreadyRequested) {
-        final isGranted = prefs.getBool(_attGrantedKey) ?? false;
-        debugPrint('🍎 ATT 권한 이미 요청됨 - 결과: $isGranted');
-        return isGranted;
-      }
-
-      // iOS 버전 확인 (14.5+ 필요)
-      final deviceInfo = DeviceInfoPlugin();
-      final iosInfo = await deviceInfo.iosInfo;
-      final version = iosInfo.systemVersion.split('.');
-      final majorVersion = int.tryParse(version[0]) ?? 0;
-      final minorVersion = version.length > 1 ? int.tryParse(version[1]) ?? 0 : 0;
-
-      // iOS 14.5 미만은 권한 요청 불필요
-      if (majorVersion < 14 || (majorVersion == 14 && minorVersion < 5)) {
-        debugPrint('🍎 iOS 14.5 미만 - ATT 권한 불필요');
-        await prefs.setBool(_attRequestedKey, true);
-        await prefs.setBool(_attGrantedKey, true);
-        return true;
-      }
-
-      // 🔧 ATT 권한 실제 요청
-      debugPrint('🍎 ATT 권한 요청 시작');
-      final status = await Permission.appTrackingTransparency.request();
-      final isGranted = status == PermissionStatus.granted;
-
-      // 결과 저장
-      await prefs.setBool(_attRequestedKey, true);
-      await prefs.setBool(_attGrantedKey, isGranted);
-
-      debugPrint('🍎 ATT 권한 요청 완료 - 결과: $isGranted');
-      return isGranted;
-
-    } catch (e) {
-      debugPrint('❌ ATT 권한 요청 실패: $e');
-
-      // 실패 시에도 요청했다고 기록
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_attRequestedKey, true);
-      await prefs.setBool(_attGrantedKey, false);
-
-      return false;
-    }
-  }
 
   // 🔧 AdMob 초기화 (ATT 권한 결과 반영)
   Future<void> _initializeAdMob() async {
@@ -174,13 +281,6 @@ class AdvertisementProvider extends ChangeNotifier {
     }
   }
 
-  // 🔧 광고 요청 시 ATT 권한 상태 반영
-  AdRequest _createAdRequest() {
-    return AdRequest(
-      // ATT 권한이 없으면 비개인화 광고 요청
-      nonPersonalizedAds: !_isATTGranted,
-    );
-  }
 
   // === 기존 광고 로드 메서드들 수정 ===
 
@@ -294,39 +394,6 @@ class AdvertisementProvider extends ChangeNotifier {
       debugPrint('ATT 권한 상태 확인 실패: $e');
       return false;
     }
-  }
-
-  // 🔧 ATT 권한 재요청 (설정 페이지용)
-  Future<void> showATTSettingsDialog(BuildContext context) async {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-        title: Row(
-          children: [
-            Icon(Icons.analytics, color: Theme.of(context).primaryColor),
-            SizedBox(width: 8.w),
-            Text('추적 권한 설정'),
-          ],
-        ),
-        content: Text(
-          '맞춤형 광고를 위한 추적 권한은 iOS 설정에서 변경할 수 있습니다.\n\n설정 > 개인 정보 보호 및 보안 > 추적 > 나스달',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('취소'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              openAppSettings();
-            },
-            child: Text('설정 열기'),
-          ),
-        ],
-      ),
-    );
   }
 
   // === 기존 메서드들 (수정 없음) ===
