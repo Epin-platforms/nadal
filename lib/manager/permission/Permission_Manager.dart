@@ -73,8 +73,8 @@ class PermissionManager {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      isDismissible: true, // 🔧 자유롭게 닫기 가능
-      enableDrag: true,    // 🔧 드래그 가능
+      isDismissible: false, // 🔧 자유롭게 닫기 가능
+      enableDrag: false,    // 🔧 드래그 가능
       builder: (context) => PermissionExplanationSheet(permissions: permissions),
     );
   }
@@ -490,7 +490,7 @@ class _PermissionExplanationSheetState extends State<PermissionExplanationSheet>
                   ),
                 ),
                 SizedBox(height: 12.h),
-                // 🔧 나중에 설정 버튼 수정
+                /*// 🔧 나중에 설정 버튼 수정
                 TextButton(
                   onPressed: _isRequesting ? null : _skipForNow,
                   child: Text(
@@ -509,7 +509,7 @@ class _PermissionExplanationSheetState extends State<PermissionExplanationSheet>
                     "앱 설정에서 직접 관리",
                     style: TextStyle(fontSize: 12.sp),
                   ),
-                ),
+                ),*/
               ],
             ),
           ),

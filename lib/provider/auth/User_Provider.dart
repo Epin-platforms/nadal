@@ -489,12 +489,10 @@ class UserProvider extends ChangeNotifier {
         final index = schedules.indexWhere((s) => s['scheduleId'] == scheduleId);
         if (index != -1) {
           final schedule = schedules[index];
-          if (schedule is Map) {
-            targetSchedule = Map<String, dynamic>.from(schedule);
-            targetMonthKey = monthKey;
-            break;
-          }
-        }
+          targetSchedule = Map<String, dynamic>.from(schedule);
+          targetMonthKey = monthKey;
+          break;
+         }
       }
 
       if (targetSchedule == null || targetMonthKey == null) return;
@@ -520,9 +518,10 @@ class UserProvider extends ChangeNotifier {
       } else if (response.statusCode == 203 && response.data != null) {
         // 참가자 수만 변경 - 안전한 타입 변환
         final schedules = _schedulesCache[targetMonthKey] ?? [];
+
         final index = schedules.indexWhere((s) => s['scheduleId'] == scheduleId);
         if (index != -1) {
-          final participationCount = response.data;
+          final participationCount = response.data['participationCount'];
           if (participationCount is int || participationCount is String) {
             schedules[index]['participationCount'] = participationCount;
             notifyListeners();

@@ -59,7 +59,7 @@ class NadalSimpleScheduleList extends StatelessWidget {
       try {
         final startDateStr = schedule['startDate'] as String?;
         if (startDateStr != null) {
-          startDate = DateTimeManager.parseUtcToLocal(startDateStr);
+          startDate = DateTime.tryParse(startDateStr);
         }
       } catch (e) {
         print('시작 날짜 파싱 오류: $e');
@@ -68,7 +68,7 @@ class NadalSimpleScheduleList extends StatelessWidget {
       try {
         final endDateStr = schedule['endDate'] as String?;
         if (endDateStr != null) {
-          endDate = DateTimeManager.parseUtcToLocal(endDateStr);
+          endDate =  DateTime.tryParse(endDateStr);
         }
       } catch (e) {
         print('종료 날짜 파싱 오류: $e');

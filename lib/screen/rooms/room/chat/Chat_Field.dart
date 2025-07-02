@@ -130,7 +130,9 @@ class _ChatFieldState extends State<ChatField> {
           if (info.version.sdkInt < 33) {
             hasPermission = await PermissionManager.ensurePermission(Permission.storage, context);
           } else {
-            hasPermission = await PermissionManager.ensurePermission(Permission.photos, context);
+            final imagesGranted = await PermissionManager.ensurePermission(Permission.photos, context)
+                || await PermissionManager.ensurePermission(Permission.mediaLibrary, context);
+            hasPermission = imagesGranted;
           }
         } else {
           hasPermission = await PermissionManager.ensurePermission(Permission.photos, context);

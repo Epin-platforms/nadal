@@ -76,10 +76,12 @@ class _MyScheduleCalendarState extends State<MyScheduleCalendar> {
       }
 
       await context.push('/schedule/${schedule['scheduleId']}');
+
       if (mounted) {
         final userProvider = context.read<UserProvider>();
-        await userProvider.updateSchedule(scheduleId: schedule['scheduleId']);
+        userProvider.updateSchedule(scheduleId: schedule['scheduleId']);
       }
+
     } catch (e) {
       debugPrint('스케줄 이동 실패: $e');
     }

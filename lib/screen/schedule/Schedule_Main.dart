@@ -685,6 +685,17 @@ class _ScheduleMainState extends State<ScheduleMain> with SingleTickerProviderSt
               ],
             ],
           ),
+          if(widget.provider.schedule?['uid'] == FirebaseAuth.instance.currentUser?.uid && widget.provider.schedule?['state'] == 0)...[
+            SizedBox(height: 16.h,),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(BootstrapIcons.info_circle, size: 14.r,),
+                SizedBox(width: 6.w,),
+                Text('인원이 다모이면 모집 종료를 눌러 시작해주세요', style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),),
+              ],
+            ),
+          ]
         ],
       ),
     );

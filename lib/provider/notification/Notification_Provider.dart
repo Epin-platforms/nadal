@@ -130,28 +130,35 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 }
 
 // 🔧 안전한 알림 터치 처리 (오류 무시 개선)
+// 🔧 안전한 알림 터치 처리 (채팅 알림 읽음 처리 제외)
 void _handleNotificationTapSafely(Map<String, dynamic> data) {
   final context = AppRoute.context;
   if (context?.mounted != true) return;
 
   try {
     final notificationId = NotificationGroupManager.generateNotificationId(data);
+    final notificationType = data['type'] as String?;
 
-    // 🔧 알림 읽음 처리는 비동기로 실행하되 실패해도 라우팅 진행
-    if (context!.mounted) {
-      try {
-        final provider = context.read<NotificationProvider>();
-        // 🔧 await 제거하여 읽음 처리 실패해도 라우팅 계속 진행
-        provider.markNotificationAsReadFromPush(notificationId).catchError((error) {
-          debugPrint('⚠️ 알림 읽음 처리 실패하지만 라우팅 계속 진행: $error');
-        });
-      } catch (e) {
-        debugPrint('⚠️ 알림 프로바이더 접근 실패 (무시): $e');
+    // 🔧 채팅 알림이 아닌 경우에만 읽음 처리 API 호출
+    print('노티피케이션 타입: $notificationType');
+    if (notificationType != 'chat') {
+      if (context!.mounted) {
+        try {
+          final provider = context.read<NotificationProvider>();
+          // 🔧 await 제거하여 읽음 처리 실패해도 라우팅 계속 진행
+          provider.markNotificationAsReadFromPush(notificationId).catchError((error) {
+            debugPrint('⚠️ 알림 읽음 처리 실패하지만 라우팅 계속 진행: $error');
+          });
+        } catch (e) {
+          debugPrint('⚠️ 알림 프로바이더 접근 실패 (무시): $e');
+        }
       }
+    } else {
+      debugPrint('💬 채팅 알림은 읽음 처리 API 호출 건너뛰기');
     }
 
     final routing = data['routing'] as String?;
-    if (routing?.isNotEmpty == true && context.mounted) {
+    if (routing?.isNotEmpty == true && context!.mounted) {
       _navigateToRouteSafely(context, routing!);
     }
   } catch (e) {

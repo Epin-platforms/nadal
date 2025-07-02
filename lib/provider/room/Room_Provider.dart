@@ -199,6 +199,7 @@ class RoomProvider extends ChangeNotifier {
   // 소켓 이벤트 핸들러들
   void _addRoomLog(dynamic data) {
     try {
+      print('룸로그 리스너 동작 ${data}');
       if (data != null && data is List && data.isNotEmpty) {
         final log = RoomLog.fromJson(data[0]);
         if(_room?['roomId'] == log.roomId){
