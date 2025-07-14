@@ -2,6 +2,7 @@ import 'package:my_sports_calendar/model/report/Report_Model.dart';
 import 'package:my_sports_calendar/provider/profile/User_Profile_Provider.dart';
 import 'package:my_sports_calendar/screen/account/Account_Edit.dart';
 import 'package:my_sports_calendar/screen/auth/cancel/Cancel_User.dart';
+import 'package:my_sports_calendar/screen/block/Block_List_Page.dart';
 import 'package:my_sports_calendar/screen/friends/Friend_List_Page.dart';
 import 'package:my_sports_calendar/screen/image/Image_View.dart';
 import 'package:my_sports_calendar/screen/notification/Notification_Page.dart';
@@ -381,6 +382,17 @@ class AppRoute{
               final url = state.uri.queryParameters['url']!;
               return  NadalTransitionPage(
                 child: ImageView(imageUrl: url),
+                transitionType: PageTransitionType.slideFromRight,
+                key: state.pageKey,
+              );
+            }
+        ),
+        //사용자 차단 페이지
+        GoRoute(
+            path: '/block',
+            pageBuilder: (context, state){
+              return  NadalTransitionPage(
+                child: BlockListPage(),
                 transitionType: PageTransitionType.slideFromRight,
                 key: state.pageKey,
               );

@@ -1,7 +1,9 @@
 import 'package:animate_do/animate_do.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:my_sports_calendar/provider/profile/User_Profile_Provider.dart';
 
 import '../../manager/project/Import_Manager.dart';
+import '../../provider/friends/Block_Provider.dart';
 
 class UserProfile extends StatefulWidget {
   const UserProfile({super.key});
@@ -13,7 +15,8 @@ class UserProfile extends StatefulWidget {
 class _UserProfileState extends State<UserProfile> with SingleTickerProviderStateMixin{
   late UserProfileProvider provider;
   late ScrollController _scrollController;
-  
+  late BlockProvider blockProvider;
+
   @override
   void initState() {
     _scrollController = ScrollController();
@@ -36,6 +39,7 @@ class _UserProfileState extends State<UserProfile> with SingleTickerProviderStat
   
   @override
   Widget build(BuildContext context) {
+    blockProvider = Provider.of<BlockProvider>(context);
     provider = Provider.of<UserProfileProvider>(context);
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
@@ -81,11 +85,25 @@ class _UserProfileState extends State<UserProfile> with SingleTickerProviderStat
                     ),
                     actions: [
                       if(!isMe)...[
-                        NadalReportIcon(
-                          color: const Color(0xfff1f1f1),
-                          onTap: (){
-                            context.push('/report?targetId=${provider.user!['uid']}&type=user');
-                          },
+                        NadalIconButton(
+                            onTap: () async{
+                              //바텀 시트
+                              showCupertinoModalPopup(context: context, builder: (context){
+                                return NadalSheet(actions: [
+                                    CupertinoActionSheetAction(onPressed: (){
+                                      Navigator.of(context).pop();
+                                      blockProvider.createBlock(provider.uid);
+                                    }, child: Text(
+                                      blockProvider.blockList.where((e)=> e['uid'] == provider.uid).isEmpty ?
+                                      '차단' : '차단해제', style: theme.textTheme.bodyLarge?.copyWith(color: theme.secondaryHeaderColor),)),
+                                  CupertinoActionSheetAction(onPressed: (){
+                                    Navigator.of(context).pop();
+                                    context.push('/report?targetId=${provider.uid}&type=user');
+                                  }, child: Text('신고', style: theme.textTheme.bodyLarge,)),
+                                ]);
+                              });
+                            },
+                            icon: BootstrapIcons.three_dots_vertical
                         ),
                         SizedBox(width: 4.w,)
                       ]
@@ -207,7 +225,7 @@ class _UserProfileState extends State<UserProfile> with SingleTickerProviderStat
 
   Widget _buildActionButtonsRow(ThemeData theme, TextTheme textTheme) {
     final isFollowing = provider.isFollow;
-
+    final isBlocking = blockProvider.blockList.where((e)=> e['uid'] == provider.uid).isNotEmpty;
     if(isFollowing == null){
       return Container();
     }
@@ -217,10 +235,12 @@ class _UserProfileState extends State<UserProfile> with SingleTickerProviderStat
       children: [
         ElevatedButton(
           onPressed: () {
-            provider.onChangedFollow(context);
+            if(!isBlocking){
+              provider.onChangedFollow(context);
+            }
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor:  isFollowing ? theme.primaryColor : theme.colorScheme.tertiary,
+            backgroundColor: isBlocking ? theme.hintColor : isFollowing ? theme.primaryColor : theme.colorScheme.tertiary,
             foregroundColor: isFollowing ? theme.colorScheme.surfaceContainerHighest : theme.colorScheme.surfaceContainerLowest,
             minimumSize: Size(ScreenUtil.defaultSize.width, 43.h),
             padding: EdgeInsets.zero,
@@ -234,6 +254,7 @@ class _UserProfileState extends State<UserProfile> with SingleTickerProviderStat
                 size: 18.r,
               ) :
           Text(
+            isBlocking ? '차단된 사용자' :
             isFollowing ? '팔로잉 취소하기' : '팔로우',
             style: textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w600,

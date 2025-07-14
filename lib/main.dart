@@ -4,6 +4,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:my_sports_calendar/manager/project/ThemeMode_Manager.dart';
 import 'package:my_sports_calendar/provider/app/Advertisement_Provider.dart';
+import 'package:my_sports_calendar/provider/friends/Block_Provider.dart';
 import 'package:my_sports_calendar/provider/friends/Friend_Provider.dart';
 import 'package:my_sports_calendar/provider/notification/Notification_Provider.dart';
 import 'firebase_options.dart';
@@ -184,6 +185,7 @@ class AppDriver extends StatelessWidget {
                   ChangeNotifierProvider(create: (_) => ChatProvider()),
                   ChangeNotifierProvider(create: (_) => RoomsProvider()),
                   ChangeNotifierProvider(create: (_) => NotificationProvider()),
+                  ChangeNotifierProvider(create: (_) => BlockProvider()),
                   // 광고 프로바이더 - 싱글톤 인스턴스 사용
                   ChangeNotifierProvider.value(value: AdManager.instance),
                 ],
