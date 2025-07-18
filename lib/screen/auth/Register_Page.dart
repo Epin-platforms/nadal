@@ -89,6 +89,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                     ),
 
                                   Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       if(provider.visibleNameSpace) ...[
                                         if(provider.verificationCode != null)
@@ -113,6 +114,10 @@ class _RegisterPageState extends State<RegisterPage> {
                                                   child: BirthYearField(registerProvider: provider)
                                               )
                                           ],
+                                        ),
+                                        Text(
+                                          '- 해당 데이터는 선택 사항입니다, 카카오 인증 시에만 사용됩니다',
+                                          style: Theme.of(context).textTheme.bodyMedium,
                                         ),
                                       ],
 
@@ -172,7 +177,10 @@ class _RegisterPageState extends State<RegisterPage> {
                                       ),
                                     ],
                                   ),
-
+                                  Text(
+                                    '- (필수)같은 지역 내 모임 추천을위해 사용됩니다',
+                                    style: Theme.of(context).textTheme.bodyMedium,
+                                  ),
                                   SizedBox(height: 24.h),
                                   CareerField(registerProvider: provider)
                                 ],

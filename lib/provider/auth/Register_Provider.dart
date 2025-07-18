@@ -13,11 +13,11 @@ class RegisterProvider extends ChangeNotifier {
   final _emailController = TextEditingController();
   final _nameController = TextEditingController();
   final _nickController = TextEditingController();
-  final _birthYearController = TextEditingController();
+  final _birthYearController = TextEditingController(text: '2000');
   final List<String> genderList = ['M', 'F'];
 
   int _careerDate = 0;
-  String _selectedGender = '';
+  String _selectedGender = 'M';
   String _selectedLocal = '';
   String _selectedCity = '';
   String? _phone;
@@ -30,7 +30,7 @@ class RegisterProvider extends ChangeNotifier {
 
   // ✅ 값 getter
   int get careerDate => _careerDate;
-  String get selectedGender => _selectedGender;
+  String? get selectedGender => _selectedGender;
   String get selectedLocal => _selectedLocal;
   String get selectedCity => _selectedCity;
 
@@ -317,12 +317,6 @@ class RegisterProvider extends ChangeNotifier {
     if(_nameController.text.isEmpty || _nameController.text.length > 10){
       DialogManager.warningHandler('흠.. 이름이 이상해요 🤔');
       return;
-    }else if(_birthYearController.text.isEmpty || _birthYearController.text.length != 4){
-      DialogManager.warningHandler('흠.. 출생연도가 이상해요 🤔');
-      return;
-    }else if(_selectedGender.isEmpty){
-      DialogManager.warningHandler('성별이 선택되지 않았어요 🤔');
-      return;
     }
     //공통
     if(_nickController.text.isEmpty || _nickController.text.length > 10){
@@ -336,6 +330,12 @@ class RegisterProvider extends ChangeNotifier {
       return;
     }
 
+    if(_birthYearController.text.isEmpty || _birthYearController.text.length != 4){
+      _birthYearController.text = DateTime.now().year.toString();
+    }
+    if(_selectedGender.isEmpty){
+      _selectedGender = 'M';
+    }
     //만들기
     final user = toMap();
     _setLoading(true);
