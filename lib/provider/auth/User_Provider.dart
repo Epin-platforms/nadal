@@ -309,13 +309,15 @@ class UserProvider extends ChangeNotifier {
 
       final social = _auth.currentUser?.providerData[0].providerId;
 
-      if (social == null) {
-        throw Exception("소셜 로그인 정보를 찾을 수 없습니다");
-      }
+      if (social == 'password') {
+        FirebaseAuth.instance.signOut();
+        return;
+      }else{
+        final result = await reCertification(social);
 
-      final result = await reCertification(social);
-      if (!result) {
-        throw Exception("재인증에 실패했습니다");
+        if (!result) {
+          throw Exception("재인증에 실패했습니다");
+        }
       }
 
       await _unlinkSocialAccount(social);
@@ -328,6 +330,7 @@ class UserProvider extends ChangeNotifier {
 
       _navigateToLogin(reset);
     } catch (error) {
+      AppRoute.popLoading();
       print("로그아웃 실패: $error");
       DialogManager.errorHandler('로그아웃 중 오류가 발생했습니다');
     } finally {
@@ -344,7 +347,7 @@ class UserProvider extends ChangeNotifier {
     _navigateToLogin(false);
   }
 
-  Future<void> _unlinkSocialAccount(String social) async {
+  Future<void> _unlinkSocialAccount(String? social) async {
     try {
       switch (social) {
         case "oidc.kakao":
@@ -357,6 +360,7 @@ class UserProvider extends ChangeNotifier {
         // 🔧 Apple 연결 해제 추가
           await AppleManager().unLink();
           break;
+        default: FirebaseAuth.instance.signOut();
       }
     } catch (e) {
       print('소셜 계정 연결 해제 실패: $e');

@@ -130,7 +130,11 @@ class RoomPreview extends StatelessWidget {
                               child: NadalButton(isActive: true, title: '${isOpen ? '번개방' : '클럽'} 가입하기', onPressed: (){
                                 DialogManager.showBasicDialog(title: '${isOpen ? '번개방' : '클럽'}에 가입해볼까요?', content: '${isOpen ? '번개방' : '클럽'} 일정과 소식이 바로 공유돼요', confirmText: '	지금 입장하기', cancelText: '조금 있다가요',
                                   onConfirm: () async{
-                                      provider.registerStart("");
+                                  await showDialog(context: context,
+                                      builder: (context) => UGCTermsDialog(onAccepted: ()async{
+                                        provider.registerStart("");
+                                      })
+                                    );
                                   }
                                 );
                               },)
@@ -146,6 +150,190 @@ class RoomPreview extends StatelessWidget {
               )
           )
         )
+    );
+  }
+}
+
+// 🔧 UGC 약관 동의 다이얼로그
+class UGCTermsDialog extends StatelessWidget {
+  final VoidCallback onAccepted;
+  final VoidCallback? onDeclined;
+
+  const UGCTermsDialog({
+    super.key,
+    required this.onAccepted,
+    this.onDeclined,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16.r),
+      ),
+      title: Row(
+        children: [
+          Icon(Icons.security, color: Colors.red, size: 24.r),
+          SizedBox(width: 8.w),
+          Expanded(
+            child: Text(
+              '커뮤니티 가이드라인',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.red,
+              ),
+            ),
+          ),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: EdgeInsets.all(12.w),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8.r),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '⚠️ 중요: 안전한 커뮤니티를 위한 필수 약관',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red,
+                      fontSize: 14.sp,
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+                  Text(
+                    '이 앱에서는 불쾌감을 주는 콘텐츠나 학대적인 사용자에 대해 절대 관용하지 않습니다.',
+                    style: TextStyle(
+                      color: Colors.red.shade700,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12.sp,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            SizedBox(height: 16.h),
+
+            Text(
+              '커뮤니티 규칙',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16.sp,
+              ),
+            ),
+            SizedBox(height: 8.h),
+
+            _buildRuleItem('🚫 금지 행위', [
+              '욕설, 비방, 모욕적인 언어 사용',
+              '괴롭힘, 따돌림, 협박',
+              '스팸, 광고, 허위정보 게시',
+              '개인정보 무단 공유',
+              '불법적이거나 위험한 활동 조장',
+              '선정적이거나 폭력적인 콘텐츠',
+            ]),
+
+            SizedBox(height: 12.h),
+
+            _buildRuleItem('⚡ 즉시 조치', [
+              '부적절한 콘텐츠 즉시 삭제',
+              '위반 사용자 채팅 정지/추방',
+              '신고 접수 후 24시간 내 검토',
+              '반복 위반 시 영구 계정 차단',
+            ]),
+
+            SizedBox(height: 12.h),
+
+            _buildRuleItem('🛡️ 안전장치', [
+              '모든 메시지에 신고 기능 제공',
+              '방장 판단 추방시 2달간 입장 불가',
+              '사용자 차단 기능 제공',
+              '정기적 운영진 대응',
+            ]),
+
+            SizedBox(height: 16.h),
+
+            Container(
+              padding: EdgeInsets.all(12.w),
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              child: Text(
+                '위 규칙을 위반할 경우 경고 없이 계정이 정지되거나 영구 추방될 수 있습니다. 안전하고 건전한 커뮤니티 환경 조성에 협조해 주세요.',
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  color: Colors.blue.shade700,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: onDeclined ?? () => Navigator.of(context).pop(),
+          child: Text(
+            '거부',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            onAccepted();
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8.r),
+            ),
+          ),
+          child: Text(
+            '동의하고 계속하기',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRuleItem(String title, List<String> items) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14.sp,
+            color: Colors.orange,
+          ),
+        ),
+        SizedBox(height: 4.h),
+        ...items.map((item) => Padding(
+          padding: EdgeInsets.only(left: 8.w, bottom: 2.h),
+          child: Text(
+            '• $item',
+            style: TextStyle(
+              fontSize: 12.sp,
+              height: 1.3,
+              color: Colors.grey[700],
+            ),
+          ),
+        )),
+      ],
     );
   }
 }

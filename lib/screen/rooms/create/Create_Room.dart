@@ -43,7 +43,7 @@ class CreateRoom extends StatelessWidget {
                                   NadalTextField(controller: provider.roomNameController, label: isOpen ? '번개방 제목' : '클럽 명', maxLength: 30,),
                                   SizedBox(height: 36.h),
                                   Row(
-                                    children: [ 
+                                    children: [
                                       SizedBox(
                                           width: 62.w,
                                           child: Text('활동지역', style: theme.textTheme.titleSmall,)),
@@ -184,7 +184,12 @@ class CreateRoom extends StatelessWidget {
                                 }
                             );
                           }
-                          provider.createRoom();
+
+                          await showDialog(context: context, builder: (context){
+                            return UGCTermsDialog(onAccepted: (){
+                              provider.createRoom();
+                            });
+                          });
                         },
                         isActive: true,
                         title: '${isOpen ? '번개방' : '클럽'} 채팅 시작하기',
